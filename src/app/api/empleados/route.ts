@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       orderBy: [{ apellidos: "asc" }, { nombre: "asc" }],
     });
 
-    return Response.json(empleados);
+    return Response.json({ empleados });
   } catch (error) {
     console.error("GET /api/empleados error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
@@ -122,11 +122,11 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         nombre,
         apellidos,
-        dni,
-        telefono,
-        foto,
+        dni: dni || undefined,
+        telefono: telefono || undefined,
+        foto: foto || undefined,
         rol,
-        tiendaId,
+        tiendaId: tiendaId || null,
       },
       select: {
         id: true,
