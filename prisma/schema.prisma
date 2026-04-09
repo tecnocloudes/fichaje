@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  SUPERADMIN
+  MANAGER
+  EMPLEADO
+}
+
+enum TipoFichaje {
+  ENTRADA
+  PAUSA
+  VUELTA_PAUSA
+  SALIDA
+}
+
+enum MetodoFichaje {
+  WEB
+  MOVIL
+  TABLET
+  MANUAL
+}
+
+enum EstadoAusencia {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+  CANCELADA
+}
+
+enum EstadoTurno {
+  BORRADOR
+  PUBLICADO
+}
+
+model Tienda {
+  id           String    @id @default(cuid())
+  nombre       String
+  direccion    String
+  ciudad       String
+  codigoPostal String?
+  telefono     String?
+  email        String?
+  latitud      Float?
+  longitud     Float?
+  radio        Int       @default(200)
+  activa       Boolean   @default(true)
+  color        String    @default("#6366f1")
+  empleados    User[]
+  fichajes     Fichaje[]
+  turnos       Turno[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model User {
+  id                 String     @id @default(cuid())
+  email              String     @unique
+  password           String
+  nombre             String
+  apellidos          String
+  dni                String?    @unique
+  telefono           String?
+  foto               String?
+  rol                Rol        @default(EMPLEADO)
+  tiendaId           String?
+  tienda             Tienda?    @relation(fields: [tiendaId], references: [id])
+  activo             Boolean    @default(true)
+  fichajes           Fichaje[]
+  turnos             Turno[]
+  ausencias          Ausencia[] @relation("AusenciaEmpleado")
+  ausenciasAprobadas Ausencia[] @relation("AusenciaAprobador")
+  notificaciones     Notificacion[]
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@index([tiendaId])
+}
+
+model Fichaje {
+  id         String        @id @default(cuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
+  tiendaId   String?
+  tienda     Tienda?       @relation(fields: [tiendaId], references: [id])
+  tipo       TipoFichaje
+  timestamp  DateTime      @default(now())
+  latitud    Float?
+  longitud   Float?
+  distancia  Float?
+  metodo     MetodoFichaje @default(WEB)
+  nota       String?
+  editadoPor String?
+  editadoEn  DateTime?
+  ip         String?
+  createdAt  DateTime      @default(now())
+
+  @@index([userId])
+  @@index([tiendaId])
+  @@index([timestamp])
+}
+
+model Turno {
+  id         String      @id @default(cuid())
+  userId     String
+  user       User        @relation(fields: [userId], references: [id])
+  tiendaId   String
+  tienda     Tienda      @relation(fields: [tiendaId], references: [id])
+  fecha      DateTime
+  horaInicio String
+  horaFin    String
+  nota       String?
+  estado     EstadoTurno @default(BORRADOR)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([tiendaId])
+  @@index([fecha])
+}
+
+model TipoAusencia {
+  id                 String     @id @default(cuid())
+  nombre             String
+  color              String     @default("#6366f1")
+  icono              String     @default("calendar")
+  pagada             Boolean    @default(true)
+  requiereAprobacion Boolean    @default(true)
+  diasMaximos        Int?
+  ausencias          Ausencia[]
+  activo             Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+}
+
+model Ausencia {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation("AusenciaEmpleado", fields: [userId], references: [id])
+  tipoAusenciaId  String
+  tipoAusencia    TipoAusencia   @relation(fields: [tipoAusenciaId], references: [id])
+  fechaInicio     DateTime
+  fechaFin        DateTime
+  dias            Int
+  motivo          String?
+  estado          EstadoAusencia @default(PENDIENTE)
+  aprobadoPorId   String?
+  aprobadoPor     User?          @relation("AusenciaAprobador", fields: [aprobadoPorId], references: [id])
+  aprobadoEn      DateTime?
+  comentarioAdmin String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([fechaInicio])
+}
+
+model Notificacion {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  titulo    String
+  mensaje   String
+  tipo      String   @default("info")
+  leida     Boolean  @default(false)
+  enlace    String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model ConfiguracionEmpresa {
+  id                   String   @id @default(cuid())
+  nombre               String   @default("TelecomFichaje")
+  logo                 String?
+  horasJornadaDiaria   Float    @default(8)
+  horasSemanales       Float    @default(40)
+  toleranciaFichaje    Int      @default(15)
+  geofencingActivo     Boolean  @default(true)
+  fichajeMovilActivo   Boolean  @default(true)
+  fichajeTabletActivo  Boolean  @default(true)
+  updatedAt            DateTime @updatedAt
+}

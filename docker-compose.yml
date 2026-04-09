@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fichaje_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fichaje_user
+      POSTGRES_PASSWORD: fichaje_password
+      POSTGRES_DB: fichaje_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fichaje_user -d fichaje_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fichaje_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://fichaje_user:fichaje_password@postgres:5432/fichaje_db
+      AUTH_SECRET: ${AUTH_SECRET:-cambia-este-secreto-en-produccion-minimo-32-chars}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fichaje.rule=Host(`${DOMAIN:-fichaje.localhost}`)"
+      - "traefik.http.services.fichaje.loadbalancer.server.port=3000"
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fichaje_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://fichaje_user:fichaje_password@postgres:5432/fichaje_db
+    command: >
+      sh -c "npx prisma migrate deploy && npx prisma db seed"
+    profiles:
+      - migrate
+
+volumes:
+  postgres_data:
+    driver: local
