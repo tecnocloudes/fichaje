@@ -11,11 +11,11 @@ export async function GET() {
     }
 
     const tiendas = await prisma.tienda.findMany({
-      where: { activa: true },
       orderBy: { nombre: "asc" },
+      include: { _count: { select: { empleados: true } } },
     });
 
-    return Response.json(tiendas);
+    return Response.json({ tiendas });
   } catch (error) {
     console.error("GET /api/tiendas error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
