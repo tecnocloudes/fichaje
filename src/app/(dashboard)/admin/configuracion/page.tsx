@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Save, Plus, Trash2, Settings, Calendar } from "lucide-react";
+import { Save, Plus, Trash2, Settings, Calendar, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,9 @@ export default function ConfiguracionPage() {
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editandoTipo, setEditandoTipo] = useState<TipoAusencia | null>(null);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetting, setResetting] = useState(false);
   const [tipoForm, setTipoForm] = useState({
     nombre: "", color: "#6366f1", pagada: true,
     requiereAprobacion: true, diasMaximos: "",
@@ -104,6 +107,27 @@ export default function ConfiguracionPage() {
       fetchData();
     } catch {
       toast({ title: "Error al guardar", variant: "destructive" });
+    }
+  };
+
+  const handleReset = async () => {
+    if (resetConfirm !== "BORRAR TODO") {
+      toast({ title: "Escribe exactamente: BORRAR TODO", variant: "destructive" });
+      return;
+    }
+    setResetting(true);
+    try {
+      const res = await fetch("/api/setup/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmacion: "BORRAR TODO" }),
+      });
+      if (!res.ok) throw new Error();
+      toast({ title: "Sistema reiniciado. Redirigiendo..." });
+      setTimeout(() => { window.location.href = "/setup"; }, 1500);
+    } catch {
+      toast({ title: "Error al reiniciar el sistema", variant: "destructive" });
+      setResetting(false);
     }
   };
 
@@ -240,6 +264,60 @@ export default function ConfiguracionPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Reset del sistema */}
+      <Card className="border-red-200">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2 text-red-600">
+            <AlertTriangle className="h-4 w-4" /> Reset del sistema
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-600 mb-4">
+            Borra <strong>todos los datos</strong>: empleados, tiendas, fichajes, turnos, ausencias y configuración.
+            La app quedará como nueva y mostrará el asistente de configuración inicial.
+            <span className="text-red-600 font-medium"> Esta acción es irreversible.</span>
+          </p>
+          <Button variant="destructive" onClick={() => { setResetConfirm(""); setResetDialogOpen(true); }}>
+            <Trash2 className="h-4 w-4 mr-2" /> Reiniciar sistema
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Dialog reset */}
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" /> Confirmar reset del sistema
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-4">
+            <p className="text-sm text-gray-600">
+              Se eliminarán <strong>todos los datos</strong> del sistema sin posibilidad de recuperación.
+            </p>
+            <div>
+              <Label>Escribe <span className="font-mono font-bold text-red-600">BORRAR TODO</span> para confirmar</Label>
+              <Input
+                className="mt-1 border-red-300 focus:ring-red-500"
+                value={resetConfirm}
+                onChange={e => setResetConfirm(e.target.value)}
+                placeholder="BORRAR TODO"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetDialogOpen(false)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={resetConfirm !== "BORRAR TODO" || resetting}
+              onClick={handleReset}
+            >
+              {resetting ? "Reiniciando..." : "Confirmar reset"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog tipo ausencia */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

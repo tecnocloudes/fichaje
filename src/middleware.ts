@@ -10,10 +10,13 @@ export default auth((req) => {
   const rol = (req.auth?.user as any)?.rol;
 
   const isAuthPage = nextUrl.pathname.startsWith("/login");
+  const isSetupPage = nextUrl.pathname.startsWith("/setup");
   const isApiRoute = nextUrl.pathname.startsWith("/api");
-  const isPublic = nextUrl.pathname === "/";
 
   if (isApiRoute) return NextResponse.next();
+
+  // Setup page is always accessible (API /api/setup/status guards it server-side)
+  if (isSetupPage) return NextResponse.next();
 
   if (!isLoggedIn && !isAuthPage) {
     return NextResponse.redirect(new URL("/login", nextUrl));

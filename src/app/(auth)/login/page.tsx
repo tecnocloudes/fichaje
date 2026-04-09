@@ -1,6 +1,7 @@
 import React from "react";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { Building2, LogIn, AlertCircle } from "lucide-react";
 
 // ─── Server action ────────────────────────────────────────────────────────────
@@ -37,6 +38,10 @@ interface LoginPageProps {
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
+  // Redirect to setup if no users exist
+  const userCount = await prisma.user.count();
+  if (userCount === 0) redirect("/setup");
+
   // If already authenticated, redirect
   const session = await auth();
   if (session?.user) {
