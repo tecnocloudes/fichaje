@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, ArrowRight, ArrowLeft, Store, User, Rocket } from "lucide-react";
+import { CheckCircle, ArrowRight, ArrowLeft, Store, User, Rocket, Eye, EyeOff, RefreshCw } from "lucide-react";
 
 type Step = "admin" | "tienda" | "confirmar";
 
@@ -15,6 +15,11 @@ const STEPS: { key: Step; label: string }[] = [
   { key: "tienda", label: "Primera tienda" },
   { key: "confirmar", label: "Confirmar" },
 ];
+
+const CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}";
+function generatePassword() {
+  return Array.from({ length: 32 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join("");
+}
 
 export default function SetupPage() {
   const router = useRouter();
@@ -25,6 +30,7 @@ export default function SetupPage() {
       if (!d.needsSetup) router.replace("/login");
     });
   }, [router]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -32,15 +38,24 @@ export default function SetupPage() {
   const [admin, setAdmin] = useState({ nombre: "", apellidos: "", email: "", password: "", password2: "" });
   const [tienda, setTienda] = useState({ nombre: "", direccion: "", ciudad: "" });
   const [saltarTienda, setSaltarTienda] = useState(false);
+  const [passwordGenerado, setPasswordGenerado] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const stepIndex = STEPS.findIndex(s => s.key === step);
+
+  const handleGenerarPassword = () => {
+    const pwd = generatePassword();
+    setAdmin(a => ({ ...a, password: pwd, password2: pwd }));
+    setPasswordGenerado(true);
+    setShowPassword(true);
+  };
 
   const validateAdmin = () => {
     if (!admin.nombre || !admin.apellidos || !admin.email || !admin.password)
       return "Todos los campos son obligatorios";
     if (admin.password.length < 8)
       return "La contraseña debe tener al menos 8 caracteres";
-    if (admin.password !== admin.password2)
+    if (!passwordGenerado && admin.password !== admin.password2)
       return "Las contraseñas no coinciden";
     if (!admin.email.includes("@"))
       return "El email no es válido";
@@ -173,12 +188,40 @@ export default function SetupPage() {
                 </div>
                 <div>
                   <Label>Contraseña</Label>
-                  <Input className="mt-1" type="password" value={admin.password} onChange={e => setAdmin(a => ({ ...a, password: e.target.value }))} placeholder="Mínimo 8 caracteres" />
+                  <div className="mt-1 flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        value={admin.password}
+                        onChange={e => {
+                          setAdmin(a => ({ ...a, password: e.target.value }));
+                          setPasswordGenerado(false);
+                        }}
+                        placeholder="Mínimo 8 caracteres"
+                        className="pr-10 font-mono"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        onClick={() => setShowPassword(v => !v)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" className="shrink-0 px-3" onClick={handleGenerarPassword} title="Generar contraseña aleatoria">
+                      <RefreshCw className="h-4 w-4 mr-1" /> Generar
+                    </Button>
+                  </div>
+                  {passwordGenerado && (
+                    <p className="text-xs text-indigo-600 mt-1">Contraseña generada automáticamente. Guárdala en un lugar seguro.</p>
+                  )}
                 </div>
-                <div>
-                  <Label>Repetir contraseña</Label>
-                  <Input className="mt-1" type="password" value={admin.password2} onChange={e => setAdmin(a => ({ ...a, password2: e.target.value }))} placeholder="Repite la contraseña" />
-                </div>
+                {!passwordGenerado && (
+                  <div>
+                    <Label>Repetir contraseña</Label>
+                    <Input className="mt-1" type="password" value={admin.password2} onChange={e => setAdmin(a => ({ ...a, password2: e.target.value }))} placeholder="Repite la contraseña" />
+                  </div>
+                )}
               </>
             )}
 
