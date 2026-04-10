@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   Menu,
@@ -63,6 +63,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/empleado/comunicados": "Comunicados",
   "/empleado/articulos": "Artículos",
   "/empleado/documentos": "Mis Documentos",
+  "/empleado/preferencias": "Preferencias de notificaciones",
 };
 
 function getPageTitle(pathname: string): string {
@@ -105,6 +106,7 @@ interface HeaderProps {
 
 export function Header({ user, onMenuToggle, notificationCount = 0 }: HeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
 
   const nombre = user.nombre;
   const apellidos = user.apellidos;
@@ -196,7 +198,17 @@ export function Header({ user, onMenuToggle, notificationCount = 0 }: HeaderProp
               </DropdownMenu.Item>
 
               <DropdownMenu.Item asChild>
-                <button className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent focus:bg-accent focus:outline-none transition-colors">
+                <button
+                  onClick={() => {
+                    const rol = user.rol;
+                    if (rol === "SUPERADMIN" || rol === "MANAGER") {
+                      router.push("/admin/configuracion");
+                    } else {
+                      router.push("/empleado/preferencias");
+                    }
+                  }}
+                  className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent focus:bg-accent focus:outline-none transition-colors"
+                >
                   <Settings className="h-4 w-4 text-muted-foreground" />
                   Preferencias
                 </button>

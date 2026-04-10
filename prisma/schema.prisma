@@ -60,33 +60,35 @@ model Tienda {
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  email              String              @unique
-  password           String
-  nombre             String
-  apellidos          String
-  dni                String?             @unique
-  telefono           String?
-  foto               String?
-  fechaNacimiento    DateTime?
-  rol                Rol                 @default(EMPLEADO)
-  tiendaId           String?
-  tienda             Tienda?             @relation(fields: [tiendaId], references: [id])
-  activo             Boolean             @default(true)
-  fichajes           Fichaje[]
-  turnos             Turno[]
-  ausencias          Ausencia[]          @relation("AusenciaEmpleado")
-  ausenciasAprobadas Ausencia[]          @relation("AusenciaAprobador")
-  notificaciones     Notificacion[]
-  tareas             Tarea[]             @relation("TareaAsignada")
-  tareasCreadas      Tarea[]             @relation("TareaCreada")
-  comunicados        Comunicado[]
-  articulos          Articulo[]
-  documentos         Documento[]         @relation("DocumentoEmpleado")
-  documentosSubidos  Documento[]         @relation("DocumentoSubido")
-  onboardings        ProcesoOnboarding[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  id                       String                    @id @default(cuid())
+  email                    String                    @unique
+  password                 String
+  nombre                   String
+  apellidos                String
+  dni                      String?                   @unique
+  telefono                 String?
+  foto                     String?
+  fechaNacimiento          DateTime?
+  rol                      Rol                       @default(EMPLEADO)
+  tiendaId                 String?
+  tienda                   Tienda?                   @relation(fields: [tiendaId], references: [id])
+  activo                   Boolean                   @default(true)
+  fichajes                 Fichaje[]
+  turnos                   Turno[]
+  ausencias                Ausencia[]                @relation("AusenciaEmpleado")
+  ausenciasAprobadas       Ausencia[]                @relation("AusenciaAprobador")
+  notificaciones           Notificacion[]
+  tareas                   Tarea[]                   @relation("TareaAsignada")
+  tareasCreadas            Tarea[]                   @relation("TareaCreada")
+  comunicados              Comunicado[]
+  articulos                Articulo[]
+  documentos               Documento[]               @relation("DocumentoEmpleado")
+  documentosSubidos        Documento[]               @relation("DocumentoSubido")
+  onboardings              ProcesoOnboarding[]
+  preferenciasNotificacion PreferenciasNotificacion?
+  pushSubscripciones       PushSubscripcion[]
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
 
   @@index([tiendaId])
 }
@@ -183,16 +185,71 @@ model Notificacion {
 }
 
 model ConfiguracionEmpresa {
-  id                  String   @id @default(cuid())
-  nombre              String   @default("Mi Empresa")
-  logo                String?
-  horasJornadaDiaria  Float    @default(8)
-  horasSemanales      Float    @default(40)
-  toleranciaFichaje   Int      @default(15)
-  geofencingActivo    Boolean  @default(true)
-  fichajeMovilActivo  Boolean  @default(true)
-  fichajeTabletActivo Boolean  @default(true)
-  updatedAt           DateTime @updatedAt
+  id                     String   @id @default(cuid())
+  nombre                 String   @default("Mi Empresa")
+  logo                   String?
+  horasJornadaDiaria     Float    @default(8)
+  horasSemanales         Float    @default(40)
+  toleranciaFichaje      Int      @default(15)
+  geofencingActivo       Boolean  @default(true)
+  fichajeMovilActivo     Boolean  @default(true)
+  fichajeTabletActivo    Boolean  @default(true)
+  // Notificaciones - eventos globales
+  notifAusencias         Boolean  @default(true)
+  notifTurnos            Boolean  @default(true)
+  notifTareas            Boolean  @default(true)
+  notifFichajes          Boolean  @default(false)
+  notifComunicados       Boolean  @default(true)
+  // Email
+  emailActivo            Boolean  @default(false)
+  emailHost              String?
+  emailPort              Int?
+  emailSecure            Boolean  @default(true)
+  emailUser              String?
+  emailPassword          String?
+  emailFrom              String?
+  // Push
+  pushActivo             Boolean  @default(false)
+  pushVapidPublicKey     String?
+  pushVapidPrivateKey    String?
+  updatedAt              DateTime @updatedAt
+}
+
+model PreferenciasNotificacion {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // In-app
+  inAppAusencias   Boolean  @default(true)
+  inAppTurnos      Boolean  @default(true)
+  inAppTareas      Boolean  @default(true)
+  inAppFichajes    Boolean  @default(false)
+  inAppComunicados Boolean  @default(true)
+  // Email
+  emailAusencias   Boolean  @default(true)
+  emailTurnos      Boolean  @default(true)
+  emailTareas      Boolean  @default(false)
+  emailFichajes    Boolean  @default(false)
+  emailComunicados Boolean  @default(false)
+  // Push
+  pushAusencias    Boolean  @default(true)
+  pushTurnos       Boolean  @default(true)
+  pushTareas       Boolean  @default(true)
+  pushFichajes     Boolean  @default(false)
+  pushComunicados  Boolean  @default(false)
+  updatedAt        DateTime @updatedAt
+}
+
+model PushSubscripcion {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Tarea {
