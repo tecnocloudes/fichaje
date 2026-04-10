@@ -532,11 +532,11 @@ export default function ConfiguracionPage() {
             </CardContent>
           </Card>
 
-          {/* Email (SMTP) */}
+          {/* Email (Resend) */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Mail className="h-4 w-4 text-indigo-600" /> Correo electrónico (SMTP)
+                <Mail className="h-4 w-4 text-indigo-600" /> Correo electrónico (Resend)
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -547,58 +547,29 @@ export default function ConfiguracionPage() {
               />
               {config.emailActivo && (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Servidor SMTP</Label>
-                      <Input className="mt-1" placeholder="smtp.gmail.com"
-                        value={config.emailHost}
-                        onChange={(e) => setConfig((c) => c && ({ ...c, emailHost: e.target.value }))} />
-                    </div>
-                    <div>
-                      <Label>Puerto</Label>
-                      <Input className="mt-1" type="number" placeholder="587"
-                        value={config.emailPort}
-                        onChange={(e) => setConfig((c) => c && ({ ...c, emailPort: parseInt(e.target.value) || 587 }))} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Usuario</Label>
-                      <Input className="mt-1" placeholder="usuario@empresa.com"
-                        value={config.emailUser}
-                        onChange={(e) => setConfig((c) => c && ({ ...c, emailUser: e.target.value }))} />
-                    </div>
-                    <div>
-                      <Label>Contraseña</Label>
-                      <div className="relative mt-1">
-                        <Input
-                          type={showPassword ? "text" : "password"}
-                          placeholder="••••••••"
-                          value={config.emailPassword}
-                          onChange={(e) => setConfig((c) => c && ({ ...c, emailPassword: e.target.value }))}
-                          className="pr-9"
-                        />
-                        <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          onClick={() => setShowPassword((s) => !s)}>
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Remitente (From)</Label>
-                      <Input className="mt-1" placeholder="noreply@empresa.com"
-                        value={config.emailFrom}
-                        onChange={(e) => setConfig((c) => c && ({ ...c, emailFrom: e.target.value }))} />
-                    </div>
-                    <div className="flex items-end">
-                      <Toggle
-                        label="SSL/TLS"
-                        value={config.emailSecure}
-                        onChange={(v) => setConfig((c) => c && ({ ...c, emailSecure: v }))}
+                  <div>
+                    <Label>API Key de Resend</Label>
+                    <div className="relative mt-1">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="re_••••••••••••••••••••••••"
+                        value={config.emailPassword}
+                        onChange={(e) => setConfig((c) => c && ({ ...c, emailPassword: e.target.value }))}
+                        className="pr-9 font-mono text-sm"
                       />
+                      <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        onClick={() => setShowPassword((s) => !s)}>
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
+                    <p className="text-xs text-gray-400 mt-1">Obtén tu API Key en resend.com → API Keys</p>
+                  </div>
+                  <div>
+                    <Label>Remitente (From)</Label>
+                    <Input className="mt-1" placeholder="Empresa &lt;noreply@tudominio.com&gt;"
+                      value={config.emailFrom}
+                      onChange={(e) => setConfig((c) => c && ({ ...c, emailFrom: e.target.value }))} />
+                    <p className="text-xs text-gray-400 mt-1">El dominio debe estar verificado en Resend</p>
                   </div>
                   <div className="flex justify-end">
                     <Button variant="outline" size="sm" onClick={handleTestEmail} disabled={testingEmail}>

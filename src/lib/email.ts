@@ -1,21 +1,16 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { prisma } from "./prisma";
 
 export async function sendEmail(to: string, subject: string, html: string) {
-  const config = await prisma.configuracionEmpresa.findFirst();
-  if (!config?.emailActivo || !config?.emailHost) return;
-
-  const transporter = nodemailer.createTransport({
-    host: config.emailHost,
-    port: config.emailPort ?? 587,
-    secure: config.emailSecure,
-    auth: config.emailUser
-      ? { user: config.emailUser, pass: config.emailPassword ?? "" }
-      : undefined,
+  const config = await prisma.configuracionEmpresa.findFirst({
+    select: { emailActivo: true, emailPassword: true, emailFrom: true },
   });
 
-  await transporter.sendMail({
-    from: config.emailFrom || config.emailUser || "noreply@empresa.com",
+  if (!config?.emailActivo || !config?.emailPassword) return;
+
+  const resend = new Resend(config.emailPassword);
+  await resend.emails.send({
+    from: config.emailFrom || "noreply@resend.dev",
     to,
     subject,
     html,
