@@ -1,0 +1,162 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { Plus, CheckSquare, Square, Trash2, User, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+
+interface Tarea {
+  id: string;
+  titulo: string;
+  descripcion?: string;
+  prioridad: string;
+  completada: boolean;
+  fechaLimite?: string;
+  asignadoA?: { id: string; nombre: string; apellidos: string };
+  creadoPor: { id: string; nombre: string; apellidos: string };
+}
+
+interface Empleado { id: string; nombre: string; apellidos: string; }
+
+const PRIORIDAD_COLOR: Record<string, string> = {
+  ALTA: "bg-red-100 text-red-700 border-red-200",
+  MEDIA: "bg-amber-100 text-amber-700 border-amber-200",
+  BAJA: "bg-gray-100 text-gray-600 border-gray-200",
+};
+
+export default function ManagerTareasPage() {
+  const { toast } = useToast();
+  const [tareas, setTareas] = useState<Tarea[]>([]);
+  const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [filtro, setFiltro] = useState<"pendientes" | "completadas" | "todas">("pendientes");
+  const [form, setForm] = useState({ titulo: "", descripcion: "", prioridad: "MEDIA", fechaLimite: "", asignadoAId: "" });
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [tareasRes, empRes] = await Promise.all([fetch("/api/tareas"), fetch("/api/empleados")]);
+      const [t, e] = await Promise.all([tareasRes.json(), empRes.json()]);
+      setTareas(t.tareas || []);
+      setEmpleados(e.empleados || []);
+    } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleCreate = async () => {
+    if (!form.titulo) { toast({ title: "El título es obligatorio", variant: "destructive" }); return; }
+    try {
+      const res = await fetch("/api/tareas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, asignadoAId: form.asignadoAId || null, fechaLimite: form.fechaLimite || null }),
+      });
+      if (!res.ok) throw new Error();
+      toast({ title: "Tarea creada" });
+      setDialogOpen(false);
+      setForm({ titulo: "", descripcion: "", prioridad: "MEDIA", fechaLimite: "", asignadoAId: "" });
+      fetchData();
+    } catch { toast({ title: "Error", variant: "destructive" }); }
+  };
+
+  const toggleCompletada = async (t: Tarea) => {
+    await fetch(`/api/tareas/${t.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ completada: !t.completada }) });
+    fetchData();
+  };
+
+  const handleDelete = async (id: string) => {
+    await fetch(`/api/tareas/${id}`, { method: "DELETE" });
+    toast({ title: "Tarea eliminada" });
+    fetchData();
+  };
+
+  const tareasFiltradas = tareas.filter((t) => filtro === "todas" ? true : filtro === "pendientes" ? !t.completada : t.completada);
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Tareas</h1>
+          <p className="text-gray-500 text-sm mt-1">{tareas.filter((t) => !t.completada).length} pendientes</p>
+        </div>
+        <Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-2" /> Nueva tarea</Button>
+      </div>
+
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+        {(["pendientes", "completadas", "todas"] as const).map((f) => (
+          <button key={f} onClick={() => setFiltro(f)} className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all capitalize", filtro === f ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>{f}</button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)}</div>
+      ) : tareasFiltradas.length === 0 ? (
+        <Card><CardContent className="py-12 text-center"><CheckSquare className="h-10 w-10 text-gray-200 mx-auto mb-3" /><p className="text-gray-400">Sin tareas</p></CardContent></Card>
+      ) : (
+        <div className="space-y-2">
+          {tareasFiltradas.map((tarea) => (
+            <div key={tarea.id} className={cn("flex items-start gap-3 p-4 rounded-xl border bg-white hover:shadow-sm transition-all", tarea.completada && "opacity-60")}>
+              <button onClick={() => toggleCompletada(tarea)} className="mt-0.5 shrink-0">
+                {tarea.completada ? <CheckSquare className="h-5 w-5 text-indigo-600" /> : <Square className="h-5 w-5 text-gray-300 hover:text-indigo-400" />}
+              </button>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className={cn("font-medium text-gray-900", tarea.completada && "line-through text-gray-400")}>{tarea.titulo}</p>
+                  <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", PRIORIDAD_COLOR[tarea.prioridad])}>{tarea.prioridad}</span>
+                </div>
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                  {tarea.asignadoA && <span className="flex items-center gap-1 text-xs text-gray-400"><User className="h-3 w-3" />{tarea.asignadoA.nombre} {tarea.asignadoA.apellidos}</span>}
+                  {tarea.fechaLimite && <span className="flex items-center gap-1 text-xs text-gray-400"><Calendar className="h-3 w-3" />{format(new Date(tarea.fechaLimite), "d MMM", { locale: es })}</span>}
+                </div>
+              </div>
+              <button onClick={() => handleDelete(tarea.id)} className="shrink-0 text-gray-300 hover:text-red-500 p-1"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Nueva tarea</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div><Label>Título *</Label><Input className="mt-1" value={form.titulo} onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Prioridad</Label>
+                <Select value={form.prioridad} onValueChange={(v) => setForm((f) => ({ ...f, prioridad: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>{["ALTA", "MEDIA", "BAJA"].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label>Fecha límite</Label><Input className="mt-1" type="date" value={form.fechaLimite} onChange={(e) => setForm((f) => ({ ...f, fechaLimite: e.target.value }))} /></div>
+            </div>
+            <div>
+              <Label>Asignar a</Label>
+              <Select value={form.asignadoAId} onValueChange={(v) => setForm((f) => ({ ...f, asignadoAId: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Sin asignar</SelectItem>
+                  {empleados.map((e) => <SelectItem key={e.id} value={e.id}>{e.nombre} {e.apellidos}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreate}>Crear tarea</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

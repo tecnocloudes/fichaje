@@ -4,6 +4,8 @@ import { auth, signIn } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Building2, LogIn, AlertCircle } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 // ─── Server action ────────────────────────────────────────────────────────────
 
 async function loginAction(formData: FormData) {

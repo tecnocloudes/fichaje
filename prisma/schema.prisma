@@ -60,25 +60,33 @@ model Tienda {
 }
 
 model User {
-  id                 String     @id @default(cuid())
-  email              String     @unique
+  id                 String              @id @default(cuid())
+  email              String              @unique
   password           String
   nombre             String
   apellidos          String
-  dni                String?    @unique
+  dni                String?             @unique
   telefono           String?
   foto               String?
-  rol                Rol        @default(EMPLEADO)
+  fechaNacimiento    DateTime?
+  rol                Rol                 @default(EMPLEADO)
   tiendaId           String?
-  tienda             Tienda?    @relation(fields: [tiendaId], references: [id])
-  activo             Boolean    @default(true)
+  tienda             Tienda?             @relation(fields: [tiendaId], references: [id])
+  activo             Boolean             @default(true)
   fichajes           Fichaje[]
   turnos             Turno[]
-  ausencias          Ausencia[] @relation("AusenciaEmpleado")
-  ausenciasAprobadas Ausencia[] @relation("AusenciaAprobador")
+  ausencias          Ausencia[]          @relation("AusenciaEmpleado")
+  ausenciasAprobadas Ausencia[]          @relation("AusenciaAprobador")
   notificaciones     Notificacion[]
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  tareas             Tarea[]             @relation("TareaAsignada")
+  tareasCreadas      Tarea[]             @relation("TareaCreada")
+  comunicados        Comunicado[]
+  articulos          Articulo[]
+  documentos         Documento[]         @relation("DocumentoEmpleado")
+  documentosSubidos  Documento[]         @relation("DocumentoSubido")
+  onboardings        ProcesoOnboarding[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@index([tiendaId])
 }
@@ -175,14 +183,100 @@ model Notificacion {
 }
 
 model ConfiguracionEmpresa {
-  id                   String   @id @default(cuid())
-  nombre               String   @default("TelecomFichaje")
-  logo                 String?
-  horasJornadaDiaria   Float    @default(8)
-  horasSemanales       Float    @default(40)
-  toleranciaFichaje    Int      @default(15)
-  geofencingActivo     Boolean  @default(true)
-  fichajeMovilActivo   Boolean  @default(true)
-  fichajeTabletActivo  Boolean  @default(true)
-  updatedAt            DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  nombre              String   @default("Mi Empresa")
+  logo                String?
+  horasJornadaDiaria  Float    @default(8)
+  horasSemanales      Float    @default(40)
+  toleranciaFichaje   Int      @default(15)
+  geofencingActivo    Boolean  @default(true)
+  fichajeMovilActivo  Boolean  @default(true)
+  fichajeTabletActivo Boolean  @default(true)
+  updatedAt           DateTime @updatedAt
+}
+
+model Tarea {
+  id          String    @id @default(cuid())
+  titulo      String
+  descripcion String?
+  prioridad   String    @default("MEDIA")
+  completada  Boolean   @default(false)
+  fechaLimite DateTime?
+  asignadoAId String?
+  asignadoA   User?     @relation("TareaAsignada", fields: [asignadoAId], references: [id])
+  creadoPorId String
+  creadoPor   User      @relation("TareaCreada", fields: [creadoPorId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([asignadoAId])
+  @@index([creadoPorId])
+}
+
+model Comunicado {
+  id          String    @id @default(cuid())
+  titulo      String
+  contenido   String
+  publicado   Boolean   @default(false)
+  publicadoEn DateTime?
+  autorId     String
+  autor       User      @relation(fields: [autorId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([autorId])
+}
+
+model Articulo {
+  id        String   @id @default(cuid())
+  titulo    String
+  contenido String
+  categoria String   @default("general")
+  publicado Boolean  @default(false)
+  vistas    Int      @default(0)
+  autorId   String
+  autor     User     @relation(fields: [autorId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([autorId])
+}
+
+model Documento {
+  id          String   @id @default(cuid())
+  nombre      String
+  descripcion String?
+  url         String?
+  tipo        String   @default("otro")
+  userId      String?
+  user        User?    @relation("DocumentoEmpleado", fields: [userId], references: [id])
+  subidoPorId String
+  subidoPor   User     @relation("DocumentoSubido", fields: [subidoPorId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([subidoPorId])
+}
+
+model Festivo {
+  id        String   @id @default(cuid())
+  nombre    String
+  fecha     DateTime
+  ambito    String   @default("nacional")
+  createdAt DateTime @default(now())
+}
+
+model ProcesoOnboarding {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  tipo        String    @default("ONBOARDING")
+  estado      String    @default("PENDIENTE")
+  fechaInicio DateTime
+  fechaFin    DateTime?
+  notas       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
 }

@@ -28,6 +28,12 @@ export async function POST(request: NextRequest) {
     await prisma.turno.deleteMany();
     await prisma.ausencia.deleteMany();
     await prisma.tipoAusencia.deleteMany();
+    await prisma.tarea.deleteMany();
+    await prisma.comunicado.deleteMany();
+    await prisma.articulo.deleteMany();
+    await prisma.documento.deleteMany();
+    await prisma.procesoOnboarding.deleteMany();
+    await prisma.festivo.deleteMany();
     await prisma.configuracionEmpresa.deleteMany();
     await prisma.user.deleteMany();
     await prisma.tienda.deleteMany();
