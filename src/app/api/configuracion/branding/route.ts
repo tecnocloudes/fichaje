@@ -6,6 +6,22 @@ import type { NextRequest } from "next/server";
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB per image
 
+export async function GET() {
+  try {
+    const config = await prisma.configuracionEmpresa.findFirst({
+      select: { logo: true, appNombre: true, colorPrimario: true, colorSidebar: true },
+    });
+    return Response.json({
+      logo: config?.logo ?? null,
+      appNombre: config?.appNombre ?? "HR Suite",
+      colorPrimario: config?.colorPrimario ?? "#6366f1",
+      colorSidebar: config?.colorSidebar ?? "#1e1b4b",
+    });
+  } catch {
+    return Response.json({ logo: null, appNombre: "HR Suite", colorPrimario: "#6366f1", colorSidebar: "#1e1b4b" });
+  }
+}
+
 export async function PUT(request: NextRequest) {
   try {
     await runMigrations();
