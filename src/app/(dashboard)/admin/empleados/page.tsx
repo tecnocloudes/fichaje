@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, Edit2, UserX, UserCheck, Trash2 } from "lucide-react";
+import { Plus, Search, Edit2, UserX, UserCheck, Trash2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,8 +21,16 @@ interface Empleado {
   telefono?: string;
   rol: "SUPERADMIN" | "MANAGER" | "EMPLEADO";
   activo: boolean;
+  password: string | null;
+  resetToken: string | null;
   tiendaId?: string;
   tienda?: { nombre: string; color: string };
+}
+
+function getEstadoEmpleado(emp: Empleado): { label: string; color: string } {
+  if (!emp.password) return { label: "Invitación pendiente", color: "bg-amber-100 text-amber-700" };
+  if (!emp.activo) return { label: "Inactivo", color: "bg-gray-100 text-gray-500" };
+  return { label: "Activo", color: "bg-green-100 text-green-700" };
 }
 
 interface Tienda {
@@ -144,6 +152,16 @@ export default function EmpleadosPage() {
     }
   };
 
+  const handleReenviarInvitacion = async (emp: Empleado) => {
+    try {
+      const res = await fetch(`/api/empleados/${emp.id}/reenviar-invitacion`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      toast({ title: "Invitación reenviada", description: `Se ha enviado un nuevo enlace a ${emp.email}` });
+    } catch {
+      toast({ title: "Error al reenviar", variant: "destructive" });
+    }
+  };
+
   const handleEliminar = async (emp: Empleado) => {
     if (!confirm(`¿Eliminar permanentemente a ${emp.nombre} ${emp.apellidos}? Esta acción no se puede deshacer.`)) return;
     try {
@@ -220,7 +238,7 @@ export default function EmpleadosPage() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    {["Empleado", "Email", "DNI", "Rol", "Sede", "Estado", ""].map((h) => (
+                    {["Empleado", "Email", "DNI", "Rol", "Sede", "Estado", "Acciones"].map((h) => (
                       <th key={h} className="text-left text-xs font-semibold text-gray-500 px-4 py-3">{h}</th>
                     ))}
                   </tr>
@@ -254,27 +272,44 @@ export default function EmpleadosPage() {
                         ) : <span className="text-gray-400">Sin sede</span>}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", emp.activo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500")}>
-                          {emp.activo ? "Activo" : "Inactivo"}
-                        </span>
+                        {(() => {
+                          const estado = getEstadoEmpleado(emp);
+                          return (
+                            <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", estado.color)}>
+                              {estado.label}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEditar(emp)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEditar(emp)} title="Editar">
                             <Edit2 className="h-3.5 w-3.5" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => handleToggleActivo(emp)}
-                            title={emp.activo ? "Desactivar" : "Activar"}
-                          >
-                            {emp.activo
-                              ? <UserX className="h-3.5 w-3.5 text-amber-500" />
-                              : <UserCheck className="h-3.5 w-3.5 text-green-500" />
-                            }
-                          </Button>
+                          {!emp.password ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleReenviarInvitacion(emp)}
+                              title="Reenviar invitación"
+                            >
+                              <Send className="h-3.5 w-3.5 text-indigo-500" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleToggleActivo(emp)}
+                              title={emp.activo ? "Desactivar" : "Activar"}
+                            >
+                              {emp.activo
+                                ? <UserX className="h-3.5 w-3.5 text-amber-500" />
+                                : <UserCheck className="h-3.5 w-3.5 text-green-500" />
+                              }
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"

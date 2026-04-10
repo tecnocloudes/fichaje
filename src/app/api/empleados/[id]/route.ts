@@ -16,6 +16,8 @@ const userSelect = {
   tiendaId: true,
   tienda: { select: { id: true, nombre: true } },
   activo: true,
+  password: true,
+  resetToken: true,
   createdAt: true,
   updatedAt: true,
 } as const;
