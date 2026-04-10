@@ -2,9 +2,10 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Rol } from "@/generated/prisma/client";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import type { NextRequest } from "next/server";
 import { sendEmail } from "@/lib/email";
-import { bienvenidaTemplate } from "@/lib/email-templates";
+import { invitacionTemplate } from "@/lib/email-templates";
 
 export async function GET(request: NextRequest) {
   try {
@@ -84,7 +85,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       email,
-      password,
       nombre,
       apellidos,
       dni,
@@ -94,7 +94,6 @@ export async function POST(request: NextRequest) {
       tiendaId,
     } = body as {
       email: string;
-      password: string;
       nombre: string;
       apellidos: string;
       dni?: string;
@@ -104,9 +103,9 @@ export async function POST(request: NextRequest) {
       tiendaId?: string;
     };
 
-    if (!email || !password || !nombre || !apellidos) {
+    if (!email || !nombre || !apellidos) {
       return Response.json(
-        { error: "Faltan campos obligatorios: email, password, nombre, apellidos" },
+        { error: "Faltan campos obligatorios: email, nombre, apellidos" },
         { status: 400 }
       );
     }
@@ -116,12 +115,13 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Ya existe un usuario con ese email" }, { status: 409 });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 12);
+    // Generate invite token (valid 7 days)
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const empleado = await prisma.user.create({
       data: {
         email,
-        password: hashedPassword,
         nombre,
         apellidos,
         dni: dni || undefined,
@@ -129,6 +129,8 @@ export async function POST(request: NextRequest) {
         foto: foto || undefined,
         rol,
         tiendaId: tiendaId || null,
+        resetToken,
+        resetTokenExpiry,
       },
       select: {
         id: true,
@@ -147,7 +149,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Send welcome email (fire-and-forget, don't block response)
+    // Send invite email (fire-and-forget)
+    const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
     prisma.configuracionEmpresa.findFirst({
       select: {
         nombre: true, appNombre: true, colorPrimario: true,
@@ -155,18 +158,19 @@ export async function POST(request: NextRequest) {
       },
     }).then((config) => {
       if (!config?.emailActivo) return;
-      const html = bienvenidaTemplate({
+      const empresa = config.nombre ?? config.appNombre ?? "Mi Empresa";
+      const html = invitacionTemplate({
         nombre,
         apellidos,
         email,
-        password,
         rol,
-        empresa: config.nombre ?? config.appNombre ?? "TelecomFichaje",
+        empresa,
         colorPrimario: config.colorPrimario ?? "#6366f1",
         colorSidebar: config.colorSidebar ?? "#1e1b4b",
         logo: config.logo,
+        setPasswordUrl: `${appUrl}/set-password?token=${resetToken}`,
       });
-      return sendEmail(email, `Bienvenido/a a ${config.nombre ?? "TelecomFichaje"}`, html);
+      return sendEmail(email, `Bienvenido/a a ${empresa} — Crea tu contraseña`, html);
     }).catch(() => {});
 
     return Response.json(empleado, { status: 201 });

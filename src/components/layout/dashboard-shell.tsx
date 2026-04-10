@@ -13,12 +13,19 @@ interface SessionUser {
   tiendaId: string | null;
 }
 
+interface Branding {
+  logo?: string | null;
+  appNombre: string;
+  nombre?: string | null;
+}
+
 interface DashboardShellProps {
   children: React.ReactNode;
   user: SessionUser;
+  branding?: Branding;
 }
 
-export function DashboardShell({ children, user }: DashboardShellProps) {
+export function DashboardShell({ children, user, branding }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
@@ -27,6 +34,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
     <div className="flex h-full min-h-screen bg-muted/30">
       <Sidebar
         user={user}
+        branding={branding}
         isOpen={sidebarOpen}
         onToggle={toggleSidebar}
         notificationCount={0}

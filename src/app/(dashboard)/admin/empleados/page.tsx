@@ -36,6 +36,8 @@ const FORM_INICIAL = {
   password: "", rol: "EMPLEADO" as "SUPERADMIN" | "MANAGER" | "EMPLEADO", tiendaId: "",
 };
 
+// Password field only used when editing (to change existing password)
+
 export default function EmpleadosPage() {
   const { toast } = useToast();
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
@@ -96,13 +98,11 @@ export default function EmpleadosPage() {
       toast({ title: "Nombre, apellidos y email son obligatorios", variant: "destructive" });
       return;
     }
-    if (!editando && !form.password) {
-      toast({ title: "La contraseña es obligatoria", variant: "destructive" });
-      return;
-    }
     setSubmitting(true);
     try {
       const body: any = { ...form };
+      // When creating, don't send password — invite email is sent instead
+      if (!editando) delete body.password;
       if (editando && !body.password) delete body.password;
       if (!body.tiendaId) body.tiendaId = null;
 
@@ -117,7 +117,10 @@ export default function EmpleadosPage() {
         const data = await res.json();
         throw new Error(data.error || "Error");
       }
-      toast({ title: editando ? "Empleado actualizado" : "Empleado creado" });
+      toast({
+        title: editando ? "Empleado actualizado" : "Empleado creado",
+        description: editando ? undefined : "Se ha enviado un email de bienvenida para que establezca su contraseña",
+      });
       setDialogOpen(false);
       fetchData();
     } catch (e: any) {
@@ -296,10 +299,12 @@ export default function EmpleadosPage() {
                 <Label>Teléfono</Label>
                 <Input className="mt-1" value={form.telefono} onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))} />
               </div>
-              <div>
-                <Label>{editando ? "Nueva contraseña (vacío = no cambiar)" : "Contraseña *"}</Label>
-                <Input className="mt-1" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder={editando ? "••••••••" : ""} />
-              </div>
+              {editando && (
+                <div>
+                  <Label>Nueva contraseña <span className="text-gray-400 font-normal">(vacío = no cambiar)</span></Label>
+                  <Input className="mt-1" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="••••••••" />
+                </div>
+              )}
               <div>
                 <Label>Rol</Label>
                 <Select value={form.rol} onValueChange={(v) => setForm((f) => ({ ...f, rol: v as any }))}>

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 
 export default async function DashboardLayout({
@@ -23,5 +24,20 @@ export default async function DashboardLayout({
     tiendaId: user.tiendaId ?? null,
   };
 
-  return <DashboardShell user={sessionUser}>{children}</DashboardShell>;
+  const branding = await prisma.configuracionEmpresa.findFirst({
+    select: { logo: true, appNombre: true, nombre: true },
+  }).catch(() => null);
+
+  return (
+    <DashboardShell
+      user={sessionUser}
+      branding={{
+        logo: branding?.logo ?? null,
+        appNombre: branding?.appNombre ?? "HR Suite",
+        nombre: branding?.nombre ?? null,
+      }}
+    >
+      {children}
+    </DashboardShell>
+  );
 }

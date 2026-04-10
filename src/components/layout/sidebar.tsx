@@ -201,8 +201,15 @@ function getInitials(nombre: string, apellidos: string): string {
   return `${nombre[0] ?? ""}${apellidos[0] ?? ""}`.toUpperCase();
 }
 
+interface Branding {
+  logo?: string | null;
+  appNombre: string;
+  nombre?: string | null;
+}
+
 interface SidebarProps {
   user: SessionUser;
+  branding?: Branding;
   notificationCount?: number;
   pendingAusencias?: number;
   isOpen?: boolean;
@@ -211,6 +218,7 @@ interface SidebarProps {
 
 export function Sidebar({
   user,
+  branding,
   notificationCount = 0,
   pendingAusencias = 0,
   isOpen = true,
@@ -319,15 +327,31 @@ export function Sidebar({
         <div className="flex h-14 items-center justify-between px-3 border-b border-white/10 shrink-0">
           {!collapsed && (
             <div className="flex items-center gap-2 overflow-hidden">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)]">
-                <Building2 className="h-4 w-4 text-white" />
-              </div>
-              <span className="font-bold text-sm text-white truncate">HR Suite</span>
+              {branding?.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={branding.logo}
+                  alt={branding.appNombre}
+                  className="h-7 max-w-[32px] object-contain shrink-0"
+                />
+              ) : (
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)]">
+                  <Building2 className="h-4 w-4 text-white" />
+                </div>
+              )}
+              <span className="font-bold text-sm text-white truncate">
+                {branding?.appNombre ?? "HR Suite"}
+              </span>
             </div>
           )}
           {collapsed && (
-            <div className="mx-auto flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--primary)]">
-              <Building2 className="h-4 w-4 text-white" />
+            <div className="mx-auto flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--primary)] overflow-hidden">
+              {branding?.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={branding.logo} alt="" className="h-7 w-7 object-contain" />
+              ) : (
+                <Building2 className="h-4 w-4 text-white" />
+              )}
             </div>
           )}
           <button

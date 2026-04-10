@@ -62,7 +62,9 @@ model Tienda {
 model User {
   id                       String                    @id @default(cuid())
   email                    String                    @unique
-  password                 String
+  password                 String?
+  resetToken               String?                   @unique
+  resetTokenExpiry         DateTime?
   nombre                   String
   apellidos                String
   dni                      String?                   @unique
