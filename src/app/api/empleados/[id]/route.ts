@@ -102,6 +102,7 @@ export async function PUT(
       foto,
       rol,
       tiendaId,
+      activo,
     } = body as {
       email?: string;
       password?: string;
@@ -112,6 +113,7 @@ export async function PUT(
       foto?: string;
       rol?: Rol;
       tiendaId?: string;
+      activo?: boolean;
     };
 
     // Non-admins cannot change their own role or tienda
@@ -142,6 +144,7 @@ export async function PUT(
     if (foto !== undefined) updateData.foto = foto;
     if (rol !== undefined && userRol === Rol.SUPERADMIN) updateData.rol = rol;
     if (tiendaId !== undefined && userRol === Rol.SUPERADMIN) updateData.tiendaId = tiendaId;
+    if (activo !== undefined && userRol === Rol.SUPERADMIN) updateData.activo = activo;
 
     if (password) {
       updateData.password = await bcrypt.hash(password, 12);
@@ -187,21 +190,23 @@ export async function DELETE(
     }
 
     // Hard delete — remove related records first to satisfy FK constraints
-    await prisma.pushSubscripcion.deleteMany({ where: { userId: id } });
-    await prisma.preferenciasNotificacion.deleteMany({ where: { userId: id } });
-    await prisma.notificacion.deleteMany({ where: { userId: id } });
-    await prisma.fichaje.deleteMany({ where: { userId: id } });
-    await prisma.turno.deleteMany({ where: { userId: id } });
-    await prisma.ausencia.deleteMany({ where: { userId: id } });
-    await prisma.ausencia.updateMany({ where: { aprobadoPorId: id }, data: { aprobadoPorId: null } });
-    await prisma.tarea.deleteMany({ where: { creadoPorId: id } });
-    await prisma.tarea.updateMany({ where: { asignadoAId: id }, data: { asignadoAId: null } });
-    await prisma.comunicado.deleteMany({ where: { autorId: id } });
-    await prisma.articulo.deleteMany({ where: { autorId: id } });
-    await prisma.documento.deleteMany({ where: { userId: id } });
-    await prisma.documento.deleteMany({ where: { subidoPorId: id } });
-    await prisma.procesoOnboarding.deleteMany({ where: { userId: id } });
-    await prisma.user.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.pushSubscripcion.deleteMany({ where: { userId: id } });
+      await tx.preferenciasNotificacion.deleteMany({ where: { userId: id } });
+      await tx.notificacion.deleteMany({ where: { userId: id } });
+      await tx.fichaje.deleteMany({ where: { userId: id } });
+      await tx.turno.deleteMany({ where: { userId: id } });
+      await tx.ausencia.deleteMany({ where: { userId: id } });
+      await tx.ausencia.updateMany({ where: { aprobadoPorId: id }, data: { aprobadoPorId: null } });
+      await tx.tarea.deleteMany({ where: { asignadoAId: id, creadoPorId: { not: id } } });
+      await tx.tarea.deleteMany({ where: { creadoPorId: id } });
+      await tx.comunicado.deleteMany({ where: { autorId: id } });
+      await tx.articulo.deleteMany({ where: { autorId: id } });
+      await tx.documento.deleteMany({ where: { userId: id } });
+      await tx.documento.deleteMany({ where: { subidoPorId: id } });
+      await tx.procesoOnboarding.deleteMany({ where: { userId: id } });
+      await tx.user.delete({ where: { id } });
+    });
 
     return Response.json({ success: true });
   } catch (error) {
