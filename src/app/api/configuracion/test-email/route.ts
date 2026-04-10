@@ -27,8 +27,10 @@ export async function POST() {
     );
 
     return Response.json({ ok: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error("POST /api/configuracion/test-email error:", error);
-    return Response.json({ error: "Error al enviar el email" }, { status: 500 });
+    const message = error?.message ?? "Error desconocido";
+    const code = error?.code ?? null;
+    return Response.json({ error: message, code }, { status: 500 });
   }
 }

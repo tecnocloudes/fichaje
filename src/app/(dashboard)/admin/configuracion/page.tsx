@@ -275,10 +275,11 @@ export default function ConfiguracionPage() {
     setTestingEmail(true);
     try {
       const res = await fetch("/api/configuracion/test-email", { method: "POST" });
-      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error desconocido");
       toast({ title: "Email de prueba enviado a tu dirección" });
-    } catch {
-      toast({ title: "Error al enviar email de prueba. Revisa la configuración SMTP.", variant: "destructive" });
+    } catch (e: any) {
+      toast({ title: "Error SMTP", description: e.message, variant: "destructive" });
     } finally {
       setTestingEmail(false);
     }
