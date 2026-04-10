@@ -1,12 +1,15 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Rol } from "@/generated/prisma/client";
+import { runMigrations } from "@/lib/migrate";
 import type { NextRequest } from "next/server";
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB per image
 
 export async function PUT(request: NextRequest) {
   try {
+    await runMigrations();
+
     const session = await auth();
     const user = session?.user as { rol?: string } | undefined;
     if (!user || user.rol !== Rol.SUPERADMIN) {

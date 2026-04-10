@@ -1,10 +1,13 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Rol } from "@/generated/prisma/client";
+import { runMigrations } from "@/lib/migrate";
 import type { NextRequest } from "next/server";
 
 export async function GET() {
   try {
+    await runMigrations();
+
     const session = await auth();
     if (!session?.user) {
       return Response.json({ error: "No autorizado" }, { status: 401 });
