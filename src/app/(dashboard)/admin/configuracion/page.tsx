@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   Save, Plus, Trash2, Settings, Calendar, AlertTriangle, Bell,
-  Mail, Smartphone, RefreshCw, Eye, EyeOff, Check, X,
+  Mail, Smartphone, RefreshCw, Eye, EyeOff, Check, X, Palette, Upload, Image,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +41,12 @@ interface Configuracion {
   // Push
   pushActivo: boolean;
   pushVapidPublicKey: string | null;
+  // Branding
+  appNombre: string;
+  logo: string | null;
+  favicon: string | null;
+  colorPrimario: string;
+  colorSidebar: string;
 }
 
 interface TipoAusencia {
@@ -84,7 +90,7 @@ function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: bool
 
 // ── Tab type ─────────────────────────────────────────────────────────────────
 
-type Tab = "general" | "ausencias" | "notificaciones";
+type Tab = "general" | "ausencias" | "notificaciones" | "branding";
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -117,6 +123,8 @@ export default function ConfiguracionPage() {
     emailActivo: false, emailHost: "", emailPort: 587, emailSecure: true,
     emailUser: "", emailPassword: "", emailFrom: "",
     pushActivo: false, pushVapidPublicKey: null,
+    appNombre: "TelecomFichaje", logo: null, favicon: null,
+    colorPrimario: "#6366f1", colorSidebar: "#1e1b4b",
   };
 
   const fetchData = useCallback(async () => {
@@ -192,6 +200,50 @@ export default function ConfiguracionPage() {
     } finally {
       setSavingNotif(false);
     }
+  };
+
+  // ── Save branding ───────────────────────────────────────────────────────────
+
+  const handleSaveBranding = async () => {
+    if (!config) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/configuracion", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appNombre: config.appNombre,
+          nombre: config.nombre,
+          logo: config.logo,
+          favicon: config.favicon,
+          colorPrimario: config.colorPrimario,
+          colorSidebar: config.colorSidebar,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      toast({ title: "Branding guardado. Recarga la página para ver los cambios." });
+    } catch {
+      toast({ title: "Error al guardar", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleFileUpload = (
+    field: "logo" | "favicon",
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "El archivo no puede superar 2 MB", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setConfig((c) => c && { ...c, [field]: reader.result as string });
+    };
+    reader.readAsDataURL(file);
   };
 
   // ── Generate VAPID ──────────────────────────────────────────────────────────
@@ -301,19 +353,27 @@ export default function ConfiguracionPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200">
-        {(["general", "ausencias", "notificaciones"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
-              tab === t
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {t === "general" ? "General" : t === "ausencias" ? "Tipos de ausencia" : "Notificaciones"}
-          </button>
-        ))}
+        {(["general", "ausencias", "notificaciones", "branding"] as Tab[]).map((t) => {
+          const labels: Record<Tab, string> = {
+            general: "General",
+            ausencias: "Tipos de ausencia",
+            notificaciones: "Notificaciones",
+            branding: "Branding",
+          };
+          return (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                tab === t
+                  ? "border-[var(--primary)] text-[var(--primary)]"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {labels[t]}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── TAB: General ──────────────────────────────────────────────────────── */}
@@ -602,6 +662,246 @@ export default function ConfiguracionPage() {
             <Button onClick={handleSaveNotif} disabled={savingNotif}>
               <Save className="h-4 w-4 mr-2" />
               {savingNotif ? "Guardando..." : "Guardar configuración"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: Branding ────────────────────────────────────────────────────── */}
+      {tab === "branding" && (
+        <div className="space-y-6">
+
+          {/* Identidad */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Palette className="h-4 w-4 text-indigo-600" /> Identidad de la app
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Nombre de la app</Label>
+                  <Input className="mt-1" placeholder="TelecomFichaje"
+                    value={config.appNombre}
+                    onChange={(e) => setConfig((c) => c && ({ ...c, appNombre: e.target.value }))} />
+                  <p className="text-xs text-gray-400 mt-1">Aparece en el título del navegador y emails</p>
+                </div>
+                <div>
+                  <Label>Nombre de la empresa</Label>
+                  <Input className="mt-1" placeholder="Mi Empresa"
+                    value={config.nombre}
+                    onChange={(e) => setConfig((c) => c && ({ ...c, nombre: e.target.value }))} />
+                  <p className="text-xs text-gray-400 mt-1">Aparece en emails y cabeceras</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Colores */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Palette className="h-4 w-4 text-indigo-600" /> Colores
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <Label>Color primario</Label>
+                  <p className="text-xs text-gray-400 mb-2">Botones, elementos activos, focus</p>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-lg border-2 border-gray-200 shadow-sm flex-shrink-0 cursor-pointer overflow-hidden relative"
+                      style={{ backgroundColor: config.colorPrimario }}
+                    >
+                      <input
+                        type="color"
+                        value={config.colorPrimario}
+                        onChange={(e) => setConfig((c) => c && ({ ...c, colorPrimario: e.target.value }))}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </div>
+                    <Input
+                      value={config.colorPrimario}
+                      onChange={(e) => setConfig((c) => c && ({ ...c, colorPrimario: e.target.value }))}
+                      className="font-mono text-sm"
+                      maxLength={7}
+                      placeholder="#6366f1"
+                    />
+                  </div>
+                  {/* Preset colors */}
+                  <div className="flex gap-1.5 mt-3 flex-wrap">
+                    {["#6366f1","#8b5cf6","#ec4899","#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#06b6d4","#3b82f6","#1d4ed8","#374151"].map((c) => (
+                      <button key={c} type="button"
+                        onClick={() => setConfig((cfg) => cfg && ({ ...cfg, colorPrimario: c }))}
+                        className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110"
+                        style={{
+                          backgroundColor: c,
+                          borderColor: config.colorPrimario === c ? "#1f2937" : "transparent",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Color del sidebar</Label>
+                  <p className="text-xs text-gray-400 mb-2">Fondo de la barra lateral de navegación</p>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-lg border-2 border-gray-200 shadow-sm flex-shrink-0 cursor-pointer overflow-hidden relative"
+                      style={{ backgroundColor: config.colorSidebar }}
+                    >
+                      <input
+                        type="color"
+                        value={config.colorSidebar}
+                        onChange={(e) => setConfig((c) => c && ({ ...c, colorSidebar: e.target.value }))}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </div>
+                    <Input
+                      value={config.colorSidebar}
+                      onChange={(e) => setConfig((c) => c && ({ ...c, colorSidebar: e.target.value }))}
+                      className="font-mono text-sm"
+                      maxLength={7}
+                      placeholder="#1e1b4b"
+                    />
+                  </div>
+                  {/* Preset sidebar colors */}
+                  <div className="flex gap-1.5 mt-3 flex-wrap">
+                    {["#1e1b4b","#0f172a","#1e293b","#111827","#1c1917","#14142b","#0a0a23","#1a1a2e","#16213e","#0d1117","#1f2937","#030712"].map((c) => (
+                      <button key={c} type="button"
+                        onClick={() => setConfig((cfg) => cfg && ({ ...cfg, colorSidebar: c }))}
+                        className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110"
+                        style={{
+                          backgroundColor: c,
+                          borderColor: config.colorSidebar === c ? "#6b7280" : "transparent",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div className="mt-2 rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+                <div className="flex" style={{ height: "80px" }}>
+                  <div className="w-28 flex flex-col" style={{ backgroundColor: config.colorSidebar }}>
+                    <div className="flex items-center gap-1.5 px-2 py-2">
+                      <div className="w-4 h-4 rounded flex-shrink-0" style={{ backgroundColor: config.colorPrimario }} />
+                      <div className="h-2 w-12 bg-white/30 rounded" />
+                    </div>
+                    <div className="mx-2 rounded px-2 py-1 flex items-center gap-1" style={{ backgroundColor: config.colorPrimario }}>
+                      <div className="w-2.5 h-2.5 bg-white/80 rounded-sm" />
+                      <div className="h-1.5 w-10 bg-white/70 rounded" />
+                    </div>
+                    <div className="mx-2 mt-0.5 rounded px-2 py-1 flex items-center gap-1">
+                      <div className="w-2.5 h-2.5 bg-white/30 rounded-sm" />
+                      <div className="h-1.5 w-8 bg-white/25 rounded" />
+                    </div>
+                  </div>
+                  <div className="flex-1 bg-gray-50 flex flex-col">
+                    <div className="h-8 border-b border-gray-200 bg-white flex items-center px-3 gap-2">
+                      <div className="h-2 w-16 bg-gray-200 rounded" />
+                      <div className="ml-auto h-5 w-5 rounded-full" style={{ backgroundColor: config.colorPrimario + "40" }} />
+                    </div>
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="h-5 w-20 rounded" style={{ backgroundColor: config.colorPrimario }} />
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 border-t border-gray-200 px-3 py-1.5 text-center">
+                  <span className="text-xs text-gray-400">Vista previa</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Logo */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Image className="h-4 w-4 text-indigo-600" /> Logo de la empresa
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-500">El logo aparece en los emails y en la cabecera del sidebar. Formatos: PNG, JPG, SVG. Máx. 2 MB.</p>
+              <div className="flex items-start gap-4">
+                {/* Preview */}
+                <div className="w-32 h-20 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 flex-shrink-0 overflow-hidden">
+                  {config.logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={config.logo} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
+                  ) : (
+                    <div className="text-center">
+                      <Image className="h-6 w-6 text-gray-300 mx-auto mb-1" />
+                      <span className="text-xs text-gray-400">Sin logo</span>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="cursor-pointer">
+                    <div className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700">
+                      <Upload className="h-4 w-4" />
+                      Subir logo
+                    </div>
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={(e) => handleFileUpload("logo", e)} />
+                  </label>
+                  {config.logo && (
+                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600"
+                      onClick={() => setConfig((c) => c && ({ ...c, logo: null }))}>
+                      <X className="h-3.5 w-3.5 mr-1" /> Eliminar logo
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Favicon */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Image className="h-4 w-4 text-indigo-600" /> Favicon
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-500">Icono que aparece en la pestaña del navegador. Usa un PNG cuadrado de 32×32 o 64×64 px. Máx. 2 MB.</p>
+              <div className="flex items-start gap-4">
+                <div className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 flex-shrink-0 overflow-hidden">
+                  {config.favicon ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={config.favicon} alt="Favicon" className="w-8 h-8 object-contain" />
+                  ) : (
+                    <Image className="h-5 w-5 text-gray-300" />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="cursor-pointer">
+                    <div className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700">
+                      <Upload className="h-4 w-4" />
+                      Subir favicon
+                    </div>
+                    <input type="file" accept="image/png,image/x-icon,image/svg+xml" className="hidden"
+                      onChange={(e) => handleFileUpload("favicon", e)} />
+                  </label>
+                  {config.favicon && (
+                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600"
+                      onClick={() => setConfig((c) => c && ({ ...c, favicon: null }))}>
+                      <X className="h-3.5 w-3.5 mr-1" /> Eliminar favicon
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end">
+            <Button onClick={handleSaveBranding} disabled={saving}>
+              <Save className="h-4 w-4 mr-2" />
+              {saving ? "Guardando..." : "Guardar branding"}
             </Button>
           </div>
         </div>

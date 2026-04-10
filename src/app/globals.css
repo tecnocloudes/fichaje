@@ -29,6 +29,9 @@
 
 :root {
   --radius: 0.5rem;
+  /* Sidebar – overridden at runtime by layout.tsx */
+  --sidebar-bg: #1e1b4b;
+  --sidebar-highlight: #312e81;
   --background: #ffffff;
   --foreground: #0f0f11;
   --card: #ffffff;

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { Rol } from "@/generated/prisma/client";
 import bcrypt from "bcryptjs";
 import type { NextRequest } from "next/server";
+import { sendEmail } from "@/lib/email";
+import { bienvenidaTemplate } from "@/lib/email-templates";
 
 export async function GET(request: NextRequest) {
   try {
@@ -144,6 +146,28 @@ export async function POST(request: NextRequest) {
         updatedAt: true,
       },
     });
+
+    // Send welcome email (fire-and-forget, don't block response)
+    prisma.configuracionEmpresa.findFirst({
+      select: {
+        nombre: true, appNombre: true, colorPrimario: true,
+        colorSidebar: true, logo: true, emailActivo: true,
+      },
+    }).then((config) => {
+      if (!config?.emailActivo) return;
+      const html = bienvenidaTemplate({
+        nombre,
+        apellidos,
+        email,
+        password,
+        rol,
+        empresa: config.nombre ?? config.appNombre ?? "TelecomFichaje",
+        colorPrimario: config.colorPrimario ?? "#6366f1",
+        colorSidebar: config.colorSidebar ?? "#1e1b4b",
+        logo: config.logo,
+      });
+      return sendEmail(email, `Bienvenido/a a ${config.nombre ?? "TelecomFichaje"}`, html);
+    }).catch(() => {});
 
     return Response.json(empleado, { status: 201 });
   } catch (error) {

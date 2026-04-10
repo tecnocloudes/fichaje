@@ -212,6 +212,11 @@ model ConfiguracionEmpresa {
   pushActivo             Boolean  @default(false)
   pushVapidPublicKey     String?
   pushVapidPrivateKey    String?
+  // Branding
+  favicon                String?  // base64 data URL
+  colorPrimario          String   @default("#6366f1")
+  colorSidebar           String   @default("#1e1b4b")
+  appNombre              String   @default("TelecomFichaje")
   updatedAt              DateTime @updatedAt
 }
 
