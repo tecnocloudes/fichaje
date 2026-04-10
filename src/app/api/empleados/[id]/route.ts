@@ -86,7 +86,7 @@ export async function PUT(
       return Response.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    const empleado = await prisma.user.findUnique({ where: { id } });
+    const empleado = await prisma.user.findUnique({ where: { id }, select: { id: true, email: true, rol: true } });
     if (!empleado) {
       return Response.json({ error: "Empleado no encontrado" }, { status: 404 });
     }
@@ -128,7 +128,7 @@ export async function PUT(
 
     // Check email uniqueness if changing email
     if (email && email !== empleado.email) {
-      const existing = await prisma.user.findUnique({ where: { email } });
+      const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
       if (existing) {
         return Response.json({ error: "Ya existe un usuario con ese email" }, { status: 409 });
       }
@@ -184,7 +184,7 @@ export async function DELETE(
       return Response.json({ error: "No puedes eliminar tu propia cuenta" }, { status: 400 });
     }
 
-    const empleado = await prisma.user.findUnique({ where: { id } });
+    const empleado = await prisma.user.findUnique({ where: { id }, select: { id: true } });
     if (!empleado) {
       return Response.json({ error: "Empleado no encontrado" }, { status: 404 });
     }

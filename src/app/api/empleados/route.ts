@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
     if (existing) {
       return Response.json({ error: "Ya existe un usuario con ese email" }, { status: 409 });
     }
