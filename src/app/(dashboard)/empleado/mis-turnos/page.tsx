@@ -42,7 +42,7 @@ export default function MisTurnosPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        fechaInicio: addDays(inicioSemana, vista === "semana" ? 0 : 0).toISOString(),
+        fechaInicio: inicioSemana.toISOString(),
         fechaFin: (vista === "semana" ? finSemana : addDays(new Date(), 30)).toISOString(),
         estado: "PUBLICADO",
       });
@@ -54,7 +54,7 @@ export default function MisTurnosPage() {
     } finally {
       setLoading(false);
     }
-  }, [inicioSemana, finSemana, vista]);
+  }, [inicioSemana.toISOString(), finSemana.toISOString(), vista]);
 
   useEffect(() => { fetchTurnos(); }, [fetchTurnos]);
 

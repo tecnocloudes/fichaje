@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { signOut } from "next-auth/react";
 
 interface Configuracion {
   id: string;
@@ -124,7 +125,7 @@ export default function ConfiguracionPage() {
       });
       if (!res.ok) throw new Error();
       toast({ title: "Sistema reiniciado. Redirigiendo..." });
-      setTimeout(() => { window.location.href = "/setup"; }, 1500);
+      setTimeout(() => signOut({ callbackUrl: "/setup" }), 1500);
     } catch {
       toast({ title: "Error al reiniciar el sistema", variant: "destructive" });
       setResetting(false);
