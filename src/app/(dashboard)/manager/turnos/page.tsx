@@ -203,7 +203,7 @@ export default function ManagerTurnosPage() {
               ) : empleados.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-8 text-gray-400">
-                    No hay empleados en tu tienda
+                    No hay empleados en tu sede
                   </td>
                 </tr>
               ) : (

@@ -20,13 +20,13 @@ import { Button } from "@/components/ui/button";
 
 const PAGE_TITLES: Record<string, string> = {
   "/admin": "Dashboard",
-  "/admin/tiendas": "Tiendas",
+  "/admin/tiendas": "Sedes",
   "/admin/empleados": "Empleados",
   "/admin/turnos": "Turnos",
   "/admin/ausencias": "Ausencias",
   "/admin/informes": "Informes",
   "/admin/configuracion": "Configuración",
-  "/manager": "Mi Tienda",
+  "/manager": "Mi Sede",
   "/manager/presencia": "Presencia",
   "/manager/turnos": "Turnos",
   "/manager/ausencias": "Ausencias",

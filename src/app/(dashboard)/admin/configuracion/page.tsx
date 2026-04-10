@@ -274,7 +274,7 @@ export default function ConfiguracionPage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-600 mb-4">
-            Borra <strong>todos los datos</strong>: empleados, tiendas, fichajes, turnos, ausencias y configuración.
+            Borra <strong>todos los datos</strong>: empleados, sedes, fichajes, turnos, ausencias y configuración.
             La app quedará como nueva y mostrará el asistente de configuración inicial.
             <span className="text-red-600 font-medium"> Esta acción es irreversible.</span>
           </p>

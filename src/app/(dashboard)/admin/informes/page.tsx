@@ -90,7 +90,7 @@ export default function AdminInformesPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Informes</h1>
-          <p className="text-gray-500 text-sm mt-1">Análisis de asistencia de todas las tiendas</p>
+          <p className="text-gray-500 text-sm mt-1">Análisis de asistencia de todas las sedes</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" disabled={exportando} onClick={() => handleExport("xlsx")}>
@@ -106,11 +106,11 @@ export default function AdminInformesPage() {
         <CardContent className="pt-4 pb-4">
           <div className="flex items-end gap-4 flex-wrap">
             <div>
-              <Label>Tienda</Label>
+              <Label>Sede</Label>
               <Select value={tiendaId} onValueChange={setTiendaId}>
                 <SelectTrigger className="mt-1 w-48"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todas">Todas las tiendas</SelectItem>
+                  <SelectItem value="todas">Todas las sedes</SelectItem>
                   {tiendas.map(t => <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>)}
                 </SelectContent>
               </Select>

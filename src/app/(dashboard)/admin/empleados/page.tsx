@@ -169,7 +169,7 @@ export default function EmpleadosPage() {
             <SelectValue placeholder="Todas las tiendas" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todas">Todas las tiendas</SelectItem>
+            <SelectItem value="todas">Todas las sedes</SelectItem>
             {tiendas.map((t) => (
               <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>
             ))}
@@ -202,7 +202,7 @@ export default function EmpleadosPage() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    {["Empleado", "Email", "DNI", "Rol", "Tienda", "Estado", ""].map((h) => (
+                    {["Empleado", "Email", "DNI", "Rol", "Sede", "Estado", ""].map((h) => (
                       <th key={h} className="text-left text-xs font-semibold text-gray-500 px-4 py-3">{h}</th>
                     ))}
                   </tr>
@@ -233,7 +233,7 @@ export default function EmpleadosPage() {
                             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: emp.tienda.color }} />
                             <span className="text-gray-600 truncate max-w-[120px]">{emp.tienda.nombre}</span>
                           </span>
-                        ) : <span className="text-gray-400">Sin tienda</span>}
+                        ) : <span className="text-gray-400">Sin sede</span>}
                       </td>
                       <td className="px-4 py-3">
                         <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", emp.activo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500")}>
@@ -312,11 +312,11 @@ export default function EmpleadosPage() {
                 </Select>
               </div>
               <div className="col-span-2">
-                <Label>Tienda asignada</Label>
+                <Label>Sede asignada</Label>
                 <Select value={form.tiendaId || "ninguna"} onValueChange={(v) => setForm((f) => ({ ...f, tiendaId: v === "ninguna" ? "" : v }))}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Sin tienda" /></SelectTrigger>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Sin sede" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ninguna">Sin tienda</SelectItem>
+                    <SelectItem value="ninguna">Sin sede</SelectItem>
                     {tiendas.map((t) => (
                       <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>
                     ))}

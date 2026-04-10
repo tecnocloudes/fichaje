@@ -122,7 +122,7 @@ export default function AdminTurnosPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <Select value={tiendaId} onValueChange={setTiendaId}>
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="Selecciona tienda..." />
+              <SelectValue placeholder="Selecciona sede..." />
             </SelectTrigger>
             <SelectContent>
               {tiendas.map(t => <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>)}
@@ -169,7 +169,7 @@ export default function AdminTurnosPage() {
                   <tr key={i}><td colSpan={8} className="px-4 py-3"><div className="h-10 bg-gray-100 rounded animate-pulse" /></td></tr>
                 ))
               ) : empleados.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-8 text-gray-400">{tiendaId ? "No hay empleados en esta tienda" : "Selecciona una tienda"}</td></tr>
+                <tr><td colSpan={8} className="text-center py-8 text-gray-400">{tiendaId ? "No hay empleados en esta sede" : "Selecciona una sede"}</td></tr>
               ) : (
                 empleados.map(emp => (
                   <tr key={emp.id} className="hover:bg-gray-50">

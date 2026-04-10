@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, ArrowRight, ArrowLeft, Store, User, Rocket, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { CheckCircle, ArrowRight, ArrowLeft, Store, User, Rocket, Eye, EyeOff, RefreshCw, Copy, Check } from "lucide-react";
 
 type Step = "admin" | "tienda" | "confirmar";
 
 const STEPS: { key: Step; label: string }[] = [
   { key: "admin", label: "Cuenta admin" },
-  { key: "tienda", label: "Primera tienda" },
+  { key: "tienda", label: "Primera sede" },
   { key: "confirmar", label: "Confirmar" },
 ];
 
@@ -40,6 +40,15 @@ export default function SetupPage() {
   const [saltarTienda, setSaltarTienda] = useState(false);
   const [passwordGenerado, setPasswordGenerado] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+
+  const handleCopiar = () => {
+    if (!admin.password) return;
+    navigator.clipboard.writeText(admin.password).then(() => {
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    });
+  };
 
   const stepIndex = STEPS.findIndex(s => s.key === step);
 
@@ -65,7 +74,7 @@ export default function SetupPage() {
   const validateTienda = () => {
     if (saltarTienda) return null;
     if (!tienda.nombre || !tienda.direccion || !tienda.ciudad)
-      return "Rellena todos los campos de la tienda o sáltate este paso";
+      return "Rellena todos los campos de la sede o sáltate este paso";
     return null;
   };
 
@@ -211,6 +220,9 @@ export default function SetupPage() {
                     <Button type="button" variant="outline" size="sm" className="shrink-0 px-3" onClick={handleGenerarPassword} title="Generar contraseña aleatoria">
                       <RefreshCw className="h-4 w-4 mr-1" /> Generar
                     </Button>
+                    <Button type="button" variant="outline" size="sm" className="shrink-0 px-3" onClick={handleCopiar} disabled={!admin.password} title="Copiar contraseña">
+                      {copiado ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                    </Button>
                   </div>
                   {passwordGenerado && (
                     <p className="text-xs text-indigo-600 mt-1">Contraseña generada automáticamente. Guárdala en un lugar seguro.</p>
@@ -230,14 +242,14 @@ export default function SetupPage() {
               <>
                 <div className="flex items-center gap-2 mb-2">
                   <Store className="h-5 w-5 text-indigo-600" />
-                  <h2 className="font-semibold text-gray-800">Primera tienda (opcional)</h2>
+                  <h2 className="font-semibold text-gray-800">Primera sede (opcional)</h2>
                 </div>
-                <p className="text-sm text-gray-500">Puedes crear tiendas más adelante desde el panel de administración.</p>
+                <p className="text-sm text-gray-500">Puedes crear sedes más adelante desde el panel de administración.</p>
                 {!saltarTienda && (
                   <>
                     <div>
-                      <Label>Nombre de la tienda</Label>
-                      <Input className="mt-1" value={tienda.nombre} onChange={e => setTienda(t => ({ ...t, nombre: e.target.value }))} placeholder="Tienda Centro" />
+                      <Label>Nombre de la sede</Label>
+                      <Input className="mt-1" value={tienda.nombre} onChange={e => setTienda(t => ({ ...t, nombre: e.target.value }))} placeholder="Sede Centro" />
                     </div>
                     <div>
                       <Label>Dirección</Label>
@@ -254,7 +266,7 @@ export default function SetupPage() {
                   className="text-sm text-indigo-600 hover:underline"
                   onClick={() => setSaltarTienda(s => !s)}
                 >
-                  {saltarTienda ? "Quiero crear una tienda ahora" : "Saltar este paso"}
+                  {saltarTienda ? "Quiero crear una sede ahora" : "Saltar este paso"}
                 </button>
               </>
             )}
@@ -274,12 +286,12 @@ export default function SetupPage() {
                   </div>
                   {!saltarTienda && tienda.nombre && (
                     <div>
-                      <span className="text-gray-500">Primera tienda:</span>{" "}
+                      <span className="text-gray-500">Primera sede:</span>{" "}
                       <span className="font-medium text-gray-900">{tienda.nombre} — {tienda.ciudad}</span>
                     </div>
                   )}
                   {(saltarTienda || !tienda.nombre) && (
-                    <div className="text-gray-400 italic">Sin tienda inicial (puedes añadirla después)</div>
+                    <div className="text-gray-400 italic">Sin sede inicial (puedes añadirla después)</div>
                   )}
                 </div>
               </>

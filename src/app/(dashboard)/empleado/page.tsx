@@ -338,7 +338,7 @@ export default function EmpleadoPage() {
       checking: { icon: <Loader2 className="h-4 w-4 animate-spin text-blue-500" />, text: "Obteniendo ubicación…", cls: "text-blue-600" },
       found: { icon: <CheckCircle2 className="h-4 w-4 text-emerald-500" />, text: "Ubicación confirmada", cls: "text-emerald-600" },
       denied: { icon: <MapPinOff className="h-4 w-4 text-amber-500" />, text: "Ubicación no disponible", cls: "text-amber-600" },
-      outside: { icon: <XCircle className="h-4 w-4 text-rose-500" />, text: "Fuera del rango de la tienda", cls: "text-rose-600" },
+      outside: { icon: <XCircle className="h-4 w-4 text-rose-500" />, text: "Fuera del rango de la sede", cls: "text-rose-600" },
     };
     const c = configs[locationStatus];
     return (

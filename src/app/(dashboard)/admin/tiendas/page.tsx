@@ -97,7 +97,7 @@ export default function TiendasPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error();
-      toast({ title: editando ? "Tienda actualizada" : "Tienda creada" });
+      toast({ title: editando ? "Sede actualizada" : "Sede creada" });
       setDialogOpen(false);
       fetchTiendas();
     } catch {
@@ -124,11 +124,11 @@ export default function TiendasPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tiendas</h1>
-          <p className="text-gray-500 text-sm mt-1">{tiendas.length} tiendas configuradas</p>
+          <h1 className="text-2xl font-bold text-gray-900">Sedes</h1>
+          <p className="text-gray-500 text-sm mt-1">{tiendas.length} sedes configuradas</p>
         </div>
         <Button onClick={abrirCrear}>
-          <Plus className="h-4 w-4 mr-2" /> Nueva Tienda
+          <Plus className="h-4 w-4 mr-2" /> Nueva Sede
         </Button>
       </div>
 
@@ -197,13 +197,13 @@ export default function TiendasPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editando ? "Editar Tienda" : "Nueva Tienda"}</DialogTitle>
+            <DialogTitle>{editando ? "Editar Sede" : "Nueva Sede"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <Label>Nombre *</Label>
-                <Input className="mt-1" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} placeholder="Tienda Madrid Centro" />
+                <Input className="mt-1" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} placeholder="Sede Madrid Centro" />
               </div>
               <div className="col-span-2">
                 <Label>Dirección *</Label>
@@ -223,7 +223,7 @@ export default function TiendasPage() {
               </div>
               <div>
                 <Label>Email</Label>
-                <Input className="mt-1" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="tienda@empresa.es" />
+                <Input className="mt-1" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="sede@empresa.es" />
               </div>
               <div>
                 <Label>Latitud (geofencing)</Label>
@@ -256,7 +256,7 @@ export default function TiendasPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting ? "Guardando..." : editando ? "Actualizar" : "Crear Tienda"}
+              {submitting ? "Guardando..." : editando ? "Actualizar" : "Crear Sede"}
             </Button>
           </DialogFooter>
         </DialogContent>

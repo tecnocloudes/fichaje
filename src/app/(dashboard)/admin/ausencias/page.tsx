@@ -86,7 +86,7 @@ export default function AdminAusenciasPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Ausencias — Todas las tiendas</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Ausencias — Todas las sedes</h1>
         <p className="text-gray-500 text-sm mt-1">Gestiona las solicitudes de ausencia de todos los empleados</p>
       </div>
 

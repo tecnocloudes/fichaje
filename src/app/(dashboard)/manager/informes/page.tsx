@@ -87,7 +87,7 @@ export default function ManagerInformesPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Informes</h1>
-          <p className="text-gray-500 text-sm mt-1">Análisis de asistencia de tu tienda</p>
+          <p className="text-gray-500 text-sm mt-1">Análisis de asistencia de tu sede</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" disabled={exportando} onClick={() => handleExport("xlsx")}>

@@ -51,7 +51,7 @@ function getNavItems(rol: string, pendingAusencias = 0): NavItem[] {
     case "SUPERADMIN":
       return [
         { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-        { label: "Tiendas", href: "/admin/tiendas", icon: Store },
+        { label: "Sedes", href: "/admin/tiendas", icon: Store },
         { label: "Empleados", href: "/admin/empleados", icon: Users },
         { label: "Turnos", href: "/admin/turnos", icon: Calendar },
         {
@@ -65,7 +65,7 @@ function getNavItems(rol: string, pendingAusencias = 0): NavItem[] {
       ];
     case "MANAGER":
       return [
-        { label: "Mi Tienda", href: "/manager", icon: Store },
+        { label: "Mi Sede", href: "/manager", icon: Store },
         { label: "Presencia", href: "/manager/presencia", icon: UserCheck },
         { label: "Turnos", href: "/manager/turnos", icon: Calendar },
         {

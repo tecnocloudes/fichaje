@@ -61,7 +61,7 @@ export default function AdminDashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Panel Global</h1>
-          <p className="text-gray-500 text-sm mt-1">Vista en tiempo real de las 15 tiendas</p>
+          <p className="text-gray-500 text-sm mt-1">Vista en tiempo real de todas las sedes</p>
         </div>
         <Button variant="outline" size="icon" onClick={fetchData}>
           <RefreshCw className="h-4 w-4" />
@@ -71,7 +71,7 @@ export default function AdminDashboardPage() {
       {/* Stats globales */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Tiendas activas", value: stats?.totalTiendas ?? "—", icon: Building2, color: "text-indigo-600", bg: "bg-indigo-50" },
+          { label: "Sedes activas", value: stats?.totalTiendas ?? "—", icon: Building2, color: "text-indigo-600", bg: "bg-indigo-50" },
           { label: "Total empleados", value: stats?.totalEmpleados ?? "—", icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
           { label: "Fichados ahora", value: stats?.fichadosAhora ?? "—", icon: UserCheck, color: "text-green-600", bg: "bg-green-50" },
           { label: "Ausentes hoy", value: stats?.ausentesHoy ?? "—", icon: UserX, color: "text-red-500", bg: "bg-red-50" },
@@ -98,7 +98,7 @@ export default function AdminDashboardPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-indigo-600" />
-              Presencia actual por tienda
+              Presencia actual por sede
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -118,7 +118,7 @@ export default function AdminDashboardPage() {
 
       {/* Grid de tiendas */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Estado por tienda</h2>
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Estado por sede</h2>
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
