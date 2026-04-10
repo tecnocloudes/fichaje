@@ -29,7 +29,8 @@ export default function SetupPage() {
     fetch("/api/setup").then(r => r.json()).then(d => {
       if (!d.needsSetup) router.replace("/login");
     });
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
