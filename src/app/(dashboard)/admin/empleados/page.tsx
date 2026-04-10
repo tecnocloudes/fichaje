@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, Edit2, UserX, UserCheck } from "lucide-react";
+import { Plus, Search, Edit2, UserX, UserCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -144,6 +144,21 @@ export default function EmpleadosPage() {
     }
   };
 
+  const handleEliminar = async (emp: Empleado) => {
+    if (!confirm(`¿Eliminar permanentemente a ${emp.nombre} ${emp.apellidos}? Esta acción no se puede deshacer.`)) return;
+    try {
+      const res = await fetch(`/api/empleados/${emp.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error");
+      }
+      toast({ title: "Empleado eliminado" });
+      fetchData();
+    } catch (e: any) {
+      toast({ title: e.message || "Error al eliminar", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -256,9 +271,18 @@ export default function EmpleadosPage() {
                             title={emp.activo ? "Desactivar" : "Activar"}
                           >
                             {emp.activo
-                              ? <UserX className="h-3.5 w-3.5 text-red-400" />
+                              ? <UserX className="h-3.5 w-3.5 text-amber-500" />
                               : <UserCheck className="h-3.5 w-3.5 text-green-500" />
                             }
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 hover:bg-red-50"
+                            onClick={() => handleEliminar(emp)}
+                            title="Eliminar empleado"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-red-400" />
                           </Button>
                         </div>
                       </td>

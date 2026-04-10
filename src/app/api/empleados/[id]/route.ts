@@ -178,7 +178,7 @@ export async function DELETE(
     const { id } = await params;
 
     if (id === session.user.id) {
-      return Response.json({ error: "No puedes desactivar tu propia cuenta" }, { status: 400 });
+      return Response.json({ error: "No puedes eliminar tu propia cuenta" }, { status: 400 });
     }
 
     const empleado = await prisma.user.findUnique({ where: { id } });
@@ -186,14 +186,24 @@ export async function DELETE(
       return Response.json({ error: "Empleado no encontrado" }, { status: 404 });
     }
 
-    // Soft delete
-    const updated = await prisma.user.update({
-      where: { id },
-      data: { activo: false },
-      select: userSelect,
-    });
+    // Hard delete — remove related records first to satisfy FK constraints
+    await prisma.pushSubscripcion.deleteMany({ where: { userId: id } });
+    await prisma.preferenciasNotificacion.deleteMany({ where: { userId: id } });
+    await prisma.notificacion.deleteMany({ where: { userId: id } });
+    await prisma.fichaje.deleteMany({ where: { userId: id } });
+    await prisma.turno.deleteMany({ where: { userId: id } });
+    await prisma.ausencia.deleteMany({ where: { userId: id } });
+    await prisma.ausencia.updateMany({ where: { aprobadoPorId: id }, data: { aprobadoPorId: null } });
+    await prisma.tarea.deleteMany({ where: { creadoPorId: id } });
+    await prisma.tarea.updateMany({ where: { asignadoAId: id }, data: { asignadoAId: null } });
+    await prisma.comunicado.deleteMany({ where: { autorId: id } });
+    await prisma.articulo.deleteMany({ where: { autorId: id } });
+    await prisma.documento.deleteMany({ where: { userId: id } });
+    await prisma.documento.deleteMany({ where: { subidoPorId: id } });
+    await prisma.procesoOnboarding.deleteMany({ where: { userId: id } });
+    await prisma.user.delete({ where: { id } });
 
-    return Response.json(updated);
+    return Response.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/empleados/[id] error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
