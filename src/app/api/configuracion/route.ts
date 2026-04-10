@@ -16,7 +16,6 @@ export async function GET() {
       update: {},
     });
 
-    // Ocultar credenciales sensibles para no-admins
     const user = session.user as { rol?: string };
     if (user.rol !== Rol.SUPERADMIN) {
       return Response.json({
@@ -30,7 +29,6 @@ export async function GET() {
       });
     }
 
-    // Para admins devolver todo salvo la clave privada VAPID
     return Response.json({ ...config, pushVapidPrivateKey: undefined });
   } catch (error) {
     console.error("GET /api/configuracion error:", error);
@@ -48,14 +46,25 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json();
 
-    // Nunca actualizar clave privada VAPID desde aquí (se genera por separado)
-    delete body.pushVapidPrivateKey;
-    delete body.id;
+    // Allowlist — never touch VAPID private key, logo/favicon (handled by /branding), or id
+    const data: Record<string, unknown> = {};
+    const allowed = [
+      "nombre", "appNombre",
+      "horasJornadaDiaria", "horasSemanales", "toleranciaFichaje",
+      "geofencingActivo", "fichajeMovilActivo", "fichajeTabletActivo",
+      "notifAusencias", "notifTurnos", "notifTareas", "notifFichajes", "notifComunicados",
+      "emailActivo", "emailHost", "emailPort", "emailSecure", "emailUser", "emailPassword", "emailFrom",
+      "pushActivo", "pushVapidPublicKey",
+      "colorPrimario", "colorSidebar",
+    ];
+    for (const key of allowed) {
+      if (key in body) data[key] = body[key];
+    }
 
     const config = await prisma.configuracionEmpresa.upsert({
       where: { id: "singleton" },
-      create: { id: "singleton", ...body },
-      update: body,
+      create: { id: "singleton", ...data },
+      update: data,
     });
 
     return Response.json({ ...config, pushVapidPrivateKey: undefined });

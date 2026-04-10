@@ -208,7 +208,7 @@ export default function ConfiguracionPage() {
     if (!config) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/configuracion", {
+      const res = await fetch("/api/configuracion/branding", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -220,10 +220,16 @@ export default function ConfiguracionPage() {
           colorSidebar: config.colorSidebar,
         }),
       });
-      if (!res.ok) throw new Error();
-      toast({ title: "Branding guardado. Recarga la página para ver los cambios." });
-    } catch {
-      toast({ title: "Error al guardar", variant: "destructive" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Error desconocido");
+      }
+      toast({ title: "Branding guardado. Recarga para ver los cambios." });
+    } catch (e: unknown) {
+      toast({
+        title: e instanceof Error ? e.message : "Error al guardar",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
