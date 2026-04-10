@@ -87,6 +87,8 @@ model User {
   documentos               Documento[]               @relation("DocumentoEmpleado")
   documentosSubidos        Documento[]               @relation("DocumentoSubido")
   onboardings              ProcesoOnboarding[]
+  bolsaHoras               BolsaHoras[]
+  bolsaHorasAprobadas      BolsaHoras[]              @relation("BolsaHorasAprobador")
   preferenciasNotificacion PreferenciasNotificacion?
   pushSubscripciones       PushSubscripcion[]
   createdAt                DateTime                  @default(now())
@@ -331,16 +333,58 @@ model Festivo {
 }
 
 model ProcesoOnboarding {
-  id          String    @id @default(cuid())
+  id          String              @id @default(cuid())
   userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  tipo        String    @default("ONBOARDING")
-  estado      String    @default("PENDIENTE")
+  user        User                @relation(fields: [userId], references: [id])
+  tipo        String              @default("ONBOARDING")
+  estado      String              @default("PENDIENTE")
   fechaInicio DateTime
   fechaFin    DateTime?
   notas       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  tareas      TareaOnboarding[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([userId])
+}
+
+model TareaOnboarding {
+  id          String            @id @default(cuid())
+  procesoId   String
+  proceso     ProcesoOnboarding @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+  titulo      String
+  descripcion String?
+  completada  Boolean           @default(false)
+  orden       Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([procesoId])
+}
+
+model PlantillaTareaOnboarding {
+  id          String   @id @default(cuid())
+  tipo        String   // "ONBOARDING" | "OFFBOARDING"
+  titulo      String
+  descripcion String?
+  orden       Int      @default(0)
+  activa      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BolsaHoras {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  tipo          String   // "ACUMULACION" | "CONSUMO"
+  horas         Float
+  concepto      String
+  fecha         DateTime
+  aprobadoPorId String?
+  aprobadoPor   User?    @relation("BolsaHorasAprobador", fields: [aprobadoPorId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([userId])
 }

@@ -63,7 +63,7 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
             { label: "Fichajes", href: "/admin/informes", icon: Clock },
             { label: "Ausencias", href: "/admin/ausencias", icon: ClipboardList, badge: pendingAusencias || undefined },
             { label: "Turnos", href: "/admin/turnos", icon: Calendar },
-            { label: "Bolsa de horas", href: "/admin/bolsa-horas", icon: Timer, proximamente: true },
+            { label: "Bolsa de horas", href: "/admin/bolsa-horas", icon: Timer },
             { label: "Tareas", href: "/admin/tareas", icon: CheckSquare },
           ],
         },
@@ -71,7 +71,7 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
           key: "talento",
           label: "TALENTO",
           items: [
-            { label: "On/Offboardings", href: "/admin/onboarding", icon: Rocket },
+            { label: "Incorporaciones y bajas", href: "/admin/onboarding", icon: Rocket },
             { label: "Reclutamiento", href: "/admin/reclutamiento", icon: Search, proximamente: true },
             { label: "Encuestas", href: "/admin/encuestas", icon: MessageSquare, proximamente: true },
             { label: "Evaluaciones", href: "/admin/evaluaciones", icon: Star, proximamente: true },
