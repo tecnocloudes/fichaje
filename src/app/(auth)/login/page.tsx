@@ -51,35 +51,65 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   const { error } = await searchParams;
-
   const errorMessage = error ? decodeURIComponent(error) : null;
 
+  // Branding
+  const branding = await prisma.configuracionEmpresa.findFirst({
+    select: { logo: true, appNombre: true, nombre: true, colorPrimario: true, colorSidebar: true },
+  }).catch(() => null);
+
+  const appNombre = branding?.appNombre ?? "TelecomFichaje";
+  const empresa = branding?.nombre ?? appNombre;
+  const colorPrimario = branding?.colorPrimario ?? "#6366f1";
+  const colorSidebar = branding?.colorSidebar ?? "#1e1b4b";
+  const logo = branding?.logo ?? null;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-900 p-4">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        background: `linear-gradient(135deg, ${colorSidebar} 0%, color-mix(in srgb, ${colorSidebar} 70%, ${colorPrimario}) 50%, color-mix(in srgb, ${colorPrimario} 60%, #7c3aed) 100%)`,
+      }}
+    >
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-        <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-indigo-500/10 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-violet-500/10 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-96 rounded-full bg-indigo-600/5 blur-3xl" />
+        <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full blur-3xl" style={{ backgroundColor: `${colorPrimario}1a` }} />
+        <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full blur-3xl" style={{ backgroundColor: `${colorPrimario}1a` }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-96 rounded-full blur-3xl" style={{ backgroundColor: `${colorPrimario}0d` }} />
       </div>
 
       {/* Card */}
       <div className="relative w-full max-w-md animate-fade-in">
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl">
-          {/* Top accent bar */}
-          <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-500" />
+          {/* Top accent bar with brand color */}
+          <div className="h-1 w-full" style={{ background: `linear-gradient(to right, ${colorPrimario}, color-mix(in srgb, ${colorPrimario} 60%, #a78bfa))` }} />
 
           <div className="px-8 py-10">
             {/* Logo + Branding */}
             <div className="flex flex-col items-center mb-8">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30 mb-4">
-                <Building2 className="h-8 w-8 text-white" />
-              </div>
+              {logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logo}
+                  alt={empresa}
+                  className="h-16 max-w-[180px] object-contain mb-4 drop-shadow-lg"
+                />
+              ) : (
+                <div
+                  className="flex h-16 w-16 items-center justify-center rounded-2xl shadow-lg mb-4"
+                  style={{
+                    background: `linear-gradient(135deg, ${colorPrimario}, color-mix(in srgb, ${colorPrimario} 60%, #7c3aed))`,
+                    boxShadow: `0 8px 24px ${colorPrimario}4d`,
+                  }}
+                >
+                  <Building2 className="h-8 w-8 text-white" />
+                </div>
+              )}
               <h1 className="text-2xl font-bold text-white tracking-tight">
-                TelecomFichaje
+                {appNombre}
               </h1>
-              <p className="text-sm text-indigo-300 mt-1">
-                Sistema de fichaje de empleados
+              <p className="text-sm text-white/50 mt-1">
+                {empresa !== appNombre ? empresa : "Sistema de gestión de empleados"}
               </p>
             </div>
 
@@ -131,7 +161,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
               <button
                 type="submit"
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition-all hover:from-indigo-400 hover:to-violet-500 hover:shadow-indigo-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.98]"
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.98]"
+                style={{
+                  background: `linear-gradient(to right, ${colorPrimario}, color-mix(in srgb, ${colorPrimario} 60%, #7c3aed))`,
+                  boxShadow: `0 4px 16px ${colorPrimario}4d`,
+                }}
               >
                 <LogIn className="h-4 w-4" />
                 Iniciar sesión
@@ -139,8 +173,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </form>
 
             {/* Footer note */}
-            <p className="mt-8 text-center text-xs text-indigo-400/70">
-              Acceso exclusivo para empleados de TelecomFichaje.
+            <p className="mt-8 text-center text-xs text-white/40">
+              Acceso exclusivo para empleados de {empresa}.
               <br />
               Si tienes problemas, contacta con tu manager.
             </p>
@@ -148,8 +182,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </div>
 
         {/* Version tag */}
-        <p className="mt-4 text-center text-xs text-indigo-500/50">
-          TelecomFichaje v1.0 &mdash; {new Date().getFullYear()}
+        <p className="mt-4 text-center text-xs text-white/25">
+          {appNombre} &mdash; {new Date().getFullYear()}
         </p>
       </div>
     </div>
