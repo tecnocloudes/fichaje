@@ -13,5 +13,15 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  return <DashboardShell>{children}</DashboardShell>;
+  const user = session.user as any;
+  const sessionUser = {
+    id: user.id ?? "",
+    nombre: user.nombre ?? user.name ?? "Usuario",
+    apellidos: user.apellidos ?? "",
+    email: user.email ?? "",
+    rol: user.rol ?? "EMPLEADO",
+    tiendaId: user.tiendaId ?? null,
+  };
+
+  return <DashboardShell user={sessionUser}>{children}</DashboardShell>;
 }

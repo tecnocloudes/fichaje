@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import {
   Building2,
   LayoutDashboard,
@@ -37,7 +37,17 @@ interface NavItem {
   badge?: number;
 }
 
+interface SessionUser {
+  id: string;
+  nombre: string;
+  apellidos: string;
+  email: string;
+  rol: string;
+  tiendaId: string | null;
+}
+
 interface SidebarProps {
+  user: SessionUser;
   notificationCount?: number;
   pendingAusencias?: number;
   isOpen?: boolean;
@@ -115,21 +125,19 @@ function getInitials(name?: string | null): string {
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 
 export function Sidebar({
+  user,
   notificationCount = 0,
   pendingAusencias = 0,
   isOpen = true,
   onToggle,
 }: SidebarProps) {
-  const { data: session } = useSession();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
-  const user = session?.user as any;
-  const rol = user?.rol ?? "EMPLEADO";
-  const nombre = user?.nombre ?? user?.name ?? "Usuario";
-  const apellidos = user?.apellidos ?? "";
+  const rol = user.rol;
+  const nombre = user.nombre;
+  const apellidos = user.apellidos;
   const fullName = apellidos ? `${nombre} ${apellidos}` : nombre;
-  const tiendaId = user?.tiendaId;
 
   const navItems = getNavItems(rol, pendingAusencias);
 

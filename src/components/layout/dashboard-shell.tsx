@@ -4,11 +4,21 @@ import React, { useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 
-interface DashboardShellProps {
-  children: React.ReactNode;
+interface SessionUser {
+  id: string;
+  nombre: string;
+  apellidos: string;
+  email: string;
+  rol: string;
+  tiendaId: string | null;
 }
 
-export function DashboardShell({ children }: DashboardShellProps) {
+interface DashboardShellProps {
+  children: React.ReactNode;
+  user: SessionUser;
+}
+
+export function DashboardShell({ children, user }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
@@ -16,6 +26,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   return (
     <div className="flex h-full min-h-screen bg-muted/30">
       <Sidebar
+        user={user}
         isOpen={sidebarOpen}
         onToggle={toggleSidebar}
         notificationCount={0}
@@ -24,7 +35,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
       {/* Main content area */}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <Header onMenuToggle={toggleSidebar} notificationCount={0} />
+        <Header user={user} onMenuToggle={toggleSidebar} notificationCount={0} />
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="mx-auto max-w-7xl animate-fade-in">
             {children}

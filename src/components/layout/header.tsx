@@ -2,7 +2,7 @@
 
 import React from "react";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import {
   Menu,
   Bell,
@@ -60,20 +60,28 @@ function getInitials(name?: string | null): string {
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 
+interface SessionUser {
+  id: string;
+  nombre: string;
+  apellidos: string;
+  email: string;
+  rol: string;
+  tiendaId: string | null;
+}
+
 interface HeaderProps {
+  user: SessionUser;
   onMenuToggle?: () => void;
   notificationCount?: number;
 }
 
-export function Header({ onMenuToggle, notificationCount = 0 }: HeaderProps) {
+export function Header({ user, onMenuToggle, notificationCount = 0 }: HeaderProps) {
   const pathname = usePathname();
-  const { data: session } = useSession();
 
-  const user = session?.user as any;
-  const nombre = user?.nombre ?? user?.name ?? "Usuario";
-  const apellidos = user?.apellidos ?? "";
+  const nombre = user.nombre;
+  const apellidos = user.apellidos;
   const fullName = apellidos ? `${nombre} ${apellidos}` : nombre;
-  const email = user?.email ?? "";
+  const email = user.email;
 
   const pageTitle = getPageTitle(pathname);
 
