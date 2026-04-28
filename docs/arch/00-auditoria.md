@@ -670,6 +670,162 @@ Eliminar `src/lib/migrate.ts` cuando todo el DDL viva en `prisma/migrations/`.
 
 ---
 
+## 11. Catálogo inicial de planes y features
+
+Sección añadida tras Fase 0 a partir de la propuesta acordada con el usuario
+(las líneas 167-168 de la spec maestra piden "una lista concreta basándote en
+lo que sea típico en un SaaS de fichaje"). El catálogo siguiente es el que
+seedearemos en `master.plans`, `master.features` y `master.plan_features`
+durante la Fase 2.
+
+### 11.1 Tipos de feature
+
+| Tipo      | Definición                                                         | Ejemplo de check en código                                |
+|-----------|--------------------------------------------------------------------|-----------------------------------------------------------|
+| `boolean` | enable/disable. La feature está o no.                              | `tenant.hasFeature('export_csv')` → `true`/`false`        |
+| `limit`   | tope numérico estático verificado puntualmente (sin reset).        | `tenant.getLimit('max_employees')` → `50`; al crear el 51 → `402` |
+| `quota`   | contador con periodo de reset (mensual o diario). Suma incremental.| `tenant.consumeQuota('emails_mes', 1)` → `ok`/`402` si excede; reset en `current_period_end` |
+
+`null` = ilimitado (`unlimited`).
+
+### 11.2 Funcionalidad CORE no desactivable
+
+Antes del catálogo: hay funcionalidad que **NO** se gestiona vía feature flag,
+porque es requisito legal o requisito mínimo del producto.
+
+| Función                  | Por qué es CORE                                                                                                                              |
+|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| `registro_jornada_legal` | Real Decreto-ley 8/2019: las empresas españolas están obligadas a llevar un registro diario de jornada de cada trabajador, con hora de inicio y fin, conservado 4 años. Es el núcleo del producto y la razón legal por la que un cliente compra fichaje. **No puede vivir como feature flag** — un tenant en plan Starter sigue teniendo obligación legal de registro de jornada. |
+
+Implicación de diseño: las tablas `Fichaje`, `Turno` (parcialmente, para
+jornada planificada) y la posibilidad de exportar el registro a un formato
+legible **no se chequean nunca con `hasFeature`**. El check `hasFeature` se
+aplica solo al cómo (geofencing, fichaje móvil, exportación a CSV/Excel,
+notificaciones), no al qué (existencia del registro).
+
+Lo mismo aplica a la consulta del registro propio por el empleado (también
+exigida por el RD): no se puede ocultar tras un plan.
+
+### 11.3 Catálogo de features
+
+**Boolean — funcionalidad**:
+
+- `multi_tienda` — habilita >1 tienda en el tenant.
+- `geofencing` — fichaje validado por GPS / radio. En Starter limitado a 1
+  ubicación (la única tienda permitida); en Pro/Enterprise se aplica por tienda
+  combinado con `multi_tienda`.
+- `fichaje_movil` — fichaje desde PWA / móvil del empleado.
+- `fichaje_tablet` — fichaje desde tablet compartida en tienda.
+- `bolsa_horas` — módulo de acumulación/consumo de horas.
+- `turnos_publicacion` — planificación y publicación de turnos (no confundir
+  con el registro legal de jornada, que es CORE).
+- `ausencias_aprobacion` — flujo de aprobación (vs solo registro).
+- `onboarding_offboarding` — procesos con plantillas.
+- `comunicados` — módulo de comunicados internos.
+- `articulos` — base de conocimiento.
+- `documentos` — gestión documental por empleado.
+- `notificaciones_email` — emails (vía SMTP/Resend de plataforma o propio del tenant).
+- `notificaciones_push` — push web/móvil.
+
+**Boolean — exportación e integración**:
+
+- `export_csv`, `export_excel`, `export_pdf`. (Nota: el export del registro
+  legal de jornada en formato exigido por inspección está en CORE; estos flags
+  controlan exports adicionales: informes, listados, etc.)
+- `api_access` — REST pública con tokens.
+- `webhooks` — webhooks salientes.
+- `integraciones_nomina` — conectores (a3, sage, datev…).
+- `firma_electronica` — firma de documentos.
+
+**Boolean — branding y operaciones**:
+
+- `branding_personalizado` — logo, colores, app_nombre.
+- `dominio_personalizado` — CNAME custom (no `<slug>.ficha.tecnocloud.es`).
+- `auditoria_avanzada` — log de auditoría detallado (impersonación, cambios sensibles).
+- `people_analytics` — analítica avanzada.
+- `evaluaciones`, `objetivos` — futuros (hoy "Próximamente" en sidebar).
+
+**Limit (tope estático)**:
+
+- `max_employees` — usuarios activos.
+- `max_tiendas` — tiendas activas.
+- `historial_meses` — meses de fichajes/ausencias accesibles desde la UI
+  (sobre el dato base; el almacenamiento sigue 4 años por requisito legal).
+- `max_storage_mb` — almacenamiento de documentos/fotos.
+
+> **Nota sobre `max_owners`**: descartado como feature vendible. El número de
+> cuentas con rol `OWNER` por tenant se hardcodea en código a un máximo
+> operativo de **5** para evitar pérdida del tenant si el OWNER único se da de
+> baja, pero no se monetiza ni se expone como flag.
+
+**Quota (con reset)**:
+
+- `emails_mes` — emails enviables/mes (si la plataforma cubre el envío).
+- `pushs_mes` — notificaciones push/mes.
+- `exports_mes` — número de exportaciones de informes/mes (no aplica al
+  export del registro legal, que es ilimitado por requisito).
+- `api_calls_dia` — rate limit API/día.
+
+### 11.4 Mapping `starter` / `pro` / `enterprise`
+
+Leyenda de la columna "Addon": ✅ disponible como producto Stripe adicional
+contratable a mayores del plan base; ❌ no comercializado como addon (se
+obtiene subiendo de plan).
+
+| Feature                  | Tipo  | Starter      | Pro           | Enterprise | Addon |
+|--------------------------|-------|--------------|---------------|------------|-------|
+| `max_employees`          | limit | **10**       | **50**        | unlimited  | ❌    |
+| `max_tiendas`            | limit | 1            | 5             | unlimited  | ❌    |
+| `historial_meses`        | limit | 6            | 36            | 120        | ❌    |
+| `max_storage_mb`         | limit | 500          | 5000          | 50000      | ✅ Pro |
+| `multi_tienda`           | bool  | ❌           | ✅            | ✅         | ❌    |
+| `geofencing`             | bool  | ✅ (1 ubic.) | ✅ por tienda | ✅ por tienda | ❌  |
+| `fichaje_movil`          | bool  | ✅           | ✅            | ✅         | ❌    |
+| `fichaje_tablet`         | bool  | ❌           | ✅            | ✅         | ❌    |
+| `bolsa_horas`            | bool  | ❌           | ✅            | ✅         | ❌    |
+| `turnos_publicacion`     | bool  | ❌           | ✅            | ✅         | ❌    |
+| `ausencias_aprobacion`   | bool  | ✅           | ✅            | ✅         | ❌    |
+| `onboarding_offboarding` | bool  | ❌           | ✅            | ✅         | ❌    |
+| `comunicados`            | bool  | ✅           | ✅            | ✅         | ❌    |
+| `articulos`              | bool  | ❌           | ✅            | ✅         | ❌    |
+| `documentos`             | bool  | ✅           | ✅            | ✅         | ❌    |
+| `notificaciones_email`   | bool  | ✅           | ✅            | ✅         | ❌    |
+| `notificaciones_push`    | bool  | ❌           | ✅            | ✅         | ❌    |
+| `branding_personalizado` | bool  | ❌           | ✅            | ✅         | ❌    |
+| `dominio_personalizado`  | bool  | ❌           | ❌            | ✅         | ✅ Pro |
+| `export_csv`             | bool  | ❌           | ✅            | ✅         | ❌    |
+| `export_excel`           | bool  | ❌           | ✅            | ✅         | ❌    |
+| `export_pdf`             | bool  | ✅           | ✅            | ✅         | ❌    |
+| `api_access`             | bool  | ❌           | ❌            | ✅         | ✅ Pro |
+| `webhooks`               | bool  | ❌           | ❌            | ✅         | ✅ Pro |
+| `integraciones_nomina`   | bool  | ❌           | ❌            | ✅         | ✅ Pro |
+| `firma_electronica`      | bool  | ❌           | ❌            | ✅         | ✅ Pro |
+| `auditoria_avanzada`     | bool  | ❌           | ✅            | ✅         | ❌    |
+| `people_analytics`       | bool  | ❌           | ❌            | ✅         | ✅ Pro |
+| `emails_mes`             | quota | 200          | 5000          | unlimited  | ✅    |
+| `pushs_mes`              | quota | 1000         | unlimited     | unlimited  | ❌    |
+| `exports_mes`            | quota | 5            | 100           | unlimited  | ❌    |
+| `api_calls_dia`          | quota | —            | —             | 10000      | ❌    |
+
+### 11.5 Notas de diseño
+
+- **Starter** está dimensionado como "panadería con 10 empleados, 1 local,
+  con o sin GPS". Vendible barato y suficiente para validar el producto.
+  Geofencing incluido (1 ubicación) porque es trivial activarlo y barato de
+  servir cuando hay una sola tienda.
+- **Pro** abre lo que diferencia un fichaje serio: geofencing por tienda,
+  turnos, bolsa, notif push, branding, exportaciones. Es el plan al que
+  apuntará la mayoría de clientes.
+- **Enterprise** mete las integraciones que justifican un precio
+  cualitativamente distinto: API, nóminas, firma, dominio propio, analytics.
+- **Addons** monetizables: `dominio_personalizado`, `api_access`, `webhooks`,
+  `integraciones_nomina`, `firma_electronica`, `people_analytics` y
+  ampliaciones de `max_storage_mb` y `emails_mes`. Permiten a un tenant Pro
+  pagar solo por lo que necesita sin saltar a Enterprise.
+- **`max_owners`** no es feature: es un cap operativo en código (5).
+
+---
+
 ## Anexo: discrepancias con el contexto pre-recopilado
 
 | # | Pre-contexto decía | Realidad verificada | Acción |
