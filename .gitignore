@@ -43,3 +43,10 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Ruflo / Claude Code metadata locales
+.claude/
+.claude-flow/
+.swarm/
+.mcp.json
+ruvector.db
