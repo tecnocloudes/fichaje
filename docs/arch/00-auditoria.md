@@ -711,9 +711,7 @@ exigida por el RD): no se puede ocultar tras un plan.
 **Boolean — funcionalidad**:
 
 - `multi_tienda` — habilita >1 tienda en el tenant.
-- `geofencing` — fichaje validado por GPS / radio. En Starter limitado a 1
-  ubicación (la única tienda permitida); en Pro/Enterprise se aplica por tienda
-  combinado con `multi_tienda`.
+- `geofencing` — fichaje validado por GPS / radio.
 - `fichaje_movil` — fichaje desde PWA / móvil del empleado.
 - `fichaje_tablet` — fichaje desde tablet compartida en tienda.
 - `bolsa_horas` — módulo de acumulación/consumo de horas.
@@ -779,7 +777,7 @@ obtiene subiendo de plan).
 | `historial_meses`        | limit | 6            | 36            | 120        | ❌    |
 | `max_storage_mb`         | limit | 500          | 5000          | 50000      | ✅ Pro |
 | `multi_tienda`           | bool  | ❌           | ✅            | ✅         | ❌    |
-| `geofencing`             | bool  | ✅ (1 ubic.) | ✅ por tienda | ✅ por tienda | ❌  |
+| `geofencing`             | bool  | ✅           | ✅            | ✅         | ❌    |
 | `fichaje_movil`          | bool  | ✅           | ✅            | ✅         | ❌    |
 | `fichaje_tablet`         | bool  | ❌           | ✅            | ✅         | ❌    |
 | `bolsa_horas`            | bool  | ❌           | ✅            | ✅         | ❌    |
@@ -811,8 +809,8 @@ obtiene subiendo de plan).
 
 - **Starter** está dimensionado como "panadería con 10 empleados, 1 local,
   con o sin GPS". Vendible barato y suficiente para validar el producto.
-  Geofencing incluido (1 ubicación) porque es trivial activarlo y barato de
-  servir cuando hay una sola tienda.
+- `geofencing` es booleano puro; el número de ubicaciones donde aplica viene
+  determinado por `max_tiendas`.
 - **Pro** abre lo que diferencia un fichaje serio: geofencing por tienda,
   turnos, bolsa, notif push, branding, exportaciones. Es el plan al que
   apuntará la mayoría de clientes.
