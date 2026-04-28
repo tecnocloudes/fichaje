@@ -125,7 +125,7 @@ fichaje/
 │   ├── app/
 │   │   ├── (auth)/login/          # Página de login
 │   │   ├── (dashboard)/
-│   │   │   ├── admin/             # Panel superadmin
+│   │   │   ├── admin/             # Panel OWNER (admin del tenant)
 │   │   │   ├── manager/           # Panel manager
 │   │   │   └── empleado/          # Portal empleado
 │   │   ├── api/                   # API Routes

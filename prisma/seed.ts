@@ -72,8 +72,8 @@ async function main() {
 
   const passwordHash = await bcrypt.hash("password123", 12);
 
-  // Crear superadmin
-  const superadmin = await prisma.user.create({
+  // Crear OWNER (admin del tenant)
+  const owner = await prisma.user.create({
     data: {
       email: "admin@telecom.es",
       password: passwordHash,
@@ -84,7 +84,7 @@ async function main() {
       rol: "OWNER",
     },
   });
-  console.log("✅ Superadmin creado: admin@telecom.es / password123");
+  console.log("✅ OWNER creado: admin@telecom.es / password123");
 
   // Crear managers y empleados para cada tienda
   const empleadosPorTienda = 4;

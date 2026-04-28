@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       tiendaId = nuevaTienda.id;
     }
 
-    // Create superadmin
+    // Create OWNER (admin del tenant)
     const admin = await prisma.user.create({
       data: {
         email,
