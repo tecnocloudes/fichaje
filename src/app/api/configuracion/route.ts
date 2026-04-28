@@ -20,7 +20,7 @@ export async function GET() {
     });
 
     const user = session.user as { rol?: string };
-    if (user.rol !== Rol.SUPERADMIN) {
+    if (user.rol !== Rol.OWNER) {
       return Response.json({
         nombre: config.nombre,
         horasJornadaDiaria: config.horasJornadaDiaria,
@@ -43,7 +43,7 @@ export async function PUT(request: NextRequest) {
   try {
     const session = await auth();
     const user = session?.user as { rol?: string } | undefined;
-    if (!user || user.rol !== Rol.SUPERADMIN) {
+    if (!user || user.rol !== Rol.OWNER) {
       return Response.json({ error: "No autorizado" }, { status: 401 });
     }
 

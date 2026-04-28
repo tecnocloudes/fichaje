@@ -7,7 +7,7 @@ export default async function HomePage() {
   if (session?.user) {
     const rol = (session.user as any).rol as string | undefined;
 
-    if (rol === "SUPERADMIN") {
+    if (rol === "OWNER") {
       redirect("/admin");
     } else if (rol === "MANAGER") {
       redirect("/manager");

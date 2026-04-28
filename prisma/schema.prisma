@@ -8,7 +8,8 @@ datasource db {
 }
 
 enum Rol {
-  SUPERADMIN
+  OWNER       // antes SUPERADMIN — admin del tenant. Reservado SUPERADMIN
+              // para la plataforma (tabla super_admins en control plane).
   MANAGER
   EMPLEADO
 }

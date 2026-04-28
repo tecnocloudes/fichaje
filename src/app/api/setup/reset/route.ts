@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const userRol = (session.user as any).rol as Rol;
-    if (userRol !== Rol.SUPERADMIN) {
+    if (userRol !== Rol.OWNER) {
       return Response.json({ error: "No autorizado" }, { status: 403 });
     }
 

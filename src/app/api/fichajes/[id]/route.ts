@@ -14,7 +14,7 @@ export async function PATCH(
     }
 
     const userRol = (session.user as any).rol as Rol;
-    if (userRol !== Rol.SUPERADMIN && userRol !== Rol.MANAGER) {
+    if (userRol !== Rol.OWNER && userRol !== Rol.MANAGER) {
       return Response.json({ error: "No autorizado" }, { status: 403 });
     }
 
@@ -77,7 +77,7 @@ export async function DELETE(
     }
 
     const userRol = (session.user as any).rol as Rol;
-    if (userRol !== Rol.SUPERADMIN) {
+    if (userRol !== Rol.OWNER) {
       return Response.json({ error: "No autorizado" }, { status: 403 });
     }
 

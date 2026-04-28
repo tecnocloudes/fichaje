@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     const rol = (session.user as any).rol as string;
-    if (rol !== "SUPERADMIN") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    if (rol !== "OWNER") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 
     const { tipo, titulo, descripcion, orden } = await req.json();
     if (!tipo || !titulo) return NextResponse.json({ error: "Faltan campos" }, { status: 400 });

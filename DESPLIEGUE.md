@@ -90,7 +90,7 @@ Una vez desplegado, accede a `https://fichaje.tudominio.com`
 **Credenciales por defecto:**
 | Rol | Email | Contraseña |
 |-----|-------|-----------|
-| Super Admin | admin@telecom.es | password123 |
+| Administrador (OWNER) | admin@telecom.es | password123 |
 | Manager (T1) | manager.tienda1@telecom.es | password123 |
 | Empleado | empleado1@telecom.es | password123 |
 
@@ -100,7 +100,7 @@ Una vez desplegado, accede a `https://fichaje.tudominio.com`
 
 ## 7. Configuración post-despliegue
 
-1. Accede como Super Admin → **Configuración**
+1. Accede como Administrador (OWNER) → **Configuración**
 2. Actualiza el nombre de la empresa
 3. Verifica las tiendas y añade coordenadas GPS reales para el geofencing
 4. Crea las cuentas de manager para cada tienda

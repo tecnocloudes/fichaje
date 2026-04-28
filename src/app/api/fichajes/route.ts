@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
 
-    if (userRol === Rol.SUPERADMIN) {
+    if (userRol === Rol.OWNER) {
       if (tiendaId) where.tiendaId = tiendaId;
       if (userId) where.userId = userId;
     } else if (userRol === Rol.MANAGER) {

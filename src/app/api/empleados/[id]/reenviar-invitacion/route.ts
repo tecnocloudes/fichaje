@@ -14,7 +14,7 @@ export async function POST(
     const session = await auth();
     if (!session?.user) return Response.json({ error: "No autorizado" }, { status: 401 });
     const userRol = (session.user as any).rol as Rol;
-    if (userRol !== Rol.SUPERADMIN) return Response.json({ error: "No autorizado" }, { status: 403 });
+    if (userRol !== Rol.OWNER) return Response.json({ error: "No autorizado" }, { status: 403 });
 
     const { id } = await params;
     const empleado = await prisma.user.findUnique({

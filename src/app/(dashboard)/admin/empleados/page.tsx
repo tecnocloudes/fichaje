@@ -19,7 +19,7 @@ interface Empleado {
   email: string;
   dni?: string;
   telefono?: string;
-  rol: "SUPERADMIN" | "MANAGER" | "EMPLEADO";
+  rol: "OWNER" | "MANAGER" | "EMPLEADO";
   activo: boolean;
   password: string | null;
   resetToken: string | null;
@@ -41,7 +41,7 @@ interface Tienda {
 
 const FORM_INICIAL = {
   nombre: "", apellidos: "", email: "", dni: "", telefono: "",
-  password: "", rol: "EMPLEADO" as "SUPERADMIN" | "MANAGER" | "EMPLEADO", tiendaId: "",
+  password: "", rol: "EMPLEADO" as "OWNER" | "MANAGER" | "EMPLEADO", tiendaId: "",
 };
 
 // Password field only used when editing (to change existing password)
@@ -219,7 +219,7 @@ export default function EmpleadosPage() {
             <SelectItem value="todos">Todos los roles</SelectItem>
             <SelectItem value="EMPLEADO">Empleado</SelectItem>
             <SelectItem value="MANAGER">Manager</SelectItem>
-            <SelectItem value="SUPERADMIN">Super Admin</SelectItem>
+            <SelectItem value="OWNER">Administrador</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -371,7 +371,7 @@ export default function EmpleadosPage() {
                   <SelectContent>
                     <SelectItem value="EMPLEADO">Empleado</SelectItem>
                     <SelectItem value="MANAGER">Manager</SelectItem>
-                    <SelectItem value="SUPERADMIN">Super Admin</SelectItem>
+                    <SelectItem value="OWNER">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

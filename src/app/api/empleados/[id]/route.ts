@@ -36,10 +36,10 @@ export async function GET(
     const userRol = (session.user as any).rol as Rol;
     const userTiendaId = (session.user as any).tiendaId as string | null;
 
-    // Can access own profile, or SUPERADMIN/MANAGER can access others
+    // Can access own profile, or OWNER/MANAGER can access others
     if (
       id !== session.user.id &&
-      userRol !== Rol.SUPERADMIN &&
+      userRol !== Rol.OWNER &&
       userRol !== Rol.MANAGER
     ) {
       return Response.json({ error: "No autorizado" }, { status: 403 });
@@ -83,8 +83,8 @@ export async function PUT(
     const { id } = await params;
     const userRol = (session.user as any).rol as Rol;
 
-    // Only SUPERADMIN or the user themselves can update
-    if (id !== session.user.id && userRol !== Rol.SUPERADMIN) {
+    // Only OWNER or the user themselves can update
+    if (id !== session.user.id && userRol !== Rol.OWNER) {
       return Response.json({ error: "No autorizado" }, { status: 403 });
     }
 
@@ -119,7 +119,7 @@ export async function PUT(
     };
 
     // Non-admins cannot change their own role or tienda
-    if (id === session.user.id && userRol !== Rol.SUPERADMIN) {
+    if (id === session.user.id && userRol !== Rol.OWNER) {
       if (rol !== undefined || tiendaId !== undefined) {
         return Response.json(
           { error: "No puedes cambiar tu propio rol o tienda" },
@@ -144,9 +144,9 @@ export async function PUT(
     if (dni !== undefined) updateData.dni = dni;
     if (telefono !== undefined) updateData.telefono = telefono;
     if (foto !== undefined) updateData.foto = foto;
-    if (rol !== undefined && userRol === Rol.SUPERADMIN) updateData.rol = rol;
-    if (tiendaId !== undefined && userRol === Rol.SUPERADMIN) updateData.tiendaId = tiendaId;
-    if (activo !== undefined && userRol === Rol.SUPERADMIN) updateData.activo = activo;
+    if (rol !== undefined && userRol === Rol.OWNER) updateData.rol = rol;
+    if (tiendaId !== undefined && userRol === Rol.OWNER) updateData.tiendaId = tiendaId;
+    if (activo !== undefined && userRol === Rol.OWNER) updateData.activo = activo;
 
     if (password) {
       updateData.password = await bcrypt.hash(password, 12);
@@ -176,7 +176,7 @@ export async function DELETE(
     }
 
     const userRol = (session.user as any).rol as Rol;
-    if (userRol !== Rol.SUPERADMIN) {
+    if (userRol !== Rol.OWNER) {
       return Response.json({ error: "No autorizado" }, { status: 403 });
     }
 

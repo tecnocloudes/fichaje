@@ -7,7 +7,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     const rol = (session.user as any).rol as string;
-    if (rol !== "SUPERADMIN") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    if (rol !== "OWNER") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 
     const { id } = await params;
     const body = await req.json();
@@ -33,7 +33,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     const rol = (session.user as any).rol as string;
-    if (rol !== "SUPERADMIN") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    if (rol !== "OWNER") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 
     const { id } = await params;
     await prisma.plantillaTareaOnboarding.delete({ where: { id } });

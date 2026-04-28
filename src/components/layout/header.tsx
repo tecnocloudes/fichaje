@@ -201,7 +201,7 @@ export function Header({ user, onMenuToggle, notificationCount = 0 }: HeaderProp
                 <button
                   onClick={() => {
                     const rol = user.rol;
-                    if (rol === "SUPERADMIN" || rol === "MANAGER") {
+                    if (rol === "OWNER" || rol === "MANAGER") {
                       router.push("/admin/configuracion");
                     } else {
                       router.push("/empleado/preferencias");

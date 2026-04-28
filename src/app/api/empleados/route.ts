@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     const userRol = (session.user as any).rol as Rol;
-    if (userRol !== Rol.SUPERADMIN && userRol !== Rol.MANAGER) {
+    if (userRol !== Rol.OWNER && userRol !== Rol.MANAGER) {
       return Response.json({ error: "No autorizado" }, { status: 403 });
     }
 
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
 
-    if (userRol === Rol.SUPERADMIN) {
+    if (userRol === Rol.OWNER) {
       if (tiendaId) where.tiendaId = tiendaId;
     } else {
       // MANAGER sees only their tienda
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     const userRol = (session.user as any).rol as Rol;
-    if (userRol !== Rol.SUPERADMIN) {
+    if (userRol !== Rol.OWNER) {
       return Response.json({ error: "No autorizado" }, { status: 403 });
     }
 

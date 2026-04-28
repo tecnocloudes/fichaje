@@ -85,7 +85,7 @@ export function getDiaSemana(date: Date | string): string {
 
 export function getColorRol(rol: string) {
   switch (rol) {
-    case "SUPERADMIN":
+    case "OWNER":
       return "bg-purple-100 text-purple-700";
     case "MANAGER":
       return "bg-blue-100 text-blue-700";
@@ -96,8 +96,8 @@ export function getColorRol(rol: string) {
 
 export function getLabelRol(rol: string) {
   switch (rol) {
-    case "SUPERADMIN":
-      return "Super Admin";
+    case "OWNER":
+      return "Administrador";
     case "MANAGER":
       return "Manager";
     default:

@@ -44,7 +44,7 @@ interface SidebarConfig {
 }
 
 function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
-  if (rol === "SUPERADMIN") {
+  if (rol === "OWNER") {
     return {
       top: { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
       sections: [
@@ -183,7 +183,7 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
 
 function getRolLabel(rol: string) {
   switch (rol) {
-    case "SUPERADMIN": return "Super Admin";
+    case "OWNER": return "Administrador";
     case "MANAGER": return "Manager";
     default: return "Empleado";
   }
@@ -191,7 +191,7 @@ function getRolLabel(rol: string) {
 
 function getRolColor(rol: string) {
   switch (rol) {
-    case "SUPERADMIN": return "bg-violet-500/20 text-violet-300";
+    case "OWNER": return "bg-violet-500/20 text-violet-300";
     case "MANAGER": return "bg-sky-500/20 text-sky-300";
     default: return "bg-emerald-500/20 text-emerald-300";
   }
@@ -449,7 +449,7 @@ export function Sidebar({
             {!collapsed && <span className="flex-1 text-left text-sm">Notificaciones</span>}
           </button>
 
-          {user.rol === "SUPERADMIN" && (
+          {user.rol === "OWNER" && (
             <Link
               href="/admin/configuracion"
               className={cn(

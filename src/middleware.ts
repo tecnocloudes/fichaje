@@ -23,17 +23,17 @@ export default auth((req) => {
   }
 
   if (isLoggedIn && isAuthPage) {
-    if (rol === "SUPERADMIN") return NextResponse.redirect(new URL("/admin", nextUrl));
+    if (rol === "OWNER") return NextResponse.redirect(new URL("/admin", nextUrl));
     if (rol === "MANAGER") return NextResponse.redirect(new URL("/manager", nextUrl));
     return NextResponse.redirect(new URL("/empleado", nextUrl));
   }
 
   if (isLoggedIn) {
     const path = nextUrl.pathname;
-    if (path.startsWith("/admin") && rol !== "SUPERADMIN") {
+    if (path.startsWith("/admin") && rol !== "OWNER") {
       return NextResponse.redirect(new URL("/empleado", nextUrl));
     }
-    if (path.startsWith("/manager") && rol !== "MANAGER" && rol !== "SUPERADMIN") {
+    if (path.startsWith("/manager") && rol !== "MANAGER" && rol !== "OWNER") {
       return NextResponse.redirect(new URL("/empleado", nextUrl));
     }
   }

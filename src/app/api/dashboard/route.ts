@@ -110,7 +110,7 @@ export async function GET() {
         OR: [
           { asignadoAId: userId },
           { creadoPorId: userId },
-          ...(rol === "SUPERADMIN" ? [{}] : []),
+          ...(rol === "OWNER" ? [{}] : []),
         ],
       },
       include: {

@@ -81,7 +81,7 @@ async function main() {
       apellidos: "García López",
       dni: "12345678A",
       telefono: "600000001",
-      rol: "SUPERADMIN",
+      rol: "OWNER",
     },
   });
   console.log("✅ Superadmin creado: admin@telecom.es / password123");

@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         nombre,
         apellidos,
-        rol: Rol.SUPERADMIN,
+        rol: Rol.OWNER,
         tiendaId,
         activo: true,
       },

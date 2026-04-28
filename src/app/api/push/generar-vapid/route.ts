@@ -7,7 +7,7 @@ export async function POST() {
   try {
     const session = await auth();
     const user = session?.user as { rol?: string } | undefined;
-    if (!user || user.rol !== Rol.SUPERADMIN) {
+    if (!user || user.rol !== Rol.OWNER) {
       return Response.json({ error: "No autorizado" }, { status: 401 });
     }
 

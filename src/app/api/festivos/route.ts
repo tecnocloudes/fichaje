@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     const rol = (session.user as any).rol as string;
-    if (rol !== "SUPERADMIN") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    if (rol !== "OWNER") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 
     const body = await req.json();
     const { nombre, fecha, ambito } = body;
@@ -43,7 +43,7 @@ export async function DELETE(req: NextRequest) {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     const rol = (session.user as any).rol as string;
-    if (rol !== "SUPERADMIN") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    if (rol !== "OWNER") return NextResponse.json({ error: "No autorizado" }, { status: 403 });
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

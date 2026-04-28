@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     // Build base filters depending on role
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const roleFilter: any = {};
-    if (userRol === Rol.SUPERADMIN) {
+    if (userRol === Rol.OWNER) {
       if (tiendaId) roleFilter.tiendaId = tiendaId;
       if (userId) roleFilter.userId = userId;
     } else if (userRol === Rol.MANAGER) {
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (tipo === "presencia-global") {
-      if (userRol !== Rol.SUPERADMIN) {
+      if (userRol !== Rol.OWNER) {
         return Response.json({ error: "No autorizado" }, { status: 403 });
       }
       return await informePresenciaGlobal();
@@ -130,7 +130,7 @@ async function informeAusencias(
     fechaFin: { gte: inicio },
   };
 
-  if (userRol === Rol.SUPERADMIN) {
+  if (userRol === Rol.OWNER) {
     if (roleFilter.tiendaId) where.user = { tiendaId: roleFilter.tiendaId };
     if (roleFilter.userId) where.userId = roleFilter.userId;
   } else if (userRol === Rol.MANAGER) {
@@ -195,7 +195,7 @@ async function informeResumen(
   // Build user filter for the summary
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userWhere: any = { activo: true };
-  if (userRol === Rol.SUPERADMIN) {
+  if (userRol === Rol.OWNER) {
     if (tiendaId) userWhere.tiendaId = tiendaId;
     if (userId) userWhere.id = userId;
   } else if (userRol === Rol.MANAGER) {
@@ -345,7 +345,7 @@ async function informePresencia(
   const diaInicio = new Date(fecha + "T00:00:00");
   const diaFin = new Date(fecha + "T23:59:59");
 
-  const whereEmpleados: any = { activo: true, rol: { not: "SUPERADMIN" } };
+  const whereEmpleados: any = { activo: true, rol: { not: "OWNER" } };
   if (userRol === Rol.MANAGER) whereEmpleados.tiendaId = userTiendaId;
   if (roleFilter.tiendaId) whereEmpleados.tiendaId = roleFilter.tiendaId;
 
@@ -419,7 +419,7 @@ async function informePresenciaGlobal() {
   const [tiendas, fichajosHoy, ausenciasHoy] = await Promise.all([
     prisma.tienda.findMany({
       where: { activa: true },
-      include: { _count: { select: { empleados: { where: { activo: true, rol: { not: "SUPERADMIN" } } } } } },
+      include: { _count: { select: { empleados: { where: { activo: true, rol: { not: "OWNER" } } } } } },
     }),
     prisma.fichaje.findMany({
       where: { timestamp: { gte: hoyInicio, lte: hoyFin } },
