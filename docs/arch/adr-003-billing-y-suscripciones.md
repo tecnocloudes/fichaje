@@ -7,7 +7,7 @@
 - **Visión**: [ADR-000](./adr-000-vision-saas.md)
 - **Bounded contexts afectados**: `billing`, `control-plane`, `fichaje`, `super-admin`
 - **Sucede a**: [ADR-001](./adr-001-aislamiento-multi-tenant.md), [ADR-002](./adr-002-resolucion-tenant.md)
-- **Bloquea a**: ADR-004 (feature flags y addons), ADR-005 (deployment + TLS, claves Stripe en Dokploy), Fases 2, 4 y 5
+- **Bloquea a**: ADR-004 (feature flags y addons), ADR-005 (deployment + TLS, claves Stripe en Dokploy), ADR-008 (lifecycle del tenant y retención de datos), Fases 2, 4 y 5
 
 ---
 
@@ -62,7 +62,15 @@ obliga a conservar el registro horario 4 años. Si un tenant cancela su
 suscripción, los datos del schema `tenant_<slug>` no pueden eliminarse al
 día siguiente: la cancelación NO es DELETE. El estado por defecto tras una
 cancelación es `suspended` con retención larga, y el `DELETE` real lo
-gobierna un proceso aparte (Fase 5+, fuera de este ADR).
+gobierna un proceso aparte (ADR-008, ver §5.5).
+
+**Nota sobre los estados del tenant**: este ADR introduce el estado
+`PROVISIONING` además de los cuatro definidos en ADR-002 §2.4 (`active`,
+`suspended`, `pending`, `deleted`). `PROVISIONING` significa
+"subscription de Stripe creada, schema en proceso de provisión". ADR-002
+§2.4 debe extenderse para mapear `PROVISIONING → 503 + Retry-After: 30 +
+página 'preparando tu cuenta'`. Ese cambio en ADR-002 queda como TODO
+documentado en §5.2 de este ADR; no se edita ADR-002 desde aquí.
 
 ---
 
@@ -181,6 +189,23 @@ Notas:
   procesados. Importante para auditoría sin gastar storage en payloads
   inútiles (en Fase 9 se puede añadir un job que purga payloads > 90
   días para eventos ignorados).
+
+**Mismatch entre `feature_key` del subscription_item y `master.features`**:
+cuando un evento Stripe trae un `subscription_item` con
+`metadata.feature_key` que no existe en `master.features`, el handler:
+
+1. Registra la fila en `master.subscription_items` igualmente para
+   mantener idempotencia (el evento entró en `stripe_events`; no
+   procesar el item sería incoherente con `processed_at`).
+2. Inserta un evento en `master.audit_log` (tabla a definir en ADR-007)
+   con `severity = 'warning'` y `code = 'feature_key_unknown'`,
+   guardando `tenant_id`, `feature_key` y `stripe_item_id`.
+3. El panel super-admin muestra un contador "features no reconocidas en
+   los últimos 7 días" en su dashboard, con drill-down al audit_log.
+
+Sin esta visibilidad, una feature retirada del catálogo cuyos clientes
+la siguen pagando es indetectable hasta que un cliente reporte que la
+funcionalidad esperada no aparece.
 
 ### 2.3 Coreografía de eventos Stripe
 
@@ -365,8 +390,16 @@ Flujo:
 3. **`checkout.session.completed`**:
    - Resolver `tenant_id` desde `session.client_reference_id` (no desde
      metadata: el `client_reference_id` es exactamente para esto).
-   - Si `tenant.status != PENDING` → ya estaba provisto (replay del
-     evento), responder 200.
+   - Si `tenant.status NOT IN ('PENDING', 'PROVISIONING')` → ya estaba
+     provisto o suspendido (replay del evento o estado terminal),
+     responder 200.
+   - Si `tenant.status = PROVISIONING` → ya hay una coreografía en
+     curso (replay durante la propia coreografía o el job de §5.2 está
+     reintentando), responder 200 sin reentrar.
+   - **Transición PENDING → PROVISIONING**: `UPDATE tenants SET status =
+     'PROVISIONING', updated_at = now() WHERE id = ? AND status =
+     'PENDING'`. Si el `UPDATE` afecta 0 filas (otro proceso ya cogió el
+     evento), responder 200 sin más acción.
    - Setear `tenant.stripe_customer_id = session.customer`.
    - Recuperar `subscription` con la API y crear la fila en
      `master.subscriptions` y los `subscription_items`.
@@ -380,8 +413,15 @@ Flujo:
      d. `prismaApp.$executeRawUnsafe('SET search_path TO "tenant_<slug>", public')`
         y `prismaApp.user.create(...)` para el primer OWNER (datos del
         formulario de registro).
-   - Si todo OK: `tenant.status = ACTIVE`. Email de bienvenida con URL
+   - **Transición PROVISIONING → ACTIVE**: `UPDATE tenants SET status =
+     'ACTIVE', updated_at = now() WHERE id = ? AND status =
+     'PROVISIONING'`. Email de bienvenida con URL
      `<slug>.ficha.tecnocloud.es`.
+   - Si la coreografía falla a mitad: `tenant.status` queda en
+     `PROVISIONING` y `processing_error` queda relleno en
+     `stripe_events`. El job de detección de §5.2 lo recupera. NO
+     transicionar manualmente a `PENDING` ni a `DELETED` desde el
+     handler — esa decisión la toma el job.
 4. **Si el usuario abandona el checkout** (cierra el navegador,
    cancela): el tenant queda en `PENDING` indefinidamente. Lo resuelve un
    **job programado**:
@@ -429,6 +469,27 @@ Razón de elegir **con tarjeta** y no sin tarjeta:
   protección al consumidor está cubierta.
 
 Argumento detallado y alternativas en §3.2.
+
+**Reversibilidad por env: `STRIPE_TRIAL_REQUIRES_CARD`**
+
+La decisión de exigir tarjeta en el trial es B2B-cultural y no está
+respaldada por datos propios todavía (no hay tenants reales). Para no
+quedar atados, el comportamiento es configurable por env:
+
+- `STRIPE_TRIAL_REQUIRES_CARD=true` (**default**): el flow descrito
+  arriba. Registro lleva directamente al checkout con
+  `trial_period_days = STRIPE_TRIAL_DAYS`.
+- `STRIPE_TRIAL_REQUIRES_CARD=false`: el flow se invierte. Registro →
+  tenant `ACTIVE` en trial sin pasar por checkout. Al día
+  `STRIPE_TRIAL_DAYS`, email al OWNER con link de checkout. Si no
+  completa el checkout en N días adicionales (TBD si se activa esta
+  rama), suspender. Esto **bifurca la coreografía de Fase 4** y se
+  mantiene como opción configurable, no como flow soportado por
+  defecto. Si se activa, requiere su propia entrada en `stripe_events`
+  para `customer.subscription.created` con `default_payment_method =
+  null` y handler ad-hoc.
+
+El criterio para considerar el cambio queda en §5.2.
 
 ### 2.8 Cambio de plan y autoservicio
 
@@ -498,7 +559,17 @@ Al recibir `customer.subscription.updated` (o `created`, o `deleted`):
 
 **Resolución en runtime**:
 
+El `enum master.feature_source` no tiene orden semántico fiable (depende
+del orden de declaración en SQL). La prioridad se aplica en aplicación
+con un mapa explícito:
+
 ```ts
+const PRIORITY: Record<FeatureSource, number> = {
+  manual_override: 3,
+  addon: 2,
+  plan: 1,
+};
+
 async function hasFeature(tenantId: string, key: string): Promise<boolean> {
   const rows = await prismaMaster.tenantFeature.findMany({
     where: {
@@ -506,20 +577,38 @@ async function hasFeature(tenantId: string, key: string): Promise<boolean> {
       feature_key: key,
       OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
     },
-    orderBy: { source: "desc" }, // manual_override > plan > addon (depende del enum order; en SQL usar CASE)
   });
-  // manual_override gana siempre si existe y no ha expirado.
+  rows.sort((a, b) => PRIORITY[b.source] - PRIORITY[a.source]);
   const overrideRow = rows.find((r) => r.source === "manual_override");
   if (overrideRow) return overrideRow.value === true;
   return rows.some((r) => r.value === true);
 }
 ```
 
-Nota sobre el orden: `manual_override > addon > plan` para booleans.
-Para limits y quotas, la regla es **el máximo entre todas las fuentes**
-(un addon `storage_extra` con `quantity = 5` se suma al `max_storage_mb`
-del plan; un manual_override puede aumentar puntualmente). La función
-`getLimit` y `getQuota` implementan esa agregación.
+**Tabla explícita de combinación de fuentes**:
+
+| Tipo      | `manual_override` presente                     | `manual_override` ausente                                              |
+|-----------|------------------------------------------------|------------------------------------------------------------------------|
+| `boolean` | `manual_override` gana (puede activar O desactivar) | OR entre `plan` y `addons`                                            |
+| `limit`   | `manual_override` gana (puede subir O bajar)        | máximo entre `plan` y `addons`                                        |
+| `quota`   | `manual_override` gana (puede subir O bajar)        | suma de `plan` + `addons` (ej: `max_storage_mb` plan + `storage_extra` × `quantity`) |
+
+`getLimit(key)` y `getQuota(key)` implementan estas reglas; el mismo
+patrón de prioridad que `hasFeature` aplica.
+
+**Por qué `manual_override` puede subir O bajar** (no solo subir):
+
+El super-admin necesita poder **restringir** a un cliente que abuse
+antes de cancelar la suscripción. Caso concreto: cliente con plan Pro
+que abusa de `api_access` (saturando rate limits, scrapeando datos,
+incidente de seguridad). El super-admin pone un `manual_override` de
+`api_access = false` con `reason = "abuso confirmado, ticket #1234"` y
+`expires_at` definido, antes de escalar a cancelación. Limitar
+`manual_override` a "solo subir" lo dejaría sin esta palanca; tendría
+que cancelar la suscripción de golpe o esperar a que Stripe haga su
+parte. Ambas opciones son peores: pierdes al cliente o vives con el
+abuso. La pareja `value` + `reason` + `audit_log` (ADR-007) ya cubre la
+auditabilidad de un override restrictivo.
 
 **Manual override desde panel super-admin** (ADR-007):
 
@@ -673,8 +762,40 @@ del plan; un manual_override puede aumentar puntualmente). La función
   para abrir el Billing Portal.
 - Job programado horario para `DELETE PENDING > 24h` (en el mismo
   worker; cron por `node-cron` o equivalente).
-- Si el handler tarda >25s en producción, considerar mover el
-  procesamiento a una cola (BullMQ + Redis). Hasta entonces, síncrono.
+- **Trigger objetivo para mover el handler a cola asíncrona**: hasta que
+  uno de los dos triggers siguientes se cumpla, el procesamiento es
+  síncrono dentro del handler:
+  - **Trigger A — latencia**: la mediana p50 del handler de
+    `checkout.session.completed` supera 10 segundos durante 7 días
+    consecutivos.
+  - **Trigger B — fallos**: más de 3 eventos terminan con
+    `processing_error` no nulo en una semana natural.
+  Cuando se cumpla cualquiera de los dos, mover el procesamiento a
+  BullMQ + Redis. Fase 4 lo añade entonces, no antes. La métrica p50 se
+  mide sobre `received_at` → `processed_at` en `master.stripe_events`.
+- **Job de detección de PROVISIONING huérfanos**: cada 5 minutos,
+  detectar tenants con `status = 'PROVISIONING' AND updated_at < now() -
+  interval '10 minutes'`. El job:
+  1. Cuenta el número de intentos previos en `stripe_events` para ese
+     `customer.subscription.id` con `processing_error IS NOT NULL`.
+  2. Si <3 intentos: re-encolar la coreografía (hoy: re-ejecutar el
+     handler de forma idempotente; cuando entre BullMQ, push a la
+     cola).
+  3. Si ≥3 intentos: alertar a super-admin (email +
+     `master.audit_log` con `severity='critical'`,
+     `code='provisioning_failed'`). El tenant se queda en
+     `PROVISIONING` hasta que el super-admin intervenga manualmente.
+- **TODO en ADR-002**: §2.4 de ADR-002 debe extenderse para mapear el
+  estado `PROVISIONING` añadido en este ADR a `503 Service Unavailable +
+  Retry-After: 30 + página "preparando tu cuenta"`. No se edita ADR-002
+  desde aquí; queda como pendiente de incorporar en el próximo bloque
+  de enmiendas a ADR-002.
+- **Criterio de revisión del trial-con-tarjeta** (§2.7): tras 3 meses de
+  operación tras Fase 4, evaluar la conversión registro → checkout
+  completado. Si <30%, considerar `STRIPE_TRIAL_REQUIRES_CARD=false` con
+  monitorización de la tasa de abuso (registros sin checkout final tras
+  el día `STRIPE_TRIAL_DAYS`). La revisión queda como entrada de Fase 9
+  o como ADR de revisión específico, según el resultado.
 
 ### 5.3 Fase 5 — Feature flags en uso
 
@@ -713,6 +834,39 @@ Healthcheck de la app:
 - Verificar que `STRIPE_SECRET_KEY` está presente y que el SDK puede
   hacer un `stripe.products.list({ limit: 1 })` (smoke test, no en cada
   health check sino al arranque).
+
+Variables adicionales:
+
+- `STRIPE_TRIAL_REQUIRES_CARD=true` (default). `false` invierte el flow
+  según §2.7. Cambiar este flag tras Fase 4 requiere ADR de revisión.
+
+### 5.5 Fuera del alcance de este ADR
+
+El lifecycle `SUSPENDED → DELETED` tras una cancelación queda
+explícitamente diferido a **ADR-008 — Lifecycle del tenant y retención
+de datos**, a redactar antes de Fase 5. Preguntas abiertas que ese ADR
+debe cerrar:
+
+- ¿Cuándo se transiciona `SUSPENDED → DELETED` por defecto? (Posible
+  respuesta: 4 años + 1 día desde la cancelación, alineado con la
+  retención obligatoria del RD 8/2019.)
+- ¿Cómo se reconcilia un GDPR delete (derecho de supresión, art. 17
+  RGPD) con la obligación de retención RD 8/2019? El borrado anticipado
+  por petición del cliente puede requerir base legal distinta o
+  documentación añadida en `audit_log`.
+- ¿Quién dispara la transición? Job programado, super-admin manual con
+  `audit_log`, política automática combinada — ADR-008 cierra el
+  reparto.
+- ¿Cómo se trata el `stripe_customer_id` cuando un tenant pasa a
+  `DELETED`? ¿Se borra el customer en Stripe? ¿Se conserva por
+  histórico de facturación?
+
+Hasta que ADR-008 cierre esto, **un tenant en `SUSPENDED` no se borra
+nunca automáticamente**. El super-admin puede borrar manualmente con
+`audit_log`, pero el comportamiento por defecto es retención
+indefinida. Igualmente, un tenant en `PROVISIONING` que no recupera el
+job de §5.2 queda hasta que el super-admin decida — no hay timeout
+automático que lo borre.
 
 ---
 
