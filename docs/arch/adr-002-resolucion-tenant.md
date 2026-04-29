@@ -277,16 +277,26 @@ puntualmente para soporte.
 
 ### 2.4 Estados del tenant y respuesta HTTP
 
-El campo `master.tenants.status` es un enum con cuatro valores. Cada uno
-implica un comportamiento distinto en el middleware **antes** de llegar a la
-app del producto:
+El campo `master.tenants.status` es un enum con **cinco** valores. Cada
+uno implica un comportamiento distinto en el middleware **antes** de
+llegar a la app del producto. Orden cronológico del lifecycle del tenant:
 
-| Estado      | HTTP             | Comportamiento                                                                                    |
-|-------------|------------------|---------------------------------------------------------------------------------------------------|
-| `active`    | (continúa)       | Continúa la request normalmente. `runWithTenant({ slug, tenantId, status })` envuelve la handler |
-| `suspended` | **402 Payment Required** | Página explicativa (impago, suspensión manual). **No** se accede al schema del tenant. **No** se ejecuta `runWithTenant` |
-| `pending`   | **503 Service Unavailable** + `Retry-After: 30` | Página "preparando tu cuenta". Tenant registrado pero schema en provisión o pago pendiente |
-| `deleted`   | **410 Gone**     | El tenant fue borrado. Schema sigue existiendo hasta que el job de borrado lo limpie. **Sin** `Retry-After`. Definitivo |
+| Estado          | HTTP             | Comportamiento                                                                                    |
+|-----------------|------------------|---------------------------------------------------------------------------------------------------|
+| `pending`       | **503 Service Unavailable** + `Retry-After: 30` | Tenant insertado en `master.tenants` pero sin checkout completado. Página "esperando confirmación de pago" |
+| `provisioning`  | **503 Service Unavailable** + `Retry-After: 30` | Subscription en Stripe creada, worker aplicando la coreografía de provisión. Página "Estamos preparando tu cuenta, vuelve en unos segundos" |
+| `active`        | (continúa)       | Continúa la request normalmente. `runWithTenant({ slug, tenantId, status })` envuelve la handler |
+| `suspended`     | **402 Payment Required** | Página explicativa (impago, suspensión manual). **No** se accede al schema del tenant. **No** se ejecuta `runWithTenant` |
+| `deleted`       | **410 Gone**     | El tenant fue borrado. Schema sigue existiendo hasta que el job de borrado lo limpie. **Sin** `Retry-After`. Definitivo |
+
+`provisioning` (introducido por ADR-003 §2.6) significa que la subscription
+en Stripe se ha creado y el worker está aplicando la coreografía de
+provisión (crear schema, aplicar migraciones, crear primer OWNER). El 503
+con `Retry-After: 30` hace que navegadores y clientes HTTP reintenten
+automáticamente cada 30 segundos. La duración típica es <5 segundos para
+19 modelos; si supera 10 minutos, el job de detección de PROVISIONING
+huérfanos (ADR-003 §5.2) escala al super-admin. Ver ADR-003 §1 y §2.6
+para el contexto completo de este estado.
 
 Para hosts cuyo slug **no existe** en `master.tenants` (incluyendo subdominios
 inventados), el middleware responde **404 Not Found** sin distinguir entre
@@ -400,27 +410,37 @@ misma estrategia de defensa en profundidad de §2.5 ADR-001.
 | 403              | Más preciso semánticamente                | Filtra que el otro tenant existe                                         |
 | Redirect al subdominio correcto | UX cómoda           | Convierte un cross-tenant en un tenant-discovery oracle                  |
 
-### 3.6 Cómo accede el middleware a `master.tenants` para resolver el slug
+### 3.6 Cómo accede el middleware a `master.tenants` para resolver el slug — y quién escribe contadores de quota
 
 ADR-001 §2.3 fija dos roles Postgres (`master_role`, `app_role`) con
-permisos disjuntos: la app del producto se conecta con `app_role`, que **no
-tiene** acceso a `master`. Pero el middleware HTTP necesita resolver
-`host → tenant` consultando `master.tenants`. ¿Con qué rol consulta?
+permisos disjuntos: la app del producto se conecta con `app_role`, que
+**no tiene** acceso a `master`. Pero el middleware HTTP necesita resolver
+`host → tenant` consultando `master.tenants` (y, tras ADR-004, también
+precargar features y consumir quotas). ¿Con qué rol o roles?
 
-| Opción                                                                                                | Pro                                                                                              | Contra                                                                                                                                  |
-|-------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
-| **3 roles**: `master_role`, `app_role`, `tenant_resolver_role` (elegida)                              | Menor privilegio estricto. El middleware solo puede leer `master.tenants` y `master.reserved_slugs` | Tercer rol que mantener, tercera URL en `.env`, tercer cliente Prisma                                                                    |
-| `master_role` también para lookup, conexión separada                                                  | 2 roles, no 3                                                                                    | El lookup corre con un rol que puede escribir en todo `master`. Si el middleware se compromete, escala a control plane completo          |
-| Función SQL `master.resolve_tenant(slug)` con `SECURITY DEFINER`, `app_role` invoca                   | 2 roles, sin URL extra                                                                           | Stored procedure que mantener fuera de Prisma, complica testing y migraciones                                                            |
-| Vista `master.public_tenants` con `GRANT SELECT` a `app_role`                                         | 2 roles, sin cliente Prisma extra                                                                 | Acopla `app_role` a `master`. Viola el espíritu de aislamiento de ADR-001 §2.3: el principio era `app_role` **no** toca `master`         |
+| Opción                                                                                                                                       | Pro                                                                                                                          | Contra                                                                                                                                                          |
+|----------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Dos roles separados: `tenant_runtime_role` (lectura) + `quota_writer_role` (escritura)** (elegida)                                          | Menor privilegio estricto. El middleware HTTP **solo lee**. La escritura sobre `tenant_quota_usage` está aislada en un rol que solo se usa desde `consumeQuota` (ADR-004 §2.5) | Tres URLs en `.env` (master, runtime, quota_writer). Tres clientes Prisma adicionales sobre `app_role`. Regla ESLint custom para evitar uso indebido del writer  |
+| Un solo rol con read+write (lo que ADR-002 inicialmente proponía como `tenant_resolver_role` ampliado)                                       | Una URL menos                                                                                                                | Vector DoS: un compromiso del middleware permitiría poner `consumed = max` en quotas de competidores. ADR-004 §3.1 lo descarta con argumento explícito          |
+| `master_role` para todo el lookup                                                                                                            | 2 roles, no 3-4                                                                                                              | El lookup corre con un rol que puede escribir en todo `master`. Compromiso del middleware → escala a control plane completo                                     |
+| Función SQL `master.resolve_tenant(slug)` con `SECURITY DEFINER`, `app_role` invoca                                                          | 2 roles, sin URL extra                                                                                                        | Stored procedure que mantener fuera de Prisma, complica testing y migraciones. Cierra `consumeQuota` con menos garantías de atomicidad sobre el contador        |
+| Vista `master.public_tenants` con `GRANT SELECT` a `app_role`                                                                                | 2 roles, sin cliente Prisma extra                                                                                             | Acopla `app_role` a `master`. Viola el espíritu de aislamiento de ADR-001 §2.3: el principio era `app_role` **no** toca `master`                                |
 
 **Argumento decisivo**: el middleware HTTP es el componente con mayor
-superficie de ataque del sistema: recibe input HTTP arbitrario, parsea
-hosts, gestiona cookies, valida JWTs. Si se compromete, el rol Postgres con
-el que opera define el blast radius. `tenant_resolver_role` limita ese
-radio a `SELECT` sobre 2 tablas. Cualquier alternativa que reutilice
-`master_role` o que dé acceso de `app_role` a `master` amplía el radio sin
-compensación.
+superficie de ataque del sistema. Si se compromete, el rol Postgres con
+el que opera define el blast radius. `tenant_runtime_role` limita ese
+radio a `SELECT` sobre 4 tablas concretas (`master.tenants`,
+`master.reserved_slugs`, `master.tenant_features`,
+`master.tenant_quota_usage`). La escritura sobre `tenant_quota_usage`
+—vector de DoS contra competidores específicos— vive en
+`quota_writer_role` aislado, usado solo desde el helper `consumeQuota`
+(ADR-004 §2.5). Cualquier alternativa que reutilice `master_role` o que
+dé acceso de `app_role` a `master` amplía el radio sin compensación.
+
+> **Nota histórica**: este ADR-002 introdujo originalmente un único
+> `tenant_resolver_role` con `SELECT` sobre 2 tablas. ADR-004 §2.2
+> amplió los permisos necesarios y separó lectura y escritura en dos
+> roles. Esta sección refleja el estado final tras esa enmienda.
 
 ---
 
@@ -493,15 +513,27 @@ compensación.
 - Tabla `master.reserved_slugs` con la lista inicial sembrada.
 - Trigger `tenants_slug_not_reserved` en `master.tenants`.
 - Enum `TenantStatus { ACTIVE, SUSPENDED, PENDING, DELETED }` en master.
-- La opción elegida en §3.6 (tres roles Postgres) se materializa en Fase 3
-  con `tenant_resolver_role`: rol con `SELECT` sobre `master.tenants` y
-  `master.reserved_slugs` y nada más. La app abre un cliente Prisma
-  adicional `prismaResolver` para esa consulta concreta.
+- La opción elegida en §3.6 (cuatro roles Postgres en total) se
+  materializa en Fase 3 con dos roles adicionales sobre `master_role` y
+  `app_role`:
+  - `tenant_runtime_role`: `SELECT` sobre `master.tenants`,
+    `master.reserved_slugs`, `master.tenant_features` y
+    `master.tenant_quota_usage` (read-only).
+  - `quota_writer_role`: `SELECT/INSERT/UPDATE` solo sobre
+    `master.tenant_quota_usage` (escritura aislada, usada
+    exclusivamente desde el helper `consumeQuota` de ADR-004 §2.5).
+
+  La app abre dos clientes Prisma adicionales: **`prismaRuntime`** (para
+  el lookup HTTP, precarga de features y `getLimit`) y
+  **`prismaQuotaWriter`** (para `consumeQuota` exclusivamente). El uso
+  indebido de `prismaQuotaWriter` fuera de `src/lib/tenant/features.ts`
+  se vigila con la regla ESLint custom `no-quota-writer-leak` (ADR-004
+  §2.2).
 
 ### 5.2 Fase 3 — Resolución de tenant y refactor del producto
 
 - `src/middleware.ts` reescrito: extracción de host, lookup en caché,
-  fallback a `prismaResolver`, validación de status, validación cruzada
+  fallback a `prismaRuntime`, validación de status, validación cruzada
   con JWT, despacho con `runWithTenant`.
 - `src/lib/tenant/context.ts` con `runWithTenant` y `currentTenant`.
 - `src/lib/tenant/cache.ts` con la `Map<host, CachedTenant>` y limpieza
@@ -531,12 +563,40 @@ compensación.
   estable durante la query, no transaction-level pooling.
 - Variables `.env` nuevas:
   - `TENANT_CACHE_TTL_MS=60000` (configurable por entorno).
-  - `TENANT_RESOLVER_DATABASE_URL=postgresql://tenant_resolver_role:…@…/…`
-    (rol de solo lectura sobre `master.tenants` y
-    `master.reserved_slugs`).
-- Healthcheck endpoint: añadir verificación de que la conexión con
-  `tenant_resolver_role` resuelve el slug del propio host del healthcheck
-  (sirve como smoke test del pipeline completo).
+  - `TENANT_RUNTIME_DATABASE_URL=postgresql://tenant_runtime_role:…@…/…`
+    (rol de **solo lectura** sobre `master.tenants`,
+    `master.reserved_slugs`, `master.tenant_features` y
+    `master.tenant_quota_usage`).
+  - `QUOTA_WRITER_DATABASE_URL=postgresql://quota_writer_role:…@…/…`
+    (rol con `SELECT/INSERT/UPDATE` **solo** sobre
+    `master.tenant_quota_usage`).
+- SQL de creación con permisos finales (los `GRANT` van con
+  `master_role`):
+
+  ```sql
+  CREATE ROLE tenant_runtime_role LOGIN PASSWORD '****';
+  GRANT USAGE ON SCHEMA master TO tenant_runtime_role;
+  GRANT SELECT ON master.tenants            TO tenant_runtime_role;
+  GRANT SELECT ON master.reserved_slugs     TO tenant_runtime_role;
+  GRANT SELECT ON master.tenant_features    TO tenant_runtime_role;
+  GRANT SELECT ON master.tenant_quota_usage TO tenant_runtime_role;
+
+  CREATE ROLE quota_writer_role LOGIN PASSWORD '****';
+  GRANT USAGE ON SCHEMA master TO quota_writer_role;
+  GRANT SELECT, INSERT, UPDATE ON master.tenant_quota_usage TO quota_writer_role;
+  -- Sin acceso a tenants, reserved_slugs, tenant_features, subscriptions,
+  -- stripe_events, super_admins, audit_log, ni a ningún otro objeto.
+  ```
+
+- Clientes Prisma asociados:
+  - `prismaRuntime` con `TENANT_RUNTIME_DATABASE_URL`. Lo usa el
+    middleware HTTP, `hasFeature`, `getLimit`, `GET /api/me/features`.
+  - `prismaQuotaWriter` con `QUOTA_WRITER_DATABASE_URL`. Lo usa
+    **exclusivamente** `consumeQuota` (ADR-004 §2.5).
+- Healthcheck endpoint: verificación de las dos conexiones nuevas
+  (`tenant_runtime_role`, `quota_writer_role`) además de las dos de
+  ADR-001 (`master_role`, `app_role`). Total: 4 conexiones validadas en
+  `/api/health` (ADR-005 §2.6).
 
 ---
 
@@ -547,10 +607,14 @@ los siguientes son ciertos:
 
 1. Existe `master.reserved_slugs` con la lista inicial sembrada y el
    trigger en `master.tenants` rechaza inserts cuyo slug coincida.
-2. `tenant_resolver_role` existe, tiene `SELECT` sobre
-   `master.tenants` y `master.reserved_slugs`, y **no** tiene ningún otro
-   privilegio. Verificado con un test que intenta `SELECT * FROM
-   master.subscriptions` con ese rol y espera `permission denied`.
+2. `tenant_runtime_role` y `quota_writer_role` existen con los permisos
+   exactos de §3.6 y §5.4. Verificado con dos tests negativos:
+   `tenant_runtime_role` recibe `permission denied` al intentar
+   `INSERT INTO master.tenant_quota_usage` y al intentar
+   `SELECT * FROM master.subscriptions`; `quota_writer_role` recibe
+   `permission denied` al intentar `SELECT * FROM master.tenants`.
+   `prismaQuotaWriter` solo se importa desde `src/lib/tenant/features.ts`
+   (verificado con la regla ESLint `no-quota-writer-leak`).
 3. `runWithTenant({ slug, tenantId, status }, fn)` envuelve el route
    handler en cada request a un host de tenant. Sin él, `currentTenant()`
    lanza.
