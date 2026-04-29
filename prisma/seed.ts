@@ -1,6 +1,7 @@
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
+import { seedMaster } from "./seeds/master";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -35,7 +36,14 @@ const tiposAusencia = [
 async function main() {
   console.log("🌱 Iniciando seed...");
 
-  // Limpiar base de datos
+  // 0. Seed del control plane (master). Idempotente: todos upserts.
+  // Se ejecuta SIEMPRE, antes del seed del producto, porque las tablas
+  // de master no las toca el reset destructivo del producto.
+  console.log("→ Seed del control plane (master)…");
+  await seedMaster(prisma);
+
+  // Limpiar base de datos del producto (schema public). Solo afecta a
+  // las tablas del producto, no al control plane.
   await prisma.notificacion.deleteMany();
   await prisma.ausencia.deleteMany();
   await prisma.turno.deleteMany();

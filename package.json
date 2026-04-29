@@ -16,7 +16,9 @@
     "db:generate": "prisma generate",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:push": "prisma db push",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "super-admin:create": "npx tsx scripts/super-admin-create.ts",
+    "tenants:list": "npx tsx scripts/tenants-list.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
