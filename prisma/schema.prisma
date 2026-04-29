@@ -5,13 +5,69 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  schemas  = ["master", "public"]
 }
 
+// ─── Control plane (schema master) ─────────────────────────────────────────────
+//
+// Enums introducidos en Fase 2 (commit 1). Los modelos del control plane se
+// añaden en commits siguientes.
+
+enum TenantStatus {
+  pending
+  provisioning
+  active
+  suspended
+  deleted
+
+  @@schema("master")
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  unpaid
+  canceled
+  paused
+  incomplete
+  incomplete_expired
+
+  @@schema("master")
+}
+
+enum FeatureSource {
+  plan
+  addon
+  manual_override
+
+  @@schema("master")
+}
+
+enum FeatureType {
+  boolean
+  limit
+  quota
+
+  @@schema("master")
+}
+
+enum PlatformRol {
+  SUPER_ADMIN
+  SUPPORT
+
+  @@schema("master")
+}
+
+// ─── Producto (schema public — se moverá a tenant_<slug> en Fase 3) ────────────
+
 enum Rol {
-  OWNER       // antes SUPERADMIN — admin del tenant. Reservado SUPERADMIN
-              // para la plataforma (tabla super_admins en control plane).
+  OWNER // antes SUPERADMIN — admin del tenant. Reservado SUPERADMIN
+  // para la plataforma (tabla super_admins en control plane).
   MANAGER
   EMPLEADO
+
+  @@schema("public")
 }
 
 enum TipoFichaje {
@@ -19,6 +75,8 @@ enum TipoFichaje {
   PAUSA
   VUELTA_PAUSA
   SALIDA
+
+  @@schema("public")
 }
 
 enum MetodoFichaje {
@@ -26,6 +84,8 @@ enum MetodoFichaje {
   MOVIL
   TABLET
   MANUAL
+
+  @@schema("public")
 }
 
 enum EstadoAusencia {
@@ -33,11 +93,15 @@ enum EstadoAusencia {
   APROBADA
   RECHAZADA
   CANCELADA
+
+  @@schema("public")
 }
 
 enum EstadoTurno {
   BORRADOR
   PUBLICADO
+
+  @@schema("public")
 }
 
 model Tienda {
@@ -58,6 +122,8 @@ model Tienda {
   turnos       Turno[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  @@schema("public")
 }
 
 model User {
@@ -96,6 +162,7 @@ model User {
   updatedAt                DateTime                  @updatedAt
 
   @@index([tiendaId])
+  @@schema("public")
 }
 
 model Fichaje {
@@ -119,6 +186,7 @@ model Fichaje {
   @@index([userId])
   @@index([tiendaId])
   @@index([timestamp])
+  @@schema("public")
 }
 
 model Turno {
@@ -138,6 +206,7 @@ model Turno {
   @@index([userId])
   @@index([tiendaId])
   @@index([fecha])
+  @@schema("public")
 }
 
 model TipoAusencia {
@@ -151,6 +220,8 @@ model TipoAusencia {
   ausencias          Ausencia[]
   activo             Boolean    @default(true)
   createdAt          DateTime   @default(now())
+
+  @@schema("public")
 }
 
 model Ausencia {
@@ -173,6 +244,7 @@ model Ausencia {
 
   @@index([userId])
   @@index([fechaInicio])
+  @@schema("public")
 }
 
 model Notificacion {
@@ -187,42 +259,45 @@ model Notificacion {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@schema("public")
 }
 
 model ConfiguracionEmpresa {
-  id                     String   @id @default(cuid())
-  nombre                 String   @default("Mi Empresa")
-  logo                   String?
-  horasJornadaDiaria     Float    @default(8)
-  horasSemanales         Float    @default(40)
-  toleranciaFichaje      Int      @default(15)
-  geofencingActivo       Boolean  @default(true)
-  fichajeMovilActivo     Boolean  @default(true)
-  fichajeTabletActivo    Boolean  @default(true)
+  id                  String   @id @default(cuid())
+  nombre              String   @default("Mi Empresa")
+  logo                String?
+  horasJornadaDiaria  Float    @default(8)
+  horasSemanales      Float    @default(40)
+  toleranciaFichaje   Int      @default(15)
+  geofencingActivo    Boolean  @default(true)
+  fichajeMovilActivo  Boolean  @default(true)
+  fichajeTabletActivo Boolean  @default(true)
   // Notificaciones - eventos globales
-  notifAusencias         Boolean  @default(true)
-  notifTurnos            Boolean  @default(true)
-  notifTareas            Boolean  @default(true)
-  notifFichajes          Boolean  @default(false)
-  notifComunicados       Boolean  @default(true)
+  notifAusencias      Boolean  @default(true)
+  notifTurnos         Boolean  @default(true)
+  notifTareas         Boolean  @default(true)
+  notifFichajes       Boolean  @default(false)
+  notifComunicados    Boolean  @default(true)
   // Email
-  emailActivo            Boolean  @default(false)
-  emailHost              String?
-  emailPort              Int?
-  emailSecure            Boolean  @default(true)
-  emailUser              String?
-  emailPassword          String?
-  emailFrom              String?
+  emailActivo         Boolean  @default(false)
+  emailHost           String?
+  emailPort           Int?
+  emailSecure         Boolean  @default(true)
+  emailUser           String?
+  emailPassword       String?
+  emailFrom           String?
   // Push
-  pushActivo             Boolean  @default(false)
-  pushVapidPublicKey     String?
-  pushVapidPrivateKey    String?
+  pushActivo          Boolean  @default(false)
+  pushVapidPublicKey  String?
+  pushVapidPrivateKey String?
   // Branding
-  favicon                String?  // base64 data URL
-  colorPrimario          String   @default("#6366f1")
-  colorSidebar           String   @default("#1e1b4b")
-  appNombre              String   @default("TelecomFichaje")
-  updatedAt              DateTime @updatedAt
+  favicon             String? // base64 data URL
+  colorPrimario       String   @default("#6366f1")
+  colorSidebar        String   @default("#1e1b4b")
+  appNombre           String   @default("TelecomFichaje")
+  updatedAt           DateTime @updatedAt
+
+  @@schema("public")
 }
 
 model PreferenciasNotificacion {
@@ -248,6 +323,8 @@ model PreferenciasNotificacion {
   pushFichajes     Boolean  @default(false)
   pushComunicados  Boolean  @default(false)
   updatedAt        DateTime @updatedAt
+
+  @@schema("public")
 }
 
 model PushSubscripcion {
@@ -260,6 +337,7 @@ model PushSubscripcion {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@schema("public")
 }
 
 model Tarea {
@@ -278,6 +356,7 @@ model Tarea {
 
   @@index([asignadoAId])
   @@index([creadoPorId])
+  @@schema("public")
 }
 
 model Comunicado {
@@ -292,6 +371,7 @@ model Comunicado {
   updatedAt   DateTime  @updatedAt
 
   @@index([autorId])
+  @@schema("public")
 }
 
 model Articulo {
@@ -307,6 +387,7 @@ model Articulo {
   updatedAt DateTime @updatedAt
 
   @@index([autorId])
+  @@schema("public")
 }
 
 model Documento {
@@ -323,6 +404,7 @@ model Documento {
 
   @@index([userId])
   @@index([subidoPorId])
+  @@schema("public")
 }
 
 model Festivo {
@@ -331,22 +413,25 @@ model Festivo {
   fecha     DateTime
   ambito    String   @default("nacional")
   createdAt DateTime @default(now())
+
+  @@schema("public")
 }
 
 model ProcesoOnboarding {
-  id          String              @id @default(cuid())
+  id          String            @id @default(cuid())
   userId      String
-  user        User                @relation(fields: [userId], references: [id])
-  tipo        String              @default("ONBOARDING")
-  estado      String              @default("PENDIENTE")
+  user        User              @relation(fields: [userId], references: [id])
+  tipo        String            @default("ONBOARDING")
+  estado      String            @default("PENDIENTE")
   fechaInicio DateTime
   fechaFin    DateTime?
   notas       String?
   tareas      TareaOnboarding[]
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
   @@index([userId])
+  @@schema("public")
 }
 
 model TareaOnboarding {
@@ -361,24 +446,27 @@ model TareaOnboarding {
   updatedAt   DateTime          @updatedAt
 
   @@index([procesoId])
+  @@schema("public")
 }
 
 model PlantillaTareaOnboarding {
   id          String   @id @default(cuid())
-  tipo        String   // "ONBOARDING" | "OFFBOARDING"
+  tipo        String // "ONBOARDING" | "OFFBOARDING"
   titulo      String
   descripcion String?
   orden       Int      @default(0)
   activa      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@schema("public")
 }
 
 model BolsaHoras {
   id            String   @id @default(cuid())
   userId        String
   user          User     @relation(fields: [userId], references: [id])
-  tipo          String   // "ACUMULACION" | "CONSUMO"
+  tipo          String // "ACUMULACION" | "CONSUMO"
   horas         Float
   concepto      String
   fecha         DateTime
@@ -388,4 +476,5 @@ model BolsaHoras {
   updatedAt     DateTime @updatedAt
 
   @@index([userId])
+  @@schema("public")
 }
