@@ -70,16 +70,17 @@ enum PlatformRol {
 // asigna el Customer Stripe. Para el cliente actual del cutover (Fase 8) se
 // usa el sentinel "cus_manual_<id>" que no colisiona con prefijos reales.
 model Tenant {
-  id               String          @id @default(cuid())
-  slug             String          @unique
+  id               String             @id @default(cuid())
+  slug             String             @unique
   name             String
   email            String
-  status           TenantStatus    @default(pending)
-  stripeCustomerId String?         @unique @map("stripe_customer_id")
-  createdAt        DateTime        @default(now()) @map("created_at")
-  updatedAt        DateTime        @updatedAt @map("updated_at")
+  status           TenantStatus       @default(pending)
+  stripeCustomerId String?            @unique @map("stripe_customer_id")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
   tenantFeatures   TenantFeature[]
   subscriptions    Subscription[]
+  quotaUsage       TenantQuotaUsage[]
 
   @@index([status])
   @@map("tenants")
@@ -215,6 +216,34 @@ model SubscriptionItem {
   createdAt      DateTime     @default(now()) @map("created_at")
 
   @@map("subscription_items")
+  @@schema("master")
+}
+
+// Contadores de quota con periodo de reset. ADR-004 §2.3.
+//
+// Una fila por (tenant, feature, periodo). El periodo coincide con
+// current_period_start/end de la subscription cuando aplica.
+//
+// max = NULL significa unlimited. Filas viejas no se borran (auditables);
+// un job de Fase 9 archiva las > N meses.
+//
+// Acceso desde la app: solo via prismaQuotaWriter (quota_writer_role,
+// ADR-004 §2.2). El UPDATE atómico de consumeQuota usa esta tabla.
+model TenantQuotaUsage {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  featureKey  String   @map("feature_key")
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+  consumed    BigInt   @default(0)
+  max         BigInt?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, featureKey, periodStart])
+  @@index([tenantId, featureKey, periodEnd])
+  @@map("tenant_quota_usage")
   @@schema("master")
 }
 
