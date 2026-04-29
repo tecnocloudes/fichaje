@@ -29,21 +29,23 @@
 -- las inyecta vía psql.
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- 1. Crear los 3 roles si no existen.
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_role') THEN
-    EXECUTE format('CREATE ROLE app_role LOGIN PASSWORD %L', :'app_role_password');
-  END IF;
+-- 1. Crear los 3 roles si no existen. Usamos \gexec para idempotencia
+-- porque las variables de psql (:'name') no se expanden dentro de bloques
+-- DO $$ ... $$. El patrón es: SELECT 'CREATE ROLE ...' WHERE NOT EXISTS;
+-- \gexec ejecuta el resultado del SELECT como SQL. Si la fila no existe,
+-- el SELECT devuelve 0 filas y \gexec no hace nada.
 
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'tenant_runtime_role') THEN
-    EXECUTE format('CREATE ROLE tenant_runtime_role LOGIN PASSWORD %L', :'tenant_runtime_role_password');
-  END IF;
+SELECT format('CREATE ROLE app_role LOGIN PASSWORD %L', :'app_role_password')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_role')
+\gexec
 
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'quota_writer_role') THEN
-    EXECUTE format('CREATE ROLE quota_writer_role LOGIN PASSWORD %L', :'quota_writer_role_password');
-  END IF;
-END $$;
+SELECT format('CREATE ROLE tenant_runtime_role LOGIN PASSWORD %L', :'tenant_runtime_role_password')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'tenant_runtime_role')
+\gexec
+
+SELECT format('CREATE ROLE quota_writer_role LOGIN PASSWORD %L', :'quota_writer_role_password')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'quota_writer_role')
+\gexec
 
 -- 2. Cierre por defecto: nadie ve master por accidente.
 REVOKE ALL ON SCHEMA "master" FROM PUBLIC;
