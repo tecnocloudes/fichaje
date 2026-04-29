@@ -218,6 +218,30 @@ model SubscriptionItem {
   @@schema("master")
 }
 
+// Idempotencia de webhooks Stripe. ADR-003 §2.2 + §2.4.
+// PK = event_id (de Stripe). El INSERT ON CONFLICT DO NOTHING
+// RETURNING blinda contra retries del propio Stripe.
+//
+// processed_at = NULL distingue "ignorado intencional" (eventos
+// fuera de la lista blanca §2.3.b) de "procesado": el handler
+// marca processed_at al terminar; los ignorados se quedan a NULL
+// para auditoría.
+model StripeEvent {
+  eventId         String    @id @map("event_id")
+  type            String
+  apiVersion      String    @map("api_version")
+  createdAt       DateTime  @map("created_at")
+  receivedAt      DateTime  @default(now()) @map("received_at")
+  processedAt     DateTime? @map("processed_at")
+  processingError String?   @map("processing_error")
+  payload         Json
+
+  @@index([type])
+  @@index([receivedAt])
+  @@map("stripe_events")
+  @@schema("master")
+}
+
 // ─── Producto (schema public — se moverá a tenant_<slug> en Fase 3) ────────────
 
 enum Rol {
