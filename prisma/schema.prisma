@@ -247,6 +247,28 @@ model TenantQuotaUsage {
   @@schema("master")
 }
 
+// Cuentas de plataforma. Independientes de los tenants — viven aquí
+// para que el panel super-admin (admin.ficha.tecnocloud.es) tenga
+// auth propia sin reutilizar el flow de NextAuth de los tenants
+// (ADR-002 §2.5; ADR-007 cerrará el panel completo).
+//
+// password es hash bcrypt (mismo método que User.password). El
+// comando npm run super-admin:create lo gestiona.
+model SuperAdmin {
+  id        String      @id @default(cuid())
+  email     String      @unique
+  password  String
+  name      String
+  role      PlatformRol @default(SUPER_ADMIN)
+  active    Boolean     @default(true)
+  lastLogin DateTime?   @map("last_login")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  @@map("super_admins")
+  @@schema("master")
+}
+
 // Idempotencia de webhooks Stripe. ADR-003 §2.2 + §2.4.
 // PK = event_id (de Stripe). El INSERT ON CONFLICT DO NOTHING
 // RETURNING blinda contra retries del propio Stripe.
