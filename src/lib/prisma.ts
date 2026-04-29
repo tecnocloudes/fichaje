@@ -59,29 +59,26 @@ function getEnv(name: string, fallback?: string): string {
   );
 }
 
-// ─── prismaMaster (eager) ────────────────────────────────────────────────────
-// Compat de Fase 2: si MASTER_DATABASE_URL no está, cae a DATABASE_URL.
-// Fase 8 (cutover) introduce MASTER_DATABASE_URL en Dokploy y la legacy
-// DATABASE_URL se elimina (ADR-005 §2.3.a).
-export const prismaMaster: PrismaClient =
-  globalForPrisma.prismaMaster ??
-  createClient(getEnv("MASTER_DATABASE_URL", process.env.DATABASE_URL));
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prismaMaster = prismaMaster;
-}
-
 /**
  * Construye un Proxy lazy sobre PrismaClient: instancia el cliente real al
  * primer acceso de propiedad. Si la env falta, lanza al primer uso.
+ *
+ * Para `prismaMaster` (cacheKey="prismaMaster"), `MASTER_DATABASE_URL` puede
+ * caer a `DATABASE_URL` durante Fase 2 como compat de desarrollo local
+ * (ADR-005 §2.3.a). Los demás clientes exigen su URL específica.
  */
-function lazyClient(envName: string, cacheKey: keyof CachedClients): PrismaClient {
+function lazyClient(
+  envName: string,
+  cacheKey: keyof CachedClients,
+  fallbackEnv?: string,
+): PrismaClient {
   let instance: PrismaClient | undefined = globalForPrisma[cacheKey];
 
   return new Proxy({} as PrismaClient, {
     get(_target, prop, receiver) {
       if (!instance) {
-        instance = createClient(getEnv(envName));
+        const fallback = fallbackEnv ? process.env[fallbackEnv] : undefined;
+        instance = createClient(getEnv(envName, fallback));
         if (process.env.NODE_ENV !== "production") {
           globalForPrisma[cacheKey] = instance;
         }
@@ -91,6 +88,16 @@ function lazyClient(envName: string, cacheKey: keyof CachedClients): PrismaClien
     },
   });
 }
+
+// ─── prismaMaster (lazy) ─────────────────────────────────────────────────────
+// Compat de Fase 2: si MASTER_DATABASE_URL no está, cae a DATABASE_URL.
+// Fase 8 (cutover) introduce MASTER_DATABASE_URL en Dokploy y la legacy
+// DATABASE_URL se elimina (ADR-005 §2.3.a).
+export const prismaMaster: PrismaClient = lazyClient(
+  "MASTER_DATABASE_URL",
+  "prismaMaster",
+  "DATABASE_URL",
+);
 
 // ─── prismaApp (lazy) ────────────────────────────────────────────────────────
 // Usado por el producto en runtime tras SET search_path al schema del tenant.
