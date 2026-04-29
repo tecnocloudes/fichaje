@@ -77,7 +77,7 @@ model Tenant {
   status           TenantStatus       @default(pending)
   stripeCustomerId String?            @unique @map("stripe_customer_id")
   createdAt        DateTime           @default(now()) @map("created_at")
-  updatedAt        DateTime           @updatedAt @map("updated_at")
+  updatedAt        DateTime           @default(now()) @updatedAt @map("updated_at")
   tenantFeatures   TenantFeature[]
   subscriptions    Subscription[]
   quotaUsage       TenantQuotaUsage[]
@@ -109,7 +109,7 @@ model Plan {
   active       Boolean       @default(true)
   sortOrder    Int           @default(0) @map("sort_order")
   createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at")
   planFeatures PlanFeature[]
 
   @@map("plans")
@@ -128,7 +128,7 @@ model Feature {
   quotaPeriod String?     @map("quota_period") // 'mes' o 'dia' si type=quota; NULL en otros
   active      Boolean     @default(true)
   createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  updatedAt   DateTime    @default(now()) @updatedAt @map("updated_at")
 
   @@map("features")
   @@schema("master")
@@ -168,7 +168,7 @@ model TenantFeature {
   expiresAt  DateTime?     @map("expires_at")
   reason     String?
   createdAt  DateTime      @default(now()) @map("created_at")
-  updatedAt  DateTime      @updatedAt @map("updated_at")
+  updatedAt  DateTime      @default(now()) @updatedAt @map("updated_at")
 
   @@unique([tenantId, featureKey, source])
   @@index([tenantId, featureKey])
@@ -193,7 +193,7 @@ model Subscription {
   trialEnd             DateTime?          @map("trial_end")
   rawEventIdLast       String?            @map("raw_event_id_last")
   createdAt            DateTime           @default(now()) @map("created_at")
-  updatedAt            DateTime           @updatedAt @map("updated_at")
+  updatedAt            DateTime           @default(now()) @updatedAt @map("updated_at")
   items                SubscriptionItem[]
 
   @@index([tenantId])
@@ -239,7 +239,7 @@ model TenantQuotaUsage {
   consumed    BigInt   @default(0)
   max         BigInt?
   createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@unique([tenantId, featureKey, periodStart])
   @@index([tenantId, featureKey, periodEnd])
@@ -263,7 +263,7 @@ model SuperAdmin {
   active    Boolean     @default(true)
   lastLogin DateTime?   @map("last_login")
   createdAt DateTime    @default(now()) @map("created_at")
-  updatedAt DateTime    @updatedAt @map("updated_at")
+  updatedAt DateTime    @default(now()) @updatedAt @map("updated_at")
 
   @@map("super_admins")
   @@schema("master")
