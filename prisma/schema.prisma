@@ -79,6 +79,7 @@ model Tenant {
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
   tenantFeatures   TenantFeature[]
+  subscriptions    Subscription[]
 
   @@index([status])
   @@map("tenants")
@@ -171,6 +172,49 @@ model TenantFeature {
   @@unique([tenantId, featureKey, source])
   @@index([tenantId, featureKey])
   @@map("tenant_features")
+  @@schema("master")
+}
+
+// Subscription: una por tenant. ADR-003 §2.1 (modelo "una subscription
+// con N items"). raw_event_id_last permite descartar eventos Stripe
+// fuera de orden (ADR-003 §2.2).
+model Subscription {
+  id                   String             @id @default(cuid())
+  tenantId             String             @map("tenant_id")
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stripeSubscriptionId String             @unique @map("stripe_subscription_id")
+  stripeCustomerId     String             @map("stripe_customer_id")
+  planKey              String             @map("plan_key")
+  status               SubscriptionStatus
+  currentPeriodStart   DateTime           @map("current_period_start")
+  currentPeriodEnd     DateTime           @map("current_period_end")
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+  trialEnd             DateTime?          @map("trial_end")
+  rawEventIdLast       String?            @map("raw_event_id_last")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  items                SubscriptionItem[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("subscriptions")
+  @@schema("master")
+}
+
+// Subscription items: el plan ocupa el primero, los addons los siguientes.
+// ADR-003 §2.1 — "una subscription con N items".
+// feature_key sin FK a Feature: ADR-003 §2.2 (mismo argumento que en
+// PlanFeature — eventos atrasados con feature retirada).
+model SubscriptionItem {
+  id             String       @id @default(cuid())
+  subscriptionId String       @map("subscription_id")
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  stripeItemId   String       @unique @map("stripe_item_id")
+  featureKey     String       @map("feature_key")
+  quantity       Int          @default(1)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@map("subscription_items")
   @@schema("master")
 }
 
