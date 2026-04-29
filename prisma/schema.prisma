@@ -70,14 +70,15 @@ enum PlatformRol {
 // asigna el Customer Stripe. Para el cliente actual del cutover (Fase 8) se
 // usa el sentinel "cus_manual_<id>" que no colisiona con prefijos reales.
 model Tenant {
-  id               String       @id @default(cuid())
-  slug             String       @unique
+  id               String          @id @default(cuid())
+  slug             String          @unique
   name             String
   email            String
-  status           TenantStatus @default(pending)
-  stripeCustomerId String?      @unique @map("stripe_customer_id")
-  createdAt        DateTime     @default(now()) @map("created_at")
-  updatedAt        DateTime     @updatedAt @map("updated_at")
+  status           TenantStatus    @default(pending)
+  stripeCustomerId String?         @unique @map("stripe_customer_id")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  tenantFeatures   TenantFeature[]
 
   @@index([status])
   @@map("tenants")
@@ -145,6 +146,31 @@ model PlanFeature {
 
   @@unique([planId, featureKey])
   @@map("plan_features")
+  @@schema("master")
+}
+
+// Features resueltas por tenant. ADR-003 §2.9 (enmendada en commit
+// 3b7f7e1): manual_override > addon > plan para boolean; suma para
+// limit y quota. Constraint UNIQUE (tenant_id, feature_key, source)
+// garantiza una fila por origen.
+//
+// reason es obligatorio cuando source='manual_override' (CHECK con
+// longitud mínima 10). El expires_at NULL significa sin expiración.
+model TenantFeature {
+  id         String        @id @default(cuid())
+  tenantId   String        @map("tenant_id")
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  featureKey String        @map("feature_key")
+  value      Json
+  source     FeatureSource
+  expiresAt  DateTime?     @map("expires_at")
+  reason     String?
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  @@unique([tenantId, featureKey, source])
+  @@index([tenantId, featureKey])
+  @@map("tenant_features")
   @@schema("master")
 }
 
