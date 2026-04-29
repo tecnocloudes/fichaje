@@ -381,7 +381,7 @@ misma estrategia de defensa en profundidad de §2.5 ADR-001.
 | Opción                  | A favor                                                  | En contra                                                                                                |
 |-------------------------|----------------------------------------------------------|----------------------------------------------------------------------------------------------------------|
 | Sin RESET               | La query siguiente del mismo tenant evita un round-trip  | Conexiones devueltas al pool quedan con search_path heredado. Una query bug fuera del middleware → fuga  |
-| **Con RESET** (elegida) | Conexiones siempre limpias en el pool                     | Cada query paga un `RESET` (despreciable, ~0.05ms local)                                                 |
+| **Con RESET** (elegida) | Conexiones siempre limpias en el pool                     | Cada query paga un `RESET`. Operación local en Postgres sin I/O, despreciable frente a la latencia de cualquier query real |
 
 ### 3.4 Invalidación de la caché entre instancias
 
@@ -399,6 +399,28 @@ misma estrategia de defensa en profundidad de §2.5 ADR-001.
 | **401** (elegida) | No revela existencia del otro tenant     | El usuario puede confundirse con "credenciales mal" cuando es slot wrong |
 | 403              | Más preciso semánticamente                | Filtra que el otro tenant existe                                         |
 | Redirect al subdominio correcto | UX cómoda           | Convierte un cross-tenant en un tenant-discovery oracle                  |
+
+### 3.6 Cómo accede el middleware a `master.tenants` para resolver el slug
+
+ADR-001 §2.3 fija dos roles Postgres (`master_role`, `app_role`) con
+permisos disjuntos: la app del producto se conecta con `app_role`, que **no
+tiene** acceso a `master`. Pero el middleware HTTP necesita resolver
+`host → tenant` consultando `master.tenants`. ¿Con qué rol consulta?
+
+| Opción                                                                                                | Pro                                                                                              | Contra                                                                                                                                  |
+|-------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| **3 roles**: `master_role`, `app_role`, `tenant_resolver_role` (elegida)                              | Menor privilegio estricto. El middleware solo puede leer `master.tenants` y `master.reserved_slugs` | Tercer rol que mantener, tercera URL en `.env`, tercer cliente Prisma                                                                    |
+| `master_role` también para lookup, conexión separada                                                  | 2 roles, no 3                                                                                    | El lookup corre con un rol que puede escribir en todo `master`. Si el middleware se compromete, escala a control plane completo          |
+| Función SQL `master.resolve_tenant(slug)` con `SECURITY DEFINER`, `app_role` invoca                   | 2 roles, sin URL extra                                                                           | Stored procedure que mantener fuera de Prisma, complica testing y migraciones                                                            |
+| Vista `master.public_tenants` con `GRANT SELECT` a `app_role`                                         | 2 roles, sin cliente Prisma extra                                                                 | Acopla `app_role` a `master`. Viola el espíritu de aislamiento de ADR-001 §2.3: el principio era `app_role` **no** toca `master`         |
+
+**Argumento decisivo**: el middleware HTTP es el componente con mayor
+superficie de ataque del sistema: recibe input HTTP arbitrario, parsea
+hosts, gestiona cookies, valida JWTs. Si se compromete, el rol Postgres con
+el que opera define el blast radius. `tenant_resolver_role` limita ese
+radio a `SELECT` sobre 2 tablas. Cualquier alternativa que reutilice
+`master_role` o que dé acceso de `app_role` a `master` amplía el radio sin
+compensación.
 
 ---
 
@@ -429,10 +451,12 @@ misma estrategia de defensa en profundidad de §2.5 ADR-001.
   "los cambios pueden tardar hasta un minuto en surtir efecto en todas las
   instancias". Plan B con `LISTEN`/`NOTIFY` queda como TODO.
 - **Cada query paga `SET → RESET`** sobre `search_path`. Coste local en
-  Postgres, despreciable, pero medible: ~0.1ms por query. A volumen alto,
-  considerar batch (ejecutar varias queries del mismo tenant en una
-  transacción donde el SET se hace una vez al inicio y RESET una vez al
-  final). Optimización para más adelante; no para Fase 3.
+  Postgres sin I/O, despreciable frente a la latencia de cualquier query
+  real (round-trip al pgbouncer + a Postgres son órdenes de magnitud
+  mayores). Si medimos contención real en producción, queda como punto de
+  optimización para Fase 9: batch SET por transacción para múltiples
+  queries del mismo tenant —SET una vez al inicio, RESET una vez al final
+  de la transacción— en lugar de por query individual.
 - **`AsyncLocalStorage` impone un patrón de programación**. Toda lógica de
   acceso a BD del tenant debe correr **dentro** de un `runWithTenant`. Si
   alguien añade un cron, un job, un script CLI que ejecute queries del
@@ -469,14 +493,10 @@ misma estrategia de defensa en profundidad de §2.5 ADR-001.
 - Tabla `master.reserved_slugs` con la lista inicial sembrada.
 - Trigger `tenants_slug_not_reserved` en `master.tenants`.
 - Enum `TenantStatus { ACTIVE, SUSPENDED, PENDING, DELETED }` en master.
-- La consulta de resolución `master.tenants WHERE slug = $1` necesita un
-  rol Postgres con `SELECT` sobre `master.tenants`. ADR-001 §2.3 fija que
-  `app_role` **no** tiene acceso a `master`. Por tanto, la app del producto
-  necesita **un tercer rol** o un mecanismo equivalente. Decisión: crear
-  `tenant_resolver_role` con `SELECT` sobre `master.tenants` y
-  `master.reserved_slugs` únicamente, y nada más. La app abre un cliente
-  Prisma adicional `prismaResolver` para esa consulta concreta. Coherente
-  con el principio de menor privilegio. Se materializa en Fase 3.
+- La opción elegida en §3.6 (tres roles Postgres) se materializa en Fase 3
+  con `tenant_resolver_role`: rol con `SELECT` sobre `master.tenants` y
+  `master.reserved_slugs` y nada más. La app abre un cliente Prisma
+  adicional `prismaResolver` para esa consulta concreta.
 
 ### 5.2 Fase 3 — Resolución de tenant y refactor del producto
 
