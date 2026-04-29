@@ -201,6 +201,10 @@ entre, será un quinto servicio.
 - Conectado a pgbouncer (no directo a Postgres) en las cuatro URLs
   de roles.
 - Healthcheck `/api/health` (§2.6).
+- **Depende de `pgbouncer` con `condition: service_healthy`**. La
+  app no arranca hasta que pgbouncer esté healthy. Cadena de
+  arranque tras reboot de la VPS: `postgres` healthy → `pgbouncer`
+  healthy → `app` arranca.
 - Réplicas: 1 inicial, configurables en Dokploy. Con sticky sessions
   desactivadas (no hace falta: el contexto del tenant es por request,
   ADR-002 §2.2).
@@ -221,8 +225,24 @@ entre, será un quinto servicio.
 - **No** abre `prismaRuntime` ni `prismaQuotaWriter`: esos son del
   middleware HTTP (ADR-002 §3.6, ADR-004 §2.2). El worker tiene
   acceso completo al control plane vía `master_role`.
-- Healthcheck `/health` interno (puerto 3001) que verifica las
-  conexiones que usa.
+- Healthcheck `/health` interno (puerto 3001) cada 30 s que verifica
+  las conexiones que usa (`master_role`, `app_role`).
+- **Depende de `pgbouncer` con `condition: service_healthy`**.
+  Misma cadena de arranque que `app`.
+- **NO se expone públicamente**. No tiene labels Traefik que
+  enruten tráfico HTTP. Los webhooks de Stripe los recibe el
+  servicio `app` (que tiene endpoint dedicado con verificación de
+  firma, ADR-003 §2.5); cuando el procesamiento se mueva a cola
+  asíncrona (TODO ADR-003 §5.2), `app` encolará en Redis y el
+  worker consumirá de la cola **sin exponer endpoint propio**.
+  Hasta entonces, el worker corre solo jobs programados con cron
+  interno (cleanup `PENDING`, detección `PROVISIONING` huérfanos).
+  El healthcheck del puerto 3001 es accesible solo desde la red
+  interna de Dokploy. Esta restricción de no-exposición pública es
+  importante porque el worker tiene **la mayor superficie de
+  privilegios Postgres del sistema** (`master_role` + `app_role`):
+  un endpoint HTTP expuesto sería el vector preferente de escalada
+  ante un compromiso del proceso.
 
 #### 2.2.c Servicio `postgres`
 
@@ -233,6 +253,10 @@ entre, será un quinto servicio.
   - `shared_preload_libraries`: sin cambios respecto al estado
     actual, salvo que se necesite alguna extensión documentada
     (ninguna prevista de los ADRs).
+- **Healthcheck**: `pg_isready -U master_role -d fichaje` cada 10 s,
+  5 reintentos, timeout 5 s. Reutiliza la receta del CI (§2.7) con
+  el mismo flag `--health-cmd pg_isready`. Dokploy lo usa para gating
+  de los servicios que dependen de postgres (`pgbouncer`).
 - Backups: `pg_dump --schema=master` diario + 12h adicionales (ADR-001
   §5.5), `pg_dump --schema=tenant_<slug>` por tenant diario.
   Estrategia operativa concreta en `docs/deploy/dokploy.md` (Fase 8).
@@ -278,6 +302,17 @@ QUOTA_WRITER_DATABASE_URL=postgresql://quota_writer_role:****@pgbouncer:6432/fic
 `pool_mode = session` es **obligatorio**. Es lo que permite a
 ADR-002 §2.2 hacer `SET search_path` por query con la garantía de que
 la conexión persiste durante toda la transacción.
+
+**Healthcheck**: `psql -h localhost -p 6432 -U pgbouncer -d pgbouncer -c 'SHOW VERSION'`
+cada 10 s. Si la base administrativa `pgbouncer` no responde, el
+servicio se marca unhealthy y Dokploy no envía tráfico desde `app`
+ni `worker`. Alternativa más simple si el image base no trae `psql`:
+`nc -z localhost 6432`.
+
+**Depende de `postgres` con `condition: service_healthy`**. No
+arranca hasta que postgres esté healthy. Cadena completa de
+arranque tras reboot de VPS: `postgres` healthy → `pgbouncer`
+healthy → `app` y `worker` arrancan en paralelo.
 
 ### 2.3 Variables de entorno consolidadas
 
@@ -424,6 +459,65 @@ en sus logs y decide:
 **Comando CLI manual**: `npm run tenants:migrate -- <slug>` y
 `npm run tenants:migrate:all` están disponibles fuera del entrypoint
 para operaciones puntuales (Fase 3, ADR-001 §5.2).
+
+#### 2.5.a Convención obligatoria: migraciones backward-compatible
+
+El "abortar al primer fallo" de §3.3 es necesario pero no
+suficiente. Caso real: la migración pasa a `tenant_uno` y
+`tenant_dos` antes de fallar en `tenant_tres`. Dokploy mantiene la
+**versión anterior del código** corriendo, pero los schemas de
+`tenant_uno` y `tenant_dos` ya tienen estructura nueva. El código
+viejo no entiende los schemas nuevos → drift parcial real, no
+teórico.
+
+La mitigación es estructural: cada migración Prisma incluida en una
+PR **debe ser compatible con la versión del código inmediatamente
+anterior en `main`**. Patrones obligatorios:
+
+- **Añadir columna `NOT NULL`**: NUNCA en una sola migración.
+  Primero añadir como `NULL` + backfill en una PR. Después, una
+  segunda PR marca `NOT NULL` cuando todo el código ya la rellena.
+- **Renombrar columna**: NUNCA en una sola migración. Primero
+  crear la nueva como `NULL` + escribir en ambas + leer de la nueva
+  con fallback a la vieja. En otra PR, borrar la vieja.
+- **Eliminar columna**: NUNCA en una sola migración. Primero la PR
+  deja de leerla y de escribirla. Después de un deploy estable,
+  otra PR la borra.
+- **Cambiar tipo de columna**: idéntico patrón a renombrar (nueva
+  columna, doble escritura, lectura con fallback, borrar vieja).
+
+Justificación: si la migración rompe a mitad de aplicarla a N
+tenants, los tenants ya migrados los sirve la app vieja (Dokploy
+mantiene el deploy anterior). Una migración no-backward-compatible
+deja a esos tenants en estado inconsistente hasta que el operador
+resuelva manualmente schema por schema. Backward-compatibility
+convierte el escenario de "cutover roto" en una degradación parcial
+recuperable: la app vieja sigue funcionando sobre los schemas
+nuevos porque los nuevos siguen aceptando lo que ella escribía.
+
+**Plantilla de PR** (`.github/pull_request_template.md`, Fase 8):
+
+```markdown
+## Cambios
+<descripción>
+
+## Migraciones Prisma
+- [ ] Esta PR contiene migraciones Prisma.
+- [ ] Si sí, son backward-compatibles con `main` (sí/no/justificar).
+      Reglas en ADR-005 §2.5.a.
+
+## Tests
+- [ ] `npm test` pasa.
+- [ ] `npm run test:feature-coverage` pasa (ADR-004).
+- [ ] Tests E2E nightly verdes (último run).
+```
+
+El check de backward-compatibility **no se puede automatizar de
+forma fiable**; queda como responsabilidad del autor de la PR y del
+revisor. La regla ESLint custom `migrations-must-be-additive`
+(Fase 9) puede detectar los casos típicos (`DROP COLUMN`,
+`ALTER COLUMN ... NOT NULL` sin paso intermedio) y lanzar warning,
+pero no sustituye al check humano.
 
 ### 2.6 Healthcheck `/api/health`
 
@@ -681,6 +775,17 @@ hace queries que no encajan con el schema. Mejor parar y reparar.
   migración en un tenant retrasa el deploy de features para todos.
   Mitigación: tests de migraciones en CI con dos schemas en
   paralelo, parte del test de fuga (ADR-001 §2.4).
+- **Drift parcial entre tenants ya migrados y tenants pendientes**:
+  si la migración pasa a varios tenants antes de fallar, los ya
+  migrados están en estructura nueva mientras Dokploy mantiene la
+  app vieja. La convención de migraciones backward-compatible
+  (§2.5.a) **mitiga**, pero no **elimina** el riesgo: si por error
+  se introduce una migración no-compat (ej. `DROP COLUMN` en un
+  solo paso) y el deploy falla a mitad, los tenants ya migrados
+  rompen con la app vieja. La revisión humana de la PR es la
+  última barrera. La regla ESLint
+  `migrations-must-be-additive` (Fase 9) detectará los casos
+  típicos pero no sustituye al check humano.
 - **Ventana de cutover** (§5.4) implica downtime breve. Mitigación:
   comunicación previa al cliente y horario fuera de jornada laboral.
 
@@ -720,6 +825,40 @@ Esta fase consume todo lo de §2 + §6 (cutover). La documentación
 operativa de detalle vive en `docs/deploy/dokploy.md`,
 `docs/deploy/cloudflare.md` y `docs/deploy/cutover.md` (a redactar
 en Fase 8).
+
+#### 5.2.a Runbook: rotación de contraseña de un rol Postgres
+
+`docs/deploy/rotate-postgres-password.md` (Fase 8) cierra los pasos
+con detalle. Esquema de la operación con cero downtime:
+
+1. Generar el nuevo hash SCRAM con la utilidad de pgbouncer
+   (`pgbouncer -mkauth` o equivalente con `psql`).
+2. **Añadir** el nuevo password al `userlist.txt` **sin quitar el
+   viejo**. Ambos quedan válidos transitoriamente.
+3. `pgbouncer -R` (reload sin restart) para que pgbouncer relea el
+   archivo sin cortar las conexiones existentes.
+4. `ALTER ROLE <rol> PASSWORD '<nueva>'` en Postgres como
+   `master_role`.
+5. Actualizar el secret correspondiente en Dokploy
+   (`MASTER_DATABASE_URL`, `APP_DATABASE_URL`,
+   `TENANT_RUNTIME_DATABASE_URL` o `QUOTA_WRITER_DATABASE_URL`).
+   Dokploy hace rolling restart de los servicios afectados con la
+   nueva URL.
+6. Esperar a que las conexiones existentes terminen su ciclo por
+   `server_lifetime` (3600 s configurado en §2.2.d). Mientras
+   tanto, las nuevas conexiones usan ya la nueva contraseña.
+7. **Eliminar** el password viejo del `userlist.txt` y `pgbouncer -R`
+   final.
+
+**Garantía**: cero downtime durante la rotación si los pasos se
+siguen en orden. Si se invierte (eliminar el viejo antes de añadir
+el nuevo en `userlist.txt`, o `ALTER ROLE` antes del paso 2), las
+conexiones existentes mueren y los servicios reciben errores de
+auth durante la ventana — operación destructiva.
+
+El runbook detallado incluirá comandos exactos, validaciones tras
+cada paso (`SELECT version()` con la nueva conexión, `SHOW POOLS`
+en pgbouncer) y el rollback ante fallo a mitad.
 
 ### 5.3 Fase 9 — Calidad y observabilidad avanzada
 
