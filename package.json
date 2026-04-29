@@ -19,6 +19,9 @@
     "db:studio": "prisma studio",
     "super-admin:create": "npx tsx scripts/super-admin-create.ts",
     "tenants:list": "npx tsx scripts/tenants-list.ts",
+    "tenants:provision": "npx tsx scripts/tenants-provision.ts",
+    "tenants:migrate": "npx tsx scripts/tenants-migrate.ts",
+    "tenants:migrate:all": "npx tsx scripts/tenants-migrate.ts -- --all",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
