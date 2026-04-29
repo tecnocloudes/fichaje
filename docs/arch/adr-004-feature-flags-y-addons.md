@@ -80,7 +80,8 @@ export async function consumeQuota(
   amount: number = 1
 ): Promise<
   | { ok: true; remaining: number | null; resetAt: Date }
-  | { ok: false; used: number; max: number; resetAt: Date | null }
+  | { ok: false; reason: "period_unavailable" }
+  | { ok: false; reason: "limit_reached"; used: number; max: number; resetAt: Date }
 >;
 ```
 
@@ -102,50 +103,70 @@ cargado en el middleware HTTP. Vive lo que dura la request (el
 la request: si el OWNER hace upgrade en mitad de la sesión, los
 cambios se reflejan en la siguiente request, no en la actual.
 
-### 2.2 `tenant_runtime_role`: ampliación del `tenant_resolver_role` de ADR-002
+### 2.2 Dos roles Postgres: `tenant_runtime_role` (lectura) y `quota_writer_role` (escritura)
 
 ADR-002 §3.6 introdujo `tenant_resolver_role` con `SELECT` exclusivo
 sobre `master.tenants` y `master.reserved_slugs` para que el middleware
 HTTP resolviera el slug. Para implementar §2.4 (precarga de features
-en el contexto) y §2.5 (consumo atómico de quotas) ese rol no basta:
-necesita además `SELECT` sobre `master.tenant_features` y
-`SELECT/INSERT/UPDATE` sobre `master.tenant_quota_usage`.
+en el contexto) y §2.5 (consumo atómico de quotas) hace falta acceso
+a dos tablas más, una de ellas con escritura. **Pero** el middleware
+HTTP es el componente con mayor superficie de ataque del sistema
+(ADR-002 §3.6 ya lo argumentaba): si se compromete y opera con un rol
+con `INSERT/UPDATE` sobre `tenant_quota_usage`, un atacante puede
+hacer **DoS dirigido** a competidores poniendo `consumed = max` en sus
+quotas, sin necesidad de comprometer nada más.
 
-**Decisión**: renombramos `tenant_resolver_role` → **`tenant_runtime_role`**
-con permisos:
+**Decisión**: separar lectura y escritura en dos roles distintos.
 
 ```sql
+-- Rol del runtime general (middleware HTTP, hasFeature, getLimit, GET /api/me/features).
+-- Sin escritura.
 GRANT USAGE ON SCHEMA master TO tenant_runtime_role;
 GRANT SELECT ON master.tenants            TO tenant_runtime_role;
 GRANT SELECT ON master.reserved_slugs     TO tenant_runtime_role;
 GRANT SELECT ON master.tenant_features    TO tenant_runtime_role;
-GRANT SELECT, INSERT, UPDATE ON master.tenant_quota_usage TO tenant_runtime_role;
+GRANT SELECT ON master.tenant_quota_usage TO tenant_runtime_role;
 
--- nada más. Sin acceso a subscriptions, stripe_events, super_admins,
--- audit_log, ni a ningún otro objeto de master.
+-- Rol exclusivo para consumeQuota. Solo puede tocar tenant_quota_usage.
+GRANT USAGE ON SCHEMA master TO quota_writer_role;
+GRANT SELECT, INSERT, UPDATE ON master.tenant_quota_usage TO quota_writer_role;
+-- Nada más. Sin SELECT sobre tenants, features, subscriptions, stripe_events,
+-- super_admins, audit_log.
 ```
 
-Justificación de **ampliar** (vs crear un cuarto rol distinto):
+Justificación de **separar** (vs ampliar el resolver) — ver §3.1 con
+las cuatro opciones consideradas:
 
-- El middleware HTTP, que ya tiene visibilidad sobre `master.tenants`,
-  no aumenta su superficie de ataque materialmente al ganar
-  `tenant_features` y `tenant_quota_usage`. Esas tablas son de su
-  responsabilidad lógica (cargar contexto del tenant, contabilizar
-  uso). El blast radius extra es: dos tablas más en lectura y un
-  contador en escritura.
-- Crear un cuarto rol `tenant_quota_role` añade otra URL en `.env`,
-  otro pool de conexiones en la app, otro cliente Prisma, sin
-  beneficio claro.
-- Las tablas a las que no debería acceder (`subscriptions`,
-  `stripe_events`, `audit_log`, `super_admins`) siguen prohibidas. La
-  separación con `master_role` se mantiene íntegra.
+- Si el middleware HTTP se compromete, opera con `tenant_runtime_role`
+  que **no puede escribir** en `tenant_quota_usage`. El vector DoS por
+  alteración de contadores queda cerrado en esa cara.
+- `consumeQuota` es la única operación que necesita escritura, y se
+  invoca **solo desde route handlers** (no desde el middleware
+  general). Cierra a esa función el blast radius de escritura.
+- El precio operativo es contenido: dos URLs en `.env`, dos clientes
+  Prisma. Comparado con la ganancia de seguridad (cerrar un vector DoS
+  obvio), el coste es aceptable.
 
-**Variable de entorno**: `TENANT_RUNTIME_DATABASE_URL` (renombra
-`TENANT_RESOLVER_DATABASE_URL` propuesta por ADR-002 §5.4). El cliente
-Prisma asociado pasa de `prismaResolver` a **`prismaRuntime`**.
+**Variables de entorno**:
 
-> **TODO en ADR-002**: ADR-002 §3.6 y §5.4 deben actualizarse con el
-> nombre `tenant_runtime_role` y los permisos ampliados. No se edita
+- `TENANT_RUNTIME_DATABASE_URL` — credenciales de `tenant_runtime_role`.
+  Renombra `TENANT_RESOLVER_DATABASE_URL` propuesta por ADR-002 §5.4.
+- `QUOTA_WRITER_DATABASE_URL` — credenciales de `quota_writer_role`.
+  Nueva.
+
+**Clientes Prisma asociados** (en `src/lib/prisma.ts`):
+
+- `prismaRuntime` — para el middleware HTTP, `hasFeature`, `getLimit`
+  y la composición de `GET /api/me/features`.
+- `prismaQuotaWriter` — usado **exclusivamente** desde
+  `consumeQuota` (§2.5). Ningún otro punto del código importa este
+  cliente. Convención: `eslint-plugin-fichaje/no-quota-writer-leak`
+  (regla custom, Fase 5) que falla CI si `prismaQuotaWriter` se
+  importa fuera de `src/lib/tenant/features.ts`.
+
+> **TODO en ADR-002**: §3.6 y §5.4 de ADR-002 deben actualizarse para
+> reflejar **dos roles** (`tenant_runtime_role` y `quota_writer_role`)
+> con sus permisos exactos y dos variables de entorno. No se edita
 > ADR-002 desde aquí; queda como pendiente del próximo bloque de
 > enmiendas a ADR-002.
 
@@ -246,20 +267,51 @@ con la prioridad `manual_override > addon > plan` (ADR-003 §2.9
 enmendado) y devuelve un `Map<feature_key, ResolvedFeature>` que cabe
 en el contexto.
 
-`hasFeature(key)` y `getLimit(key)` leen de ese Map sin tocar BD:
+`hasFeature(key)` y `getLimit(key)` leen de ese Map sin tocar BD.
+Antes de leer del contexto, ambas funciones (y `consumeQuota`)
+**verifican que la `key` existe en el catálogo**: distinguir
+"feature inexistente en el catálogo" (typo del dev, ej.
+`getLimit('max_employes')`) de "feature no aprovisionada para este
+tenant" es importante. El primer caso es un bug de programación; el
+segundo es estado normal.
 
 ```ts
+// FEATURE_CATALOG se carga al arranque desde master.features (Set<string>)
+// con prismaRuntime y se mantiene en memoria del proceso. Cualquier key
+// fuera del catálogo es un bug del dev.
+const FEATURE_CATALOG: Set<string> = await loadFeatureCatalog();
+
+function assertKnownFeature(key: string, fn: string): boolean {
+  if (FEATURE_CATALOG.has(key)) return true;
+  if (process.env.NODE_ENV !== "production") {
+    throw new Error(`${fn} called with unknown feature_key: ${JSON.stringify(key)}`);
+  }
+  logger.error({ key, fn }, "unknown feature_key (fail-closed)");
+  return false;
+}
+
 export async function hasFeature(key: string): Promise<boolean> {
+  if (!assertKnownFeature(key, "hasFeature")) return false;
   const features = currentTenant().features;
   return features.get(key)?.value === true;
 }
 
 export async function getLimit(key: string): Promise<number | null> {
+  if (!assertKnownFeature(key, "getLimit")) return 0;
   const f = currentTenant().features.get(key);
-  if (!f) return 0;                       // feature no aprovisionada → tope 0
+  if (!f) return 0;                       // feature aprovisionable pero no aprovisionada → tope 0
   return f.value === null ? null : Number(f.value);
 }
 ```
+
+Comportamiento por entorno:
+
+- **Desarrollo / test**: `assertKnownFeature` lanza. Cualquier typo se
+  detecta en la primera ejecución.
+- **Producción**: log de error y fail-closed. El usuario final ve un
+  402/429 en lugar de un 500; el operador ve la línea de log con la
+  key inválida. Política coherente con el resto del ADR
+  (fail-closed > fail-open).
 
 La caché host→tenant del ADR-002 §2.3 cachea ahora también las
 features (mismo TTL de 60s). Cualquier cambio vía
@@ -274,10 +326,15 @@ RETURNING**.
 
 ```ts
 export async function consumeQuota(key: string, amount: number = 1) {
+  if (!assertKnownFeature(key, "consumeQuota")) {
+    return { ok: false as const, reason: "period_unavailable" as const };
+  }
   const { tenantId } = currentTenant();
   const now = new Date();
 
-  const rows = await prismaRuntime.$queryRaw<
+  // prismaQuotaWriter usa quota_writer_role (§2.2): solo SELECT/INSERT/UPDATE
+  // sobre master.tenant_quota_usage. Sin acceso a tenants, features, etc.
+  const rows = await prismaQuotaWriter.$queryRaw<
     { consumed: number; max: number | null; period_end: Date }[]
   >`
     UPDATE master.tenant_quota_usage
@@ -293,16 +350,17 @@ export async function consumeQuota(key: string, amount: number = 1) {
 
   if (rows.length === 0) {
     // O no había fila vigente, o la suma excedería el límite.
-    // Distinguir con un SELECT separado para el mensaje de error.
-    const current = await prismaRuntime.tenantQuotaUsage.findFirst({
+    // Distinguir con un SELECT separado para devolver el reason correcto.
+    const current = await prismaQuotaWriter.tenantQuotaUsage.findFirst({
       where: { tenant_id: tenantId, feature_key: key,
                period_start: { lte: now }, period_end: { gt: now } },
     });
     if (!current) {
-      return { ok: false as const, used: 0, max: 0, resetAt: null };
+      return { ok: false as const, reason: "period_unavailable" as const };
     }
     return {
       ok: false as const,
+      reason: "limit_reached" as const,
       used: Number(current.consumed),
       max: Number(current.max ?? 0),
       resetAt: current.period_end,
@@ -325,12 +383,17 @@ Propiedades:
   `amount = 1` cuando queda 1 unidad: la primera ve `consumed + 1 <= max`,
   incrementa y devuelve `{ok: true, remaining: 0}`; la segunda ve la fila
   ya con `consumed = max`, la condición falla, no afecta filas y
-  devuelve `{ok: false}`.
+  devuelve `{ok: false, reason: "limit_reached"}`.
 - **Sin transacción explícita**: `UPDATE` con `WHERE` es transaccional
   por defecto en Postgres. No necesita `BEGIN/COMMIT` envolvente.
-- **Compatible con `app_role` que no toca master**: el cliente Prisma
-  para esta operación es `prismaRuntime` (con `tenant_runtime_role`,
-  §2.2), no `prismaApp`.
+- **Cliente Prisma dedicado**: `prismaQuotaWriter` con
+  `quota_writer_role`. No se mezcla con `prismaRuntime` (lectura
+  general) ni con `prismaApp` (que no toca master). Aislamiento por
+  rol Postgres.
+- **Distinción de errores**: el front recibe `period_unavailable`
+  (transitorio, reintentar) o `limit_reached` (definitivo hasta el
+  reset) y puede mostrar mensajes distintos. Detalle del mapping HTTP
+  en §2.8.
 
 ### 2.6 Endpoint `GET /api/me/features` y caché en frontend
 
@@ -351,8 +414,10 @@ Authorization: Bearer <jwt>
     ...
   },
   "limits": {
-    "max_employees": { "current": 12, "max": 50 },
-    "max_tiendas":   { "current": 2,  "max": 5 }
+    "max_employees":   { "current": 12, "max": 50 },
+    "max_tiendas":     { "current": 2,  "max": 5 },
+    "historial_meses": { "max": 36 },
+    "max_storage_mb":  { "max": 5000 }
   },
   "quotas": {
     "emails_mes":   { "used": 230,  "max": 5000,      "resetAt": "2026-05-15T00:00:00Z" },
@@ -362,8 +427,26 @@ Authorization: Bearer <jwt>
 }
 ```
 
-- `current` para limits (ej. `max_employees`) requiere `count` sobre el
-  schema del tenant (`prismaApp.user.count()` con `SET search_path`).
+- `current` para limits **se calcula solo para los limits con flag
+  explícito**, no para todos. No todos tienen `current` con sentido:
+  - `max_employees`: `current` = `prismaApp.user.count({ where: { activo: true } })`.
+  - `max_tiendas`: `current` = `prismaApp.tienda.count({ where: { activa: true } })`.
+  - `historial_meses`: **no tiene `current`** (es un límite de visibilidad,
+    no contabilizable).
+  - `max_storage_mb`: **no tiene `current`** (requeriría una agregación
+    `SUM(size)` sobre `Documento`, costosa; cuando se implemente
+    almacenamiento real, se decide en Fase 9 si `current` se calcula
+    aquí o en una vista materializada).
+  - `max_owners`: hardcoded a 5 (§11.5 auditoría), no se expone en
+    `/api/me/features`.
+
+  Política: añadir `current` a un limit nuevo es **opt-in** y requiere
+  implementar el `count`/`sum` correspondiente en el route handler de
+  `/api/me/features`. Sin esa implementación explícita, el limit
+  aparece en la respuesta como `{ "max": <n> }` **sin** la clave
+  `current`. El front debe asumir que `current` puede faltar y no
+  mostrar barras de progreso para esos limits.
+
 - `null` en `max` significa unlimited.
 - `quotas[*].used` viene de `tenant_quota_usage`.
 
@@ -451,21 +534,46 @@ export function withQuota(key: string, amount: number = 1, handler: RouteHandler
   return async (req, ctx) => {
     const result = await consumeQuota(key, amount);
     if (!result.ok) {
+      if (result.reason === "period_unavailable") {
+        // Transitorio: el handler de subscription todavía no creó la fila
+        // de periodo (§2.3 edge case). El cliente debe reintentar.
+        return Response.json(
+          {
+            error: "quota_period_unavailable",
+            feature_key: key,
+            message: "Tu plan está siendo activado. Reintenta en unos segundos.",
+          },
+          { status: 429, headers: { "Retry-After": "30" } }
+        );
+      }
+      // result.reason === "limit_reached"
+      // Definitivo hasta resetAt: el cliente sabe cuándo volver.
       return Response.json(
         {
           error: "quota_exceeded",
           feature_key: key,
           used: result.used,
           max: result.max,
-          reset_at: result.resetAt?.toISOString() ?? null,
+          reset_at: result.resetAt.toISOString(),
         },
-        { status: 429, headers: { "Retry-After": secondsUntil(result.resetAt) } }
+        { status: 429, headers: { "Retry-After": String(secondsUntil(result.resetAt)) } }
       );
     }
     return handler(req, ctx);
   };
 }
 ```
+
+Notas sobre el mapping de errores:
+
+- Ambos casos devuelven **429**, pero con `error` distinto en el JSON
+  body para que el front pueda distinguir.
+- `quota_period_unavailable` es transitorio; `Retry-After: 30` segundos
+  es razonable porque el job de PROVISIONING huérfanos (ADR-003 §5.2)
+  reintenta cada 5 minutos y el handler de subscription se ejecuta
+  síncronamente.
+- `quota_exceeded` es definitivo hasta `reset_at`. El front puede
+  mostrar "vuelve el 1 de mayo" en lugar de un mensaje genérico.
 
 Uso típico:
 
@@ -619,18 +727,25 @@ panel.
 
 ## 3. Opciones consideradas
 
-### 3.1 Acceso a `master.tenant_features` desde la app del tenant
+### 3.1 Acceso a `master.tenant_features` y `master.tenant_quota_usage` desde la app del tenant
 
 | Opción                                                                                       | A favor                                                                                                | En contra                                                                                                              |
 |----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
-| Pasar `app_role` a tener `SELECT` sobre `master.tenant_features`                             | Un solo cliente Prisma                                                                                  | Viola ADR-001 §2.3: `app_role` no toca `master`. Un bug en producto leería suscripciones de otros tenants               |
-| Crear un cuarto rol Postgres `tenant_quota_role` separado del resolver                       | Separación máxima de responsabilidades                                                                  | Cuarto rol, cuarta URL, cuarto cliente Prisma. Operativa más cara sin beneficio                                        |
-| **Ampliar `tenant_resolver_role` → `tenant_runtime_role`** (elegida)                         | Un solo cliente extra (`prismaRuntime`). La superficie crece muy poco (2 tablas en lectura, 1 en update). Coherente con que la responsabilidad lógica es la misma capa | TODO de actualizar ADR-002. Cambio de nombre a propagar en docs y `.env`                                                |
-| Cargar features en middleware HTTP (ya elegido en §2.4) **+** consumeQuota delegado al worker vía cola | App del producto sin acceso a master                                                                    | Latencia: cada `consumeQuota` espera a que el worker procese. UX peor. Rompe el flow síncrono `request → respuesta`     |
+| Pasar `app_role` a tener `SELECT/INSERT/UPDATE` sobre tablas de master                       | Un solo cliente Prisma                                                                                  | Viola ADR-001 §2.3: `app_role` no toca `master`. Un bug en producto leería suscripciones de otros tenants               |
+| Ampliar `tenant_resolver_role` → un solo `tenant_runtime_role` con escritura sobre `tenant_quota_usage` | Un solo cliente extra (`prismaRuntime`). Implementación más simple                                     | El middleware HTTP tiene mayor superficie de ataque del sistema. Si se compromete con `INSERT/UPDATE` sobre `tenant_quota_usage`, vector DoS dirigido: poner `consumed = max` en quotas de competidores |
+| **Dos roles separados: `tenant_runtime_role` (read-only) + `quota_writer_role` (escritura sobre `tenant_quota_usage` exclusivamente)** (elegida) | Cierra el vector DoS por escritura de quotas desde el middleware general. `consumeQuota` es la única función que importa `prismaQuotaWriter`, blast radius cerrado a esa función. Las funciones de runtime mayoritarias (`hasFeature`, `getLimit`) operan sin permisos de escritura | Dos URLs en `.env`, dos clientes Prisma. Convención de no importar `prismaQuotaWriter` fuera de `features.ts` (se aplica con regla ESLint custom) |
+| Crear un cuarto rol `tenant_quota_role` además del runtime y mantenerlos sincronizados manualmente | —                                                                                                       | Equivalente a la opción elegida con peor naming                                                                        |
+| Cargar features en middleware HTTP **+** delegar `consumeQuota` al worker vía cola           | App del producto sin acceso a master                                                                    | Latencia: cada `consumeQuota` espera a que el worker procese. UX peor. Rompe el flow síncrono `request → respuesta`    |
 
-La elegida combina **carga en middleware** (para hasFeature/getLimit
-sin tocar BD por request) **con cliente Prisma propio** (para
-`consumeQuota` atómico).
+**Argumento decisivo**: el middleware HTTP recibe input arbitrario
+(host, cookies, JWT). Si una vulnerabilidad lo compromete, el rol
+Postgres con el que opera define lo que el atacante puede hacer.
+Mantener escritura sobre `tenant_quota_usage` en el mismo rol que
+`hasFeature` y `getLimit` permite, en el peor caso, que un atacante
+sin escalar más privilegios degrade el servicio de competidores
+poniendo sus contadores al máximo. Aislar la escritura en un rol y un
+cliente Prisma usado únicamente por `consumeQuota` cierra ese vector
+sin coste material adicional.
 
 ### 3.2 Edge case "no hay fila de quota vigente"
 
@@ -682,10 +797,13 @@ sin tocar BD por request) **con cliente Prisma propio** (para
 
 ### 4.2 Negativas (asumidas)
 
-- **`tenant_runtime_role` con permisos ampliados respecto a `tenant_resolver_role`**.
-  El blast radius del middleware HTTP crece dos tablas en lectura y un
-  contador en escritura. Aceptable: sigue sin tocar `subscriptions`,
-  `stripe_events`, `audit_log`, `super_admins`.
+- **Dos roles Postgres adicionales** respecto a ADR-002 §3.6
+  (`tenant_runtime_role` + `quota_writer_role`). El blast radius del
+  middleware HTTP en lectura crece dos tablas (`tenant_features` y
+  `tenant_quota_usage`); en escritura, **no crece**: la escritura
+  vive en `quota_writer_role`, usado solo por `consumeQuota`. Coste
+  operativo: dos URLs en `.env` y una regla ESLint que vigila el
+  import de `prismaQuotaWriter`.
 - **Convención + lint para CORE no es a prueba de balas**. Un dev que
   desactive el lint y meta un `hasFeature` rompe la garantía. El test
   E2E es la última barrera: si pasa, el flujo está libre de gating.
@@ -728,24 +846,36 @@ sin tocar BD por request) **con cliente Prisma propio** (para
   utilitaria).
 - Seed de `master.features` con la lista del catálogo §11.3 categorizada
   por tipo (`boolean` / `limit` / `quota`).
-- Crear `tenant_runtime_role` con los permisos de §2.2 (renombra y
-  amplía `tenant_resolver_role` propuesto en ADR-002 §3.6).
+- Crear `tenant_runtime_role` y `quota_writer_role` con los permisos
+  exactos de §2.2 (separación lectura/escritura).
 
-> **TODO en ADR-002**: actualizar §3.6 y §5.4 con
-> `tenant_runtime_role` (nombre nuevo, permisos ampliados a
-> `master.tenant_features` SELECT y `master.tenant_quota_usage`
-> SELECT/INSERT/UPDATE) y la env `TENANT_RUNTIME_DATABASE_URL`. Queda
-> como pendiente del próximo bloque de enmiendas a ADR-002.
+> **TODO en ADR-002**: actualizar §3.6 y §5.4 con **dos roles**:
+> `tenant_runtime_role` (SELECT sobre `master.tenants`,
+> `master.reserved_slugs`, `master.tenant_features`,
+> `master.tenant_quota_usage`) y `quota_writer_role`
+> (SELECT/INSERT/UPDATE solo sobre `master.tenant_quota_usage`). Dos
+> envs nuevas: `TENANT_RUNTIME_DATABASE_URL` y
+> `QUOTA_WRITER_DATABASE_URL`. Queda como pendiente del próximo
+> bloque de enmiendas a ADR-002.
 
 ### 5.2 Fase 3 — Resolución de tenant y refactor del producto
 
 - `src/middleware.ts` precarga features además del lookup de tenant.
   El contexto pasa de `{ slug, tenantId, status }` a
   `{ slug, tenantId, status, features: Map<string, ResolvedFeature> }`.
-- `src/lib/prisma.ts` añade `prismaRuntime` con
-  `TENANT_RUNTIME_DATABASE_URL`.
+- `src/lib/prisma.ts` añade dos clientes:
+  - `prismaRuntime` con `TENANT_RUNTIME_DATABASE_URL` (read-only sobre
+    master).
+  - `prismaQuotaWriter` con `QUOTA_WRITER_DATABASE_URL`
+    (SELECT/INSERT/UPDATE solo sobre `master.tenant_quota_usage`).
+  El export de `prismaQuotaWriter` se restringe vía regla ESLint
+  custom `no-quota-writer-leak` que solo permite el import desde
+  `src/lib/tenant/features.ts`.
 - Test de fuga (ADR-001 §2.4) extendido: una request con `currentTenant().features`
   manualmente vacío debe seguir fallando-cerrado en `consumeQuota`.
+- Test de aislamiento de roles: `tenant_runtime_role` recibe
+  `permission denied` al intentar `INSERT INTO master.tenant_quota_usage`;
+  `quota_writer_role` recibe `permission denied` al intentar `SELECT * FROM master.tenants`.
 
 ### 5.3 Fase 5 — Feature flags en uso
 
@@ -835,9 +965,15 @@ todos los siguientes son ciertos:
 
 1. `master.tenant_quota_usage` existe en master con índices únicos y el
    trigger `updated_at`.
-2. `tenant_runtime_role` existe con los permisos exactos de §2.2 y
-   `tenant_resolver_role` ya no se usa (verificado con `\du` en psql y
-   con grep en `src/lib/prisma.ts`).
+2. `tenant_runtime_role` y `quota_writer_role` existen con los
+   permisos exactos de §2.2. Verificado con dos tests negativos:
+   `tenant_runtime_role` recibe `permission denied` al intentar
+   `INSERT INTO master.tenant_quota_usage`; `quota_writer_role`
+   recibe `permission denied` al intentar `SELECT * FROM master.tenants`.
+   `tenant_resolver_role` ya no se usa (grep en `src/lib/prisma.ts`).
+   `prismaQuotaWriter` solo se importa desde
+   `src/lib/tenant/features.ts` (verificado con la regla ESLint
+   `no-quota-writer-leak`).
 3. `currentTenant().features` está poblado en cada request de tenant
    active. Verificado con un test que asierta el contenido tras un
    `runWithTenant`.
