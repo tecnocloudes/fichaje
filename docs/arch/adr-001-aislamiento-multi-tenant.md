@@ -33,7 +33,10 @@ queries y añadirles un `where: { tenantId }`. Cualquier olvido —en una nueva
 ruta, en un script, en un job— produce **fuga inmediata** entre tenants. Prisma
 no aplica automáticamente RLS de Postgres, así que la barrera de RLS exige
 trabajo extra en cada conexión (`SET app.tenant_id` por request) que el repo no
-hace hoy.
+hace hoy. Añadir `tenantId` a las ~50 queries afectadas es viable pero propenso
+a errores: un solo `where` olvidado fuga datos cross-tenant. Schema-per-tenant
+elimina esa clase de bug por construcción —no se puede "olvidar el filtro"
+cuando el filtro es el schema en el que la conexión está apuntando.
 
 El volumen previsto es **10–100 tenants en los primeros 12 meses**. Este número
 es importante: descarta soluciones pensadas para miles de tenants (donde
@@ -135,10 +138,79 @@ mock— que verifique con dos schemas reales que:
 - Un endpoint del producto invocado con un JWT cuyo `tenant_id` no coincide
   con el host del request **no** ejecuta ninguna query (rechazado en
   middleware antes de llegar a Prisma).
+- **Escenario 4 — Inyección por slug malicioso**: un slug con caracteres
+  fuera de la regex (ej: `tenant_; DROP SCHEMA public CASCADE; --`) debe ser
+  rechazado en validación. El test inserta directamente en `master.tenants`
+  un slug malicioso bypaseando la API, intenta resolverlo, y verifica que
+  la función de resolución lanza error **antes** de llegar al `SET`.
+  Severidad: bloqueante para release.
 
 Este test es el criterio bloqueante de aceptación de Fase 3. Sin él Fase 4 no
 arranca. Tooling concreto se cierra en Fase 9 (propuesta provisional: Vitest
 + `@testcontainers/postgresql` para Postgres efímero por suite).
+
+### 2.5 Construcción segura del schema name
+
+`SET search_path TO tenant_${slug}` es un vector de inyección SQL si el slug
+llega desde input no validado al constructor del SQL. La decisión §2.1 obliga
+a que el slug forme parte del nombre de un identificador SQL —no de un
+literal— y los identificadores no pueden parametrizarse con `$1`. Para
+neutralizar el riesgo aplicamos tres reglas, las tres obligatorias:
+
+**Regla 1 — Validación de slug al insertar en `master.tenants`**
+
+El slug debe satisfacer la regex `^[a-z][a-z0-9_]{2,30}$`:
+
+- Empieza por letra minúscula (no por número, no por guion).
+- Solo `[a-z0-9_]` en el resto (sin mayúsculas, sin guiones, sin
+  caracteres no ASCII, sin `;`, sin espacios).
+- Longitud 3–31 caracteres.
+
+La validación se aplica en **dos capas**:
+
+- A nivel de **constraint** en la tabla `master.tenants`
+  (`CHECK (slug ~ '^[a-z][a-z0-9_]{2,30}$')`) para que ninguna inserción
+  directa en BD pueda saltársela.
+- A nivel de **API** (zod o equivalente) en el flujo de registro, antes de
+  llegar a Prisma.
+
+**Regla 2 — Verificación de existencia antes de cualquier `SET search_path`**
+
+Antes de emitir un `SET search_path` con un slug, la función de resolución
+de tenant **siempre** verifica que el slug existe en `master.tenants` y está
+en estado activo. Si no existe → 404. **Nunca** se emite un `SET` con un
+slug arbitrario obtenido del request, ni siquiera si pasa la regex. La
+caché host→tenant (ADR-002) opera sobre slugs ya verificados.
+
+**Regla 3 — Quoting del identificador en el SQL emitido**
+
+El SQL final no se construye por interpolación de string. Se usa
+`Prisma.sql` con `Prisma.raw(quoteIdent(slug))` o equivalente, donde
+`quoteIdent` es una función dedicada que:
+
+1. Re-valida la regex antes de devolver nada (defensa en profundidad).
+2. Devuelve el identificador con comillas dobles (`"tenant_acme"`),
+   escapando las dobles internas si las hubiera (en la práctica, la regex
+   ya las prohíbe).
+
+Implementación de referencia (vive en Fase 3, en `lib/tenant/quote.ts` o
+similar):
+
+```ts
+const SLUG_RE = /^[a-z][a-z0-9_]{2,30}$/;
+
+export function quoteSchemaName(slug: string): string {
+  if (!SLUG_RE.test(slug)) {
+    throw new Error(`Slug inválido: ${JSON.stringify(slug)}`);
+  }
+  return `"tenant_${slug}"`;
+}
+```
+
+Cualquier código que construya un `SET search_path` y que **no** pase por
+`quoteSchemaName` (o equivalente) es un bug bloqueante. El test del
+Escenario 4 (§2.4) verifica que la cadena protege contra slugs maliciosos
+sembrados directamente en `master.tenants` saltándose la API.
 
 ---
 
@@ -302,12 +374,67 @@ queda mitigado por schema-per-tenant.
   - `APP_DATABASE_URL` — credenciales de `app_role`. Usado por la app del
     producto (servicio principal Dokploy) y por el worker (Fase 4) cuando
     actúe sobre datos de tenant. Para webhooks de Stripe que afectan al
-    control plane el worker usa `MASTER_DATABASE_URL`.
+    control plane el worker usa `MASTER_DATABASE_URL`. La operativa
+    dual-rol del worker se detalla en §5.4.
 - Healthcheck endpoint debe verificar **ambas** conexiones (master y app).
 - Backups: `pg_dump --schema=master` para control plane;
   `pg_dump --schema=tenant_<slug>` por cliente para snapshots
   individuales. Estrategia agregada (rolling daily + retention) se cierra en
-  Fase 8.
+  Fase 8 (ver también §5.5 sobre prioridad del backup de master).
+
+### 5.4 Fase 4 — Worker dual-rol
+
+El worker que procesa los webhooks de Stripe y la provisión de tenants
+escribe en **dos zonas distintas**: `master.*` (suscripciones, eventos,
+auditoría) y `tenant_*.*` (creación inicial del schema, primer OWNER). La
+operativa concreta:
+
+El worker mantiene **dos clientes Prisma en proceso**:
+
+- `prismaMaster` — conectado con `MASTER_DATABASE_URL` (credenciales de
+  `master_role`). Se usa exclusivamente para tablas en `master.*`.
+- `prismaApp` — conectado con `APP_DATABASE_URL` (credenciales de
+  `app_role`). Se usa exclusivamente para tablas en `tenant_*.*`, tras
+  aplicar `SET search_path` al slug correspondiente (mismo mecanismo de
+  ADR-002 + §2.5 de este ADR).
+
+La elección entre uno u otro se hace **por la tabla destino de cada
+operación**, no por el tipo de evento ni por el endpoint. **No se mezclan
+roles en una misma conexión**: una conexión que ya ha hecho `SET
+search_path` a un schema de tenant no se reutiliza para escribir en
+`master`, ni viceversa.
+
+> ADR-003 (billing y suscripciones) debe recoger esta restricción al
+> diseñar el worker de Stripe: el handler de cada tipo de evento declara
+> explícitamente con qué cliente Prisma escribe, y la provisión de un
+> nuevo tenant es una transacción coreografiada que toca primero `master`
+> (insertar `tenants` y `subscriptions`, crear schema con `prismaMaster`),
+> aplica las migraciones del producto en el nuevo schema, y por último
+> crea el primer OWNER con `prismaApp`.
+
+### 5.5 Prioridad de backup del control plane
+
+El backup de `master` es **prioritario** sobre los de `tenant_*`. Pérdida
+de `master` = pérdida de la capacidad de identificar a qué cliente
+pertenecen los datos de los schemas de tenant: los schemas siguen ahí,
+pero sin el control plane no se sabe cuál es de quién, qué plan tenían,
+qué suscripción los respalda. Un restore parcial de tenants sin master es
+inútil.
+
+ADR-005 debe definir, al cerrar la estrategia de backups:
+
+- **Cadencia para `master`**: como mínimo el doble de frecuente que la de
+  los schemas `tenant_*` (si los tenants se respaldan diariamente, master
+  cada 12 h o más frecuente).
+- **Retención para `master`**: como mínimo **4 años**. El RD 8/2019 obliga
+  a conservar el registro horario 4 años; sin `master` no se puede
+  atribuir el registro recuperado al cliente correcto, así que la
+  retención efectiva del registro queda limitada por la del control
+  plane. Igualar ambas no basta: el control plane debe sobrevivir a
+  cualquier `tenant_*`.
+- **Verificación**: backups de master con prueba de restauración mensual
+  (verificación operativa) en una DB efímera, no solo verificación de
+  hash o tamaño.
 
 ---
 
