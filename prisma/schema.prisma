@@ -59,6 +59,42 @@ enum PlatformRol {
   @@schema("master")
 }
 
+// Tenant: núcleo del control plane.
+//
+// El CHECK del slug `^[a-z][a-z0-9_]{2,30}$` se aplica con un CHECK constraint
+// SQL añadido en la migración (Prisma no soporta CHECK declarativo todavía).
+// El trigger `tenants_slug_not_reserved` rechaza inserts cuyo slug colisione
+// con master.reserved_slugs (también en SQL).
+//
+// La columna stripe_customer_id es nullable hasta que el primer checkout
+// asigna el Customer Stripe. Para el cliente actual del cutover (Fase 8) se
+// usa el sentinel "cus_manual_<id>" que no colisiona con prefijos reales.
+model Tenant {
+  id               String       @id @default(cuid())
+  slug             String       @unique
+  name             String
+  email            String
+  status           TenantStatus @default(pending)
+  stripeCustomerId String?      @unique @map("stripe_customer_id")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("tenants")
+  @@schema("master")
+}
+
+// Slugs reservados de la plataforma. Trigger en master.tenants rechaza
+// inserts cuyo slug exista aquí. Lista inicial sembrada en seeds.
+model ReservedSlug {
+  slug      String   @id
+  reason    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("reserved_slugs")
+  @@schema("master")
+}
+
 // ─── Producto (schema public — se moverá a tenant_<slug> en Fase 3) ────────────
 
 enum Rol {
