@@ -59,7 +59,7 @@ datasource db {
 |-----------------------|----------|------------------------------------------------------------------------------|---------------------------|
 | `TenantStatus`        | `master` | `pending`, `provisioning`, `active`, `suspended`, `deleted`                  | ADR-002 §2.4 (con enmienda PROVISIONING) |
 | `SubscriptionStatus`  | `master` | `trialing`, `active`, `past_due`, `unpaid`, `canceled`, `paused`, `incomplete`, `incomplete_expired` | ADR-003 §2.2              |
-| `FeatureSource`       | `master` | `plan`, `addon`, `manual_override`                                           | ADR-003 §2.9, ADR-004 §2.9 |
+| `FeatureSource`       | `master` | `plan`, `addon`, `manual_override`                                           | ADR-003 §2.9              |
 | `FeatureType`         | `master` | `boolean`, `limit`, `quota`                                                  | §11.1 auditoría            |
 | `PlatformRol`         | `master` | `SUPER_ADMIN`, `SUPPORT`                                                     | ADR-001 §5.1               |
 
@@ -525,12 +525,12 @@ hagan falta tests de integración. Para Fase 2 los tests son
 | `hasFeature` con `manual_override` expirado | Ignora override; usa el siguiente nivel                                                                  |
 | `hasFeature` con key fuera del catálogo (dev) | Lanza Error                                                                                              |
 | `hasFeature` con key fuera del catálogo (prod) | Devuelve `false` y log (mock)                                                                            |
-| `getLimit` con `plan = 10` y `addon = 5`    | Devuelve `15` (suma para limits es agregación máxima del plan + suma de addons; ver nota ADR-004 §2.9)   |
+| `getLimit` con `plan = 10` y `addon = 5`    | Devuelve `15` (suma para limits es agregación máxima del plan + suma de addons; ver nota ADR-003 §2.9)   |
 | `getLimit` con `manual_override = 100`      | Devuelve `100` (override gana, puede subir o bajar)                                                      |
-| `getLimit` con `manual_override = 0` y `plan = 50` | Devuelve `0` (override puede bajar; ADR-004 §2.9)                                                  |
+| `getLimit` con `manual_override = 0` y `plan = 50` | Devuelve `0` (override puede bajar; ADR-003 §2.9)                                                  |
 | `getLimit` con `value = null` (unlimited)   | Devuelve `null`                                                                                          |
 
-> **Nota sobre agregación de limits**: ADR-004 §2.9 enmendado dice
+> **Nota sobre agregación de limits**: ADR-003 §2.9 enmendado dice
 > "máximo entre plan y addons" para limits y "suma" para quotas. Esta
 > regla se respeta literalmente en los tests. `max_storage_mb`
 > + addon `storage_extra` se suma porque el catálogo trata
@@ -735,7 +735,7 @@ existente aplica las reglas.
 
 ## 11. Decisión de agregación de limits — cerrada
 
-Confirmada **opción 2**: enmendar ADR-004 §2.9 para aclarar que los
+Confirmada **opción 2**: enmendar ADR-003 §2.9 para aclarar que los
 addons se **suman** al limit del plan. La regla refinada queda así:
 
 | Caso                          | Regla                                                                |
@@ -753,10 +753,10 @@ Esta enmienda se aplica como **commit independiente antes** del
 commit 1 de Fase 2:
 
 ```
-docs(arch): ADR-004 §2.9 — aclarar agregación de limits (suma plan + addons, override gana)
+docs(arch): ADR-003 §2.9 — aclarar agregación de limits (suma plan + addons, override gana)
 ```
 
-Edita ADR-004 §2.9 reescribiendo la tabla de combinación de fuentes
+Edita ADR-003 §2.9 reescribiendo la tabla de combinación de fuentes
 con la regla anterior. Mantiene lo demás de §2.9 igual. Tras aplicar
 la enmienda, el seed y el helper `getLimit` de Fase 2 ya respetan la
 regla correcta sin necesidad de retoques posteriores.
@@ -875,7 +875,7 @@ ciertos:
 | `master.audit_log` (decisión cerrada por ADR-007)                                             | Antes Fase 7 |
 | Middleware HTTP que precarga features en `currentTenant().features`                           | Fase 3   |
 | Endpoint `GET /api/me/features`                                                                | Fase 5   |
-| Confirmar regla de agregación de limits en ADR-004 §2.9 (§11 abajo)                           | Antes de empezar Fase 2 |
+| Confirmar regla de agregación de limits en ADR-003 §2.9 (§11 abajo)                           | Antes de empezar Fase 2 |
 
 ---
 
@@ -891,7 +891,7 @@ ciertos:
   `hasFeature`/`getLimit` (`consumeQuota` se aplaza a Fase 3-5).
 - **14 commits atómicos** propuestos.
 - **Punto de confirmación antes de arrancar**: §11 — regla de
-  agregación de limits en addons (¿enmienda a ADR-004 §2.9 con regla
+  agregación de limits en addons (¿enmienda a ADR-003 §2.9 con regla
   "incremental"?).
 - **Sin tocar**: producto en `public`, middleware, webhooks Stripe,
   panel super-admin, audit_log.
