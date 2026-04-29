@@ -557,6 +557,15 @@ hagan falta tests de integración. Para Fase 2 los tests son
 | `loadFeaturesFor` con `manual_override` expirado                  | El override expirado **no** aparece en el Map                            |
 | Insertar `tenant_features` con `source='manual_override'` y `reason=NULL` | Falla por CHECK                                                          |
 | Insertar `tenant_features` con `source='manual_override'` y `reason='corto'` (8 chars) | Falla por CHECK (mínimo 10 chars)                                  |
+| Conectar con `tenant_runtime_role` e intentar `INSERT INTO master.tenant_quota_usage` | Falla `permission denied` |
+| Conectar con `tenant_runtime_role` e intentar `SELECT * FROM master.subscriptions`    | Falla `permission denied` |
+| Conectar con `quota_writer_role` e intentar `SELECT * FROM master.tenants`            | Falla `permission denied` |
+| Conectar con `app_role` e intentar `SELECT * FROM master.tenants`                     | Falla `permission denied` |
+
+Los cuatro tests anteriores son **obligatorios**. Sin ellos, una
+regresión en los `GRANT` del SQL de roles (§4) pasa desapercibida hasta
+producción. Cierran el criterio 6 de §13 con verificación automática
+en CI.
 
 ### 7.3 Tests del seed
 
@@ -693,6 +702,14 @@ existente aplica las reglas.
   repo actual.
 - **Términos técnicos / control plane**: inglés (`Tenant`, `Plan`,
   `Feature`).
+- **`@@map` explícito en todos los modelos del schema master**. Todos
+  los 11 modelos del control plane llevan `@@map('snake_case_plural')`
+  aunque Prisma genere un nombre similar por defecto. La pluralización
+  automática de Prisma es inglesa y puede sorprender (`super_admins`
+  vs `superAdmins`, `tenant_features` vs `tenantFeatures`,
+  `reserved_slugs` vs `reservedSlugs`). Explícito > implícito.
+  Ejemplo: `@@map("tenant_quota_usage")`. Misma regla para `@map` en
+  cada columna con `snake_case` en BD.
 
 ### 10.3 Comentarios e idioma de logs
 
@@ -716,34 +733,33 @@ existente aplica las reglas.
 
 ---
 
-## 11. Punto a confirmar antes de empezar
+## 11. Decisión de agregación de limits — cerrada
 
-**Agregación de `limits` con plan + addon**: §6.3 y §7.1 asumen que el
-addon `storage_extra` (1 GB en MB) se **suma** al `max_storage_mb` del
-plan. Esto se desvía de la regla literal de ADR-004 §2.9 enmendado que
-decía "máximo" para limits.
+Confirmada **opción 2**: enmendar ADR-004 §2.9 para aclarar que los
+addons se **suman** al limit del plan. La regla refinada queda así:
 
-La razón comercial es clara: el cliente compra "un bloque extra", no
-"reemplazar el límite del plan". Pero la regla actual del ADR es
-"máximo".
+| Caso                          | Regla                                                                |
+|-------------------------------|----------------------------------------------------------------------|
+| Solo plan                     | `value` del plan                                                     |
+| Plan + N addons               | `plan_value + sum(addons)`. **NO** máximo                            |
+| `manual_override` activo      | Gana siempre, ignora plan y addons (puede subir O bajar)             |
 
-**Tres opciones**:
+Justificación: addons de bloques incrementales (`storage_extra`,
+`emails_extra`) tienen semántica "incrementan el límite del plan". La
+regla "máximo" del ADR original era para casos sin coexistencia.
+Aclarar evita debate en Fase 5.
 
-1. **Aplicar la regla literal del ADR** (`máximo` para limits): el
-   addon `storage_extra` no aporta porque el plan ya da más. Inviable
-   para la semántica de "bloques incrementales" del addon.
-2. **Cambiar la regla del ADR-004 §2.9** a "suma" para limits cuando
-   el `addon` lleva flag de incremental: requiere enmienda al ADR-004.
-3. **Modelar el addon como quota** en lugar de limit: `storage_extra`
-   con `period = null` (sin reset) y consumo manual cuando se sube un
-   archivo. Cambia la semántica.
+Esta enmienda se aplica como **commit independiente antes** del
+commit 1 de Fase 2:
 
-**Recomendación**: opción 2 — enmendar ADR-004 §2.9 para aclarar que
-los addons de tipo `incremental` se suman al limit del plan, mientras
-que `manual_override` sigue ganando como override absoluto.
+```
+docs(arch): ADR-004 §2.9 — aclarar agregación de limits (suma plan + addons, override gana)
+```
 
-Si el usuario aprueba, se añade la enmienda a ADR-004 antes de
-arrancar el seed para que el código del helper `getLimit` la respete.
+Edita ADR-004 §2.9 reescribiendo la tabla de combinación de fuentes
+con la regla anterior. Mantiene lo demás de §2.9 igual. Tras aplicar
+la enmienda, el seed y el helper `getLimit` de Fase 2 ya respetan la
+regla correcta sin necesidad de retoques posteriores.
 
 ---
 
