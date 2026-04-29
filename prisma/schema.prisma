@@ -95,6 +95,59 @@ model ReservedSlug {
   @@schema("master")
 }
 
+// Plan: starter / pro / enterprise. Sin precios — los precios viven en
+// Stripe (vars STRIPE_PRICE_* de ADR-005 §2.3.b). Aquí solo metadatos
+// para la UI de selección de plan en app.ficha.tecnocloud.es/registro.
+model Plan {
+  id           String        @id @default(cuid())
+  key          String        @unique
+  name         String
+  description  String?
+  active       Boolean       @default(true)
+  sortOrder    Int           @default(0) @map("sort_order")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  planFeatures PlanFeature[]
+
+  @@map("plans")
+  @@schema("master")
+}
+
+// Catálogo de features. Cada feature tiene un tipo (boolean/limit/quota).
+// quotaPeriod solo aplica si type=quota (CHECK constraint en BD).
+// Se siembra desde el catálogo §11.3 auditoría con ~30 entradas iniciales.
+model Feature {
+  id          String      @id @default(cuid())
+  key         String      @unique
+  name        String
+  description String?
+  type        FeatureType
+  quotaPeriod String?     @map("quota_period") // 'mes' o 'dia' si type=quota; NULL en otros
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@map("features")
+  @@schema("master")
+}
+
+// Mapping: qué features tiene cada plan, con qué value.
+// value es jsonb: bool true/false para boolean, integer para limit/quota,
+// null para unlimited. ADR-003 §2.2 — sin FK a Feature porque feature_key
+// puede no existir en eventos atrasados (auditoría sin acción).
+model PlanFeature {
+  id         String   @id @default(cuid())
+  planId     String   @map("plan_id")
+  plan       Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  featureKey String   @map("feature_key")
+  value      Json
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([planId, featureKey])
+  @@map("plan_features")
+  @@schema("master")
+}
+
 // ─── Producto (schema public — se moverá a tenant_<slug> en Fase 3) ────────────
 
 enum Rol {
