@@ -587,14 +587,31 @@ async function hasFeature(tenantId: string, key: string): Promise<boolean> {
 
 **Tabla explícita de combinación de fuentes**:
 
-| Tipo      | `manual_override` presente                     | `manual_override` ausente                                              |
-|-----------|------------------------------------------------|------------------------------------------------------------------------|
-| `boolean` | `manual_override` gana (puede activar O desactivar) | OR entre `plan` y `addons`                                            |
-| `limit`   | `manual_override` gana (puede subir O bajar)        | máximo entre `plan` y `addons`                                        |
-| `quota`   | `manual_override` gana (puede subir O bajar)        | suma de `plan` + `addons` (ej: `max_storage_mb` plan + `storage_extra` × `quantity`) |
+| Tipo      | `manual_override` presente                          | `manual_override` ausente                                                                                                                |
+|-----------|------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| `boolean` | `manual_override` gana (puede activar O desactivar)  | OR entre `plan` y `addons`                                                                                                              |
+| `limit`   | `manual_override` gana (puede subir O bajar)         | `plan_value + sum(addons)`. **Suma, no máximo**. Los addons son incrementales (ej: `max_storage_mb` plan + `storage_extra` × `quantity`) |
+| `quota`   | `manual_override` gana (puede subir O bajar)         | suma de `plan` + `addons` (ej: `emails_mes` plan + `emails_extra` × `quantity`)                                                          |
 
 `getLimit(key)` y `getQuota(key)` implementan estas reglas; el mismo
 patrón de prioridad que `hasFeature` aplica.
+
+**Justificación de la regla de suma para limits**:
+
+Los addons en un SaaS de fichaje tienen semántica **incremental**
+(bloques de storage adicional, emails extra) y se suman al plan base.
+Una regla de "máximo entre plan y addons" dejaría los addons sin
+efecto cuando el plan ya supera al addon, lo cual **contradice la
+promesa comercial**: el cliente compra un bloque extra esperando que
+se sume, no que se compare con el plan. La regla original de "máximo"
+en versiones previas de este ADR estaba pensada para el caso sin
+coexistencia plan + addon; aclarar la regla aquí evita debate cuando
+Fase 5 implemente `getLimit`.
+
+`manual_override` conserva la semántica de **override absoluto**:
+puede **subir** un límite (cortesía a cliente VIP) o **bajarlo**
+(restricción ante abuso antes de cancelar). El detalle del caso de
+bajada ya está justificado más abajo.
 
 **Por qué `manual_override` puede subir O bajar** (no solo subir):
 
