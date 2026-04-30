@@ -22,6 +22,7 @@
     "tenants:provision": "npx tsx scripts/tenants-provision.ts",
     "tenants:migrate": "npx tsx scripts/tenants-migrate.ts",
     "tenants:migrate:all": "npx tsx scripts/tenants-migrate.ts -- --all",
+    "dev:seed-tenant": "npx tsx scripts/dev-seed-tenant.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
