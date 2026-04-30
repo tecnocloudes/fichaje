@@ -33,7 +33,9 @@ import { runWithTenant, type TenantContext } from "@/lib/tenant/context";
 
 const { auth } = NextAuth(authConfig);
 
-type AuthedRequest = NextRequest & { auth: { user?: { rol?: string } } | null };
+type AuthedRequest = NextRequest & {
+  auth: { user?: { rol?: string; tenantSlug?: string } } | null;
+};
 
 function getRootDomain(): string {
   return process.env.TENANT_ROOT_DOMAIN ?? "ficha.tecnocloud.es";
@@ -92,10 +94,18 @@ export default auth(async (req) => {
     return new NextResponse("Cuenta eliminada", { status: 410 });
   }
 
-  // status === "active": envolver con runWithTenant.
-  return runWithTenant(ctx, () =>
-    tenantSubdomainHandler(req as AuthedRequest, ctx),
-  );
+  // status === "active": validar JWT cross-tenant antes del runWithTenant.
+  const authedReq = req as AuthedRequest;
+  const jwtSlug = authedReq.auth?.user?.tenantSlug;
+  if (jwtSlug && jwtSlug !== ctx.slug) {
+    // ADR-002 §2.5: 401 (no 403). El JWT viene firmado por el tenant
+    // donde el usuario hizo login; si llega a otro host, el cookie
+    // (con `__Host-` y SameSite) no debería propagarse — pero si lo hace,
+    // se rechaza sin revelar la existencia del otro tenant.
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  return runWithTenant(ctx, () => tenantSubdomainHandler(authedReq, ctx));
 });
 
 function appSubdomainHandler(req: AuthedRequest): NextResponse {

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { authConfig } from "@/lib/auth.config";
+import { maybeCurrentTenant } from "@/lib/tenant/context";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -45,6 +46,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         );
         if (!passwordOk) return null;
 
+        // Fase 3 (ADR-002 §2.5): el authorize corre dentro del runWithTenant
+        // que envuelve el proxy. Si hay tenant en contexto, persistimos
+        // tenantId/tenantSlug en el JWT para validación cruzada.
+        const tenant = maybeCurrentTenant();
         return {
           id: user.id,
           email: user.email,
@@ -53,6 +58,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           tiendaId: user.tiendaId,
           nombre: user.nombre,
           apellidos: user.apellidos,
+          tenantId: tenant?.tenantId,
+          tenantSlug: tenant?.slug,
         };
       },
     }),

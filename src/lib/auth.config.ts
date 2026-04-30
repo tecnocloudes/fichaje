@@ -14,6 +14,11 @@ export const authConfig: NextAuthConfig = {
         token.tiendaId = (user as any).tiendaId;
         token.nombre = (user as any).nombre;
         token.apellidos = (user as any).apellidos;
+        // Fase 3 (ADR-002 §2.5): el JWT lleva tenantId+tenantSlug del
+        // tenant donde el usuario hizo login. El proxy (commit 9)
+        // compara esto con el slug del host y devuelve 401 si difieren.
+        token.tenantId = (user as any).tenantId;
+        token.tenantSlug = (user as any).tenantSlug;
       }
       return token;
     },
@@ -24,6 +29,8 @@ export const authConfig: NextAuthConfig = {
         (session.user as any).tiendaId = token.tiendaId;
         (session.user as any).nombre = token.nombre;
         (session.user as any).apellidos = token.apellidos;
+        (session.user as any).tenantId = token.tenantId;
+        (session.user as any).tenantSlug = token.tenantSlug;
       }
       return session;
     },
