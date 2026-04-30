@@ -218,15 +218,6 @@ export const prismaQuotaWriter: PrismaClientMaster = lazyClient(
   createMasterClient,
 );
 
-// ─── Compat con Fase 0.5 ─────────────────────────────────────────────────────
-// Alias `prisma` apuntando a prismaMaster. El código legacy del producto
-// (50 endpoints en src/app/api/*) sigue importando esto. Los commits 19-21
-// migran cada endpoint a `prismaApp`. El commit 22 final retira este alias
-// y los modelos del producto de schema.prisma.
-//
-// NOTA — desviación menor del plan: §15.4 propuso eliminar este alias en el
-// commit 3, pero como prismaApp depende de runWithTenant + $extends (commits
-// 4-6) y el refactor de endpoints requiere el lint rule (commit 18), eliminar
-// el alias antes rompería tsc en 50 archivos sin beneficio. Se mantiene como
-// compat hasta el commit 22 final.
-export const prisma = prismaMaster;
+// El alias `prisma = prismaMaster` (compat de Fase 0.5) se eliminó en el
+// commit 22 cuando los 50 importadores migraron a prismaApp/prismaMaster
+// según contexto (ADR-002 §2.2 + §15.4 del plan).

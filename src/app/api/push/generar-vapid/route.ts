@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
-import { Rol } from "@/generated/prisma/client";
+import { Rol } from "@/generated/prisma-tenant/client";
 import webpush from "web-push";
 
 export async function POST() {

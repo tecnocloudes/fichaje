@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { prisma } from "./prisma";
+import { prismaApp as prisma } from "./prisma";
 
 export async function sendEmail(to: string, subject: string, html: string) {
   const config = await prisma.configuracionEmpresa.findFirst({

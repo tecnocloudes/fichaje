@@ -1,5 +1,5 @@
 import webpush from "web-push";
-import { prisma } from "./prisma";
+import { prismaApp as prisma } from "./prisma";
 
 export async function sendPush(
   userId: string,

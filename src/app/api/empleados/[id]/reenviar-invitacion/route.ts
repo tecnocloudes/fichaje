@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
-import { Rol } from "@/generated/prisma/client";
+import { Rol } from "@/generated/prisma-tenant/client";
 import { sendEmail } from "@/lib/email";
 import { invitacionTemplate } from "@/lib/email-templates";
 import crypto from "crypto";

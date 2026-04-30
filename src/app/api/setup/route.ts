@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
-import { Rol } from "@/generated/prisma/client";
+import { prismaApp as prisma } from "@/lib/prisma";
+import { Rol } from "@/generated/prisma-tenant/client";
 import bcrypt from "bcryptjs";
 import type { NextRequest } from "next/server";
 

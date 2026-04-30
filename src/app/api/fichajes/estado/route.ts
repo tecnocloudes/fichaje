@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
-import { TipoFichaje } from "@/generated/prisma/client";
+import { TipoFichaje } from "@/generated/prisma-tenant/client";
 
 export async function GET() {
   try {

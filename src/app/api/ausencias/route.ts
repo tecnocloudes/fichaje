@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
-import { Rol, EstadoAusencia } from "@/generated/prisma/client";
+import { Rol, EstadoAusencia } from "@/generated/prisma-tenant/client";
 import type { NextRequest } from "next/server";
 
 function calcularDias(fechaInicio: Date, fechaFin: Date): number {

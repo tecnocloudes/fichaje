@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
-import { Rol, TipoFichaje } from "@/generated/prisma/client";
+import { Rol, TipoFichaje } from "@/generated/prisma-tenant/client";
 import type { NextRequest } from "next/server";
 
 type TipoInforme = "fichajes" | "ausencias" | "turnos" | "resumen" | "presencia" | "presencia-global";

@@ -1,4 +1,4 @@
-import { prisma } from "./prisma";
+import { prismaApp as prisma } from "./prisma";
 
 /**
  * Adds missing columns / tables introduced since the initial schema.

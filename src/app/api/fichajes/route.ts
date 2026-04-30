@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
-import { TipoFichaje, MetodoFichaje, Rol } from "@/generated/prisma/client";
+import { TipoFichaje, MetodoFichaje, Rol } from "@/generated/prisma-tenant/client";
 import type { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {

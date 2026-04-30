@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { Rol } from "@/generated/prisma/client";
+import { prismaApp as prisma } from "@/lib/prisma";
+import { Rol } from "@/generated/prisma-tenant/client";
 import type { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {

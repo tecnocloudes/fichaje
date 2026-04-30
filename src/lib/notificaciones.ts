@@ -1,4 +1,4 @@
-import { prisma } from "./prisma";
+import { prismaApp as prisma } from "./prisma";
 import { sendEmail } from "./email";
 import { sendPush } from "./push";
 
