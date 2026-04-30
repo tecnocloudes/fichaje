@@ -125,10 +125,11 @@ async function main() {
   }
 
   // 4. Insertar/actualizar tenant en master.tenants.
-  await prismaMaster.tenant.upsert({
+  // Si tenants:provision ya creó la fila, reusamos su id (cuid). Si no
+  // existe, la creamos aquí.
+  const tenant = await prismaMaster.tenant.upsert({
     where: { slug: DEV_SLUG },
     create: {
-      id: "tnt_dev",
       slug: DEV_SLUG,
       name: "dev",
       email: "dev@dev.local",
@@ -137,18 +138,18 @@ async function main() {
     update: { status: "active" },
   });
 
-  // 5. tenant_features con el plan.
+  // 5. tenant_features con el plan (usa el id real de la fila).
   for (const pf of plan.planFeatures) {
     await prismaMaster.tenantFeature.upsert({
       where: {
         tenantId_featureKey_source: {
-          tenantId: "tnt_dev",
+          tenantId: tenant.id,
           featureKey: pf.featureKey,
           source: "plan",
         },
       },
       create: {
-        tenantId: "tnt_dev",
+        tenantId: tenant.id,
         featureKey: pf.featureKey,
         value: pf.value as never,
         source: "plan",
