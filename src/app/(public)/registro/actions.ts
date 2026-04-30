@@ -1,0 +1,127 @@
+/**
+ * Server action del formulario /registro. ADR-003 §2.6 + Enmienda 1
+ * del plan de Fase 4 (server actions del subdominio app usan
+ * prismaMaster, NO prismaApp).
+ */
+
+"use server";
+
+import { redirect } from "next/navigation";
+import { prismaMaster } from "@/lib/prisma";
+import { stripe } from "@/lib/stripe/client";
+import { getPlanPriceId } from "@/lib/stripe/price-catalog";
+import { registroSchema, suggestSlugAlternatives } from "@/lib/registro/schema";
+
+export type RegistroResult =
+  | { kind: "ok"; redirectUrl: string } // server action redirige; este caso no se devuelve normalmente
+  | { kind: "error"; message: string; field?: string; suggestions?: string[] };
+
+export async function registrarTenantAction(
+  prevState: unknown,
+  formData: FormData,
+): Promise<RegistroResult> {
+  // 1. Parse + validar.
+  const raw = {
+    nombre: formData.get("nombre"),
+    email: formData.get("email"),
+    slug: formData.get("slug"),
+    planKey: formData.get("planKey"),
+    billingPeriod: formData.get("billingPeriod"),
+  };
+  const parsed = registroSchema.safeParse(raw);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return {
+      kind: "error",
+      message: first?.message ?? "Datos inválidos",
+      field: first?.path.join(".") ?? undefined,
+    };
+  }
+  const data = parsed.data;
+
+  // 2. Slug en reserved_slugs.
+  const reserved = await prismaMaster.reservedSlug.findUnique({
+    where: { slug: data.slug },
+  });
+  if (reserved) {
+    return {
+      kind: "error",
+      message: `El subdominio "${data.slug}" no está disponible.`,
+      field: "slug",
+      suggestions: suggestSlugAlternatives(data.slug),
+    };
+  }
+
+  // 3. Resolver Stripe price.
+  const priceId = getPlanPriceId(data.planKey, data.billingPeriod);
+  if (!priceId) {
+    return {
+      kind: "error",
+      message: `Plan ${data.planKey} ${data.billingPeriod} no configurado en Stripe. Contacta soporte.`,
+    };
+  }
+
+  // 4. INSERT master.tenants con prismaMaster (Enmienda 1 del plan).
+  let tenant;
+  try {
+    tenant = await prismaMaster.tenant.create({
+      data: {
+        slug: data.slug,
+        name: data.nombre,
+        email: data.email,
+        status: "pending",
+      },
+    });
+  } catch (err) {
+    // P2002 = unique constraint violation.
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code: string }).code === "P2002"
+    ) {
+      return {
+        kind: "error",
+        message: `El subdominio "${data.slug}" acaba de ocuparse.`,
+        field: "slug",
+        suggestions: suggestSlugAlternatives(data.slug),
+      };
+    }
+    throw err;
+  }
+
+  // 5. Crear Checkout Session.
+  const trialDays = parseInt(process.env.STRIPE_TRIAL_DAYS ?? "14", 10);
+  const requiresCard =
+    (process.env.STRIPE_TRIAL_REQUIRES_CARD ?? "true") === "true";
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    line_items: [{ price: priceId, quantity: 1 }],
+    client_reference_id: tenant.id,
+    metadata: { tenant_id: tenant.id, tenant_slug: tenant.slug },
+    subscription_data: {
+      metadata: { tenant_id: tenant.id, tenant_slug: tenant.slug },
+      ...(requiresCard && trialDays > 0
+        ? { trial_period_days: trialDays }
+        : {}),
+    },
+    customer_creation: "always",
+    customer_email: data.email,
+    success_url:
+      process.env.STRIPE_CHECKOUT_SUCCESS_URL ??
+      "http://app.localhost:3000/registro/exito?session_id={CHECKOUT_SESSION_ID}",
+    cancel_url:
+      process.env.STRIPE_CHECKOUT_CANCEL_URL ??
+      "http://app.localhost:3000/registro/cancelado",
+  });
+
+  if (!session.url) {
+    return {
+      kind: "error",
+      message: "Stripe no devolvió URL de checkout.",
+    };
+  }
+
+  // 6. Redirect a Stripe Checkout.
+  redirect(session.url);
+}
