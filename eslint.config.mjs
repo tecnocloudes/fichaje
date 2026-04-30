@@ -30,6 +30,10 @@ const fichajePlugin = {
           // Endpoints que se eliminan/refactorizan en Fase 4.
           "/api/setup/",
           "/api/auth/",
+          // Webhook Stripe: vive en subdominio app, sin tenant en
+          // contexto. Usa prismaMaster para idempotencia y dispatch
+          // (ADR-003 §2.3.c, AGENTS.md "server actions del subdominio app").
+          "/api/webhooks/",
         ];
         return {
           ImportDeclaration(node) {
