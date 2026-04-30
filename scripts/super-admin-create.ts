@@ -18,8 +18,8 @@
 
 import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import bcrypt from "bcryptjs";
 import { prismaMaster } from "../src/lib/prisma";
+import { upsertSuperAdmin } from "../src/lib/super-admin";
 
 type Args = {
   email: string;
@@ -71,41 +71,28 @@ async function main() {
     where: { email: args.email },
   });
 
+  // Sólo pedimos password si:
+  // - la cuenta no existe (alta), o
+  // - se pasó --reset-password (rotación).
+  let password: string | undefined;
   if (!existing) {
-    const password = await readPassword(`Contraseña para ${args.email}: `);
-    if (password.length < 12) {
-      throw new Error("La contraseña debe tener al menos 12 caracteres.");
-    }
-    const hash = await bcrypt.hash(password, 12);
-    await prismaMaster.superAdmin.create({
-      data: {
-        email: args.email,
-        name: args.name,
-        password: hash,
-        role: args.role,
-      },
-    });
-    console.log(`✅ Super-admin creado: ${args.email} (role=${args.role})`);
-    return;
+    password = await readPassword(`Contraseña para ${args.email}: `);
+  } else if (args.resetPassword) {
+    password = await readPassword(`Nueva contraseña para ${args.email}: `);
   }
 
-  // Existe: actualizar name/role. Solo password si --reset-password.
-  if (args.resetPassword) {
-    const password = await readPassword(`Nueva contraseña para ${args.email}: `);
-    if (password.length < 12) {
-      throw new Error("La contraseña debe tener al menos 12 caracteres.");
-    }
-    const hash = await bcrypt.hash(password, 12);
-    await prismaMaster.superAdmin.update({
-      where: { email: args.email },
-      data: { name: args.name, role: args.role, password: hash },
-    });
+  const result = await upsertSuperAdmin(prismaMaster, {
+    email: args.email,
+    name: args.name,
+    role: args.role,
+    password,
+  });
+
+  if (result.created) {
+    console.log(`✅ Super-admin creado: ${args.email} (role=${args.role})`);
+  } else if (result.passwordUpdated) {
     console.log(`✅ Super-admin actualizado con nueva contraseña: ${args.email}`);
   } else {
-    await prismaMaster.superAdmin.update({
-      where: { email: args.email },
-      data: { name: args.name, role: args.role },
-    });
     console.log(`✅ Super-admin actualizado (sin tocar password): ${args.email}`);
   }
 }

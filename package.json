@@ -24,7 +24,8 @@
     "tenants:migrate:all": "npx tsx scripts/tenants-migrate.ts -- --all",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "VITEST_INTEGRATION=1 vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -71,6 +72,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testcontainers/postgresql": "^11.14.0",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.0",
     "@types/react": "^19",
@@ -81,6 +83,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "tailwindcss": "^4",
+    "testcontainers": "^11.14.0",
     "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.5"
