@@ -89,16 +89,37 @@ async function main() {
   // 4-5. Crear schema + grants + aplicar migraciones del producto.
   console.log(`→ CREATE SCHEMA ${schemaIdent}`);
   await prismaMaster.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS ${schemaIdent}`);
-  await prismaMaster.$executeRawUnsafe(
+
+  // GRANTs a app_role / master_role: requieren que esos roles existan.
+  // En desarrollo local usamos un único superuser (discrepancia
+  // documentada en AGENTS.md "Desarrollo local multi-tenant"), así que
+  // los GRANTs son tolerantes a "role does not exist". En producción
+  // (Fase 8) los 4 roles SÍ existen y los GRANTs aplican.
+  async function tryGrant(sql: string, label: string): Promise<void> {
+    try {
+      await prismaMaster.$executeRawUnsafe(sql);
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (msg.includes("does not exist")) {
+        console.log(`(aviso) ${label} omitido: rol no existe en este Postgres`);
+      } else {
+        throw e;
+      }
+    }
+  }
+  await tryGrant(
     `GRANT USAGE ON SCHEMA ${schemaIdent} TO app_role`,
+    "GRANT USAGE app_role",
   );
-  await prismaMaster.$executeRawUnsafe(
+  await tryGrant(
     `ALTER DEFAULT PRIVILEGES FOR ROLE master_role IN SCHEMA ${schemaIdent} ` +
       `GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_role`,
+    "DEFAULT PRIVILEGES TABLES",
   );
-  await prismaMaster.$executeRawUnsafe(
+  await tryGrant(
     `ALTER DEFAULT PRIVILEGES FOR ROLE master_role IN SCHEMA ${schemaIdent} ` +
       `GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO app_role`,
+    "DEFAULT PRIVILEGES SEQUENCES",
   );
 
   await applyProductMigrations(slug);

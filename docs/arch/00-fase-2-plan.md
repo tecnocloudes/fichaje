@@ -395,7 +395,7 @@ en `plan_features`: son productos Stripe separados que insertan en
 `tenant_features` con `source = 'addon'` cuando un tenant los compra
 (ADR-003 §2.9).
 
-### 5.4 `master.reserved_slugs` — 45 filas (lista §2.1 ADR-002)
+### 5.4 `master.reserved_slugs` — 44 filas (lista §2.1 ADR-002)
 
 ```
 admin, app, www, api, status, docs, mail, blog, ftp, smtp,
@@ -596,7 +596,7 @@ en CI.
 | `master.plans` tiene 3 filas tras seed          | Counts                                             |
 | `master.features` tiene 32 filas tras seed      | Counts                                             |
 | `master.plan_features` tiene 96 filas           | 3 planes × 32 features                             |
-| `master.reserved_slugs` tiene 45 filas          | Counts                                             |
+| `master.reserved_slugs` tiene 44 filas          | Counts                                             |
 | Plan starter tiene `max_employees = 10`         | Lectura cruzada plan_features × features           |
 
 ---
@@ -864,7 +864,7 @@ ciertos:
 1. `npm run db:migrate:deploy` aplica todas las migraciones nuevas
    contra una BD limpia sin errores.
 2. `npm run db:seed` siembra 3 planes, 32 features, 96 plan_features y
-   45 reserved_slugs. Re-ejecutable sin duplicar.
+   44 reserved_slugs. Re-ejecutable sin duplicar.
 3. `npm run super-admin:create -- --email=test@example.com --name=Test`
    crea una cuenta de super-admin. Idempotente.
 4. `npm run tenants:list` lista los tenants existentes (en Fase 2 → 0).

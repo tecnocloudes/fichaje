@@ -242,7 +242,6 @@ const RESERVED_SLUGS: Array<{ slug: string; reason: string }> = [
   { slug: "master", reason: "reservado para evitar confusión con el control plane" },
   { slug: "public", reason: "reservado para evitar confusión con el schema public" },
   { slug: "test", reason: "reservado para entornos de test" },
-  { slug: "dev", reason: "reservado para entornos de desarrollo" },
   { slug: "staging", reason: "reservado para entorno de staging" },
   { slug: "prod", reason: "reservado para entorno de producción" },
   { slug: "production", reason: "reservado para entorno de producción" },
