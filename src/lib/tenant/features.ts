@@ -9,7 +9,7 @@
  * añade en commit 16 con prismaQuotaWriter.
  */
 
-import { prismaMaster } from "@/lib/prisma";
+import { prismaMaster, prismaQuotaWriter } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { currentTenant } from "@/lib/tenant/context";
 
@@ -302,4 +302,86 @@ export function hasFeature(key: string): boolean {
  */
 export function getLimit(key: string): number | null {
   return getLimitFromMap(currentTenant().features, key);
+}
+
+// ─── consumeQuota ────────────────────────────────────────────────────────────
+
+export type ConsumeQuotaResult =
+  | { ok: true; remaining: number | null; resetAt: Date }
+  | { ok: false; reason: "period_unavailable" }
+  | {
+      ok: false;
+      reason: "limit_reached";
+      used: number;
+      max: number;
+      resetAt: Date;
+    };
+
+/**
+ * Consume `amount` unidades de la quota `key` para el tenant actual de
+ * forma atómica. ADR-004 §2.5.
+ *
+ * Implementación: UPDATE condicional con RETURNING. La condición
+ * `consumed + amount <= max` evita la race entre SELECT y UPDATE — si
+ * la suma sobrepasa el límite, la fila no se actualiza, RETURNING
+ * devuelve 0 filas, y entendemos como `limit_reached`.
+ *
+ * Diferenciación de fallos:
+ * - 0 filas afectadas + sin periodo activo encontrado → period_unavailable.
+ * - 0 filas afectadas + periodo encontrado → limit_reached con detalles.
+ *
+ * Cliente: `prismaQuotaWriter` (rol `quota_writer_role`, ADR-004 §2.2).
+ * Solo este módulo lo importa. La regla ESLint `no-quota-writer-leak`
+ * (Fase 5) vigila usos indebidos.
+ */
+export async function consumeQuota(
+  key: string,
+  amount: number = 1,
+): Promise<ConsumeQuotaResult> {
+  if (!assertKnownFeature(key, "consumeQuota")) {
+    return { ok: false, reason: "period_unavailable" };
+  }
+  const { tenantId } = currentTenant();
+
+  const updated = await prismaQuotaWriter.$queryRaw<
+    { consumed: bigint; max: bigint | null; period_end: Date }[]
+  >`
+    UPDATE master.tenant_quota_usage
+       SET consumed = consumed + ${amount}, updated_at = now()
+     WHERE tenant_id = ${tenantId}
+       AND feature_key = ${key}
+       AND period_start <= now() AND period_end > now()
+       AND (max IS NULL OR consumed + ${amount} <= max)
+     RETURNING consumed, max, period_end
+  `;
+
+  if (updated.length > 0) {
+    const r = updated[0]!;
+    const remaining =
+      r.max === null ? null : Number(r.max) - Number(r.consumed);
+    return { ok: true, remaining, resetAt: r.period_end };
+  }
+
+  // 0 filas afectadas: distinguir "sin periodo" de "limit alcanzado".
+  const current = await prismaQuotaWriter.$queryRaw<
+    { consumed: bigint; max: bigint | null; period_end: Date }[]
+  >`
+    SELECT consumed, max, period_end
+      FROM master.tenant_quota_usage
+     WHERE tenant_id = ${tenantId} AND feature_key = ${key}
+       AND period_start <= now() AND period_end > now()
+     LIMIT 1
+  `;
+
+  if (current.length === 0) {
+    return { ok: false, reason: "period_unavailable" };
+  }
+  const c = current[0]!;
+  return {
+    ok: false,
+    reason: "limit_reached",
+    used: Number(c.consumed),
+    max: c.max === null ? Number.POSITIVE_INFINITY : Number(c.max),
+    resetAt: c.period_end,
+  };
 }
