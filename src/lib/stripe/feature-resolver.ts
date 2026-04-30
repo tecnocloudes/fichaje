@@ -40,14 +40,36 @@ export async function persistSubscription(
   const stripeCustId = subscription.customer as string;
   const planKey = inferPlanKey(subscription);
   const status = subscription.status; // trialing/active/past_due/...
-  const currentPeriodStart = new Date(
-    (subscription as unknown as { current_period_start: number })
-      .current_period_start * 1000,
-  );
-  const currentPeriodEnd = new Date(
-    (subscription as unknown as { current_period_end: number })
-      .current_period_end * 1000,
-  );
+
+  // Stripe API 2025-08-12+ movió current_period_start/end de la
+  // Subscription top-level a cada SubscriptionItem (items[i].current_period_*).
+  // El SDK v22 typedef todavía no expone estos campos en SubscriptionItem,
+  // por eso el cast localizado abajo. Si en el futuro el SDK los publica,
+  // el cast se elimina sin más cambios.
+  //
+  // Fail-fast: si el item no trae los campos (Stripe vuelve a cambiar
+  // shape, o respuesta corrupta), lanzamos con diagnóstico concreto en
+  // lugar de propagar Invalid Date a Prisma silenciosamente.
+  const item = subscription.items.data[0] as
+    | (Stripe.SubscriptionItem & {
+        current_period_start: number;
+        current_period_end: number;
+      })
+    | undefined;
+  if (!item?.current_period_start || !item?.current_period_end) {
+    throw new Error(
+      `Subscription ${subscription.id} missing current_period_start/end ` +
+        `in items[0]. Subscription shape: ` +
+        JSON.stringify({
+          id: subscription.id,
+          status: subscription.status,
+          items_count: subscription.items.data.length,
+          first_item_id: subscription.items.data[0]?.id,
+        }),
+    );
+  }
+  const currentPeriodStart = new Date(item.current_period_start * 1000);
+  const currentPeriodEnd = new Date(item.current_period_end * 1000);
   const trialEnd = subscription.trial_end
     ? new Date(subscription.trial_end * 1000)
     : null;

@@ -195,6 +195,11 @@ describe("/api/webhooks/stripe — checkout.session.completed (coreografía)", (
   it("PENDING tenant → ACTIVE tras checkout.session.completed", async () => {
     // Mock de stripe.subscriptions.retrieve.
     const { stripe: stripeSingleton } = await import("@/lib/stripe/client");
+    // Shape API 2025-08-12+ (current_period_start/end están en
+    // subscription.items.data[i], NO en el top-level). El SDK v22
+    // typedef todavía no los expone aquí; cast localizado.
+    const periodStart = Math.floor(Date.now() / 1000);
+    const periodEnd = periodStart + 30 * 86400;
     const fakeSubscription: Stripe.Subscription = {
       id: "sub_test_acmewh",
       customer: "cus_test_acmewh",
@@ -209,13 +214,13 @@ describe("/api/webhooks/stripe — checkout.session.completed (coreografía)", (
             object: "subscription_item",
             price: { id: "price_starter_m", object: "price" },
             quantity: 1,
+            current_period_start: periodStart,
+            current_period_end: periodEnd,
           } as unknown as Stripe.SubscriptionItem,
         ],
         has_more: false,
         url: "/v1/subscription_items",
       },
-      current_period_start: Math.floor(Date.now() / 1000),
-      current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400,
     } as unknown as Stripe.Subscription;
     process.env.STRIPE_PRICE_STARTER_MONTHLY = "price_starter_m";
     vi.spyOn(stripeSingleton.subscriptions, "retrieve").mockResolvedValue(
@@ -257,6 +262,92 @@ describe("/api/webhooks/stripe — checkout.session.completed (coreografía)", (
     });
     expect(sub).not.toBeNull();
     expect(sub!.planKey).toBe("starter");
+    // Verificación específica del fix: los periods se persistieron
+    // correctamente desde items[0].current_period_*, no NaN.
+    expect(sub!.currentPeriodStart.getTime()).toBeGreaterThan(0);
+    expect(sub!.currentPeriodEnd.getTime()).toBeGreaterThan(
+      sub!.currentPeriodStart.getTime(),
+    );
+  });
+
+  it("fail-fast: si subscription.items[0] no tiene current_period_*, lanza con diagnóstico", async () => {
+    // Crear segundo tenant PENDING para no chocar con el anterior.
+    const { prismaMaster } = await import("@/lib/prisma");
+    const tenant2 = await prismaMaster.tenant.create({
+      data: {
+        slug: "acmewh2",
+        name: "Acme2",
+        email: "owner2@acmewh2.local",
+        status: "pending",
+      },
+    });
+
+    const { stripe: stripeSingleton } = await import("@/lib/stripe/client");
+    // Shape SIN current_period_* en items (forma rota — Stripe v2025+
+    // siempre los devuelve, esto modela el escenario "Stripe vuelve a
+    // cambiar shape" o respuesta corrupta).
+    const brokenSubscription: Stripe.Subscription = {
+      id: "sub_broken",
+      customer: "cus_broken",
+      status: "trialing",
+      cancel_at_period_end: false,
+      trial_end: Math.floor(Date.now() / 1000) + 14 * 86400,
+      items: {
+        object: "list",
+        data: [
+          {
+            id: "si_broken",
+            object: "subscription_item",
+            price: { id: "price_starter_m", object: "price" },
+            quantity: 1,
+            // current_period_start/end AUSENTES intencionalmente.
+          } as unknown as Stripe.SubscriptionItem,
+        ],
+        has_more: false,
+        url: "/v1/subscription_items",
+      },
+    } as unknown as Stripe.Subscription;
+
+    process.env.STRIPE_PRICE_STARTER_MONTHLY = "price_starter_m";
+    vi.spyOn(stripeSingleton.subscriptions, "retrieve").mockResolvedValue(
+      brokenSubscription as never,
+    );
+
+    const { POST } = await import("./route");
+    const payload = {
+      id: "evt_checkout_broken",
+      object: "event",
+      type: "checkout.session.completed",
+      api_version: "2026-04-22.dahlia",
+      created: Math.floor(Date.now() / 1000),
+      livemode: false,
+      pending_webhooks: 0,
+      request: { id: null, idempotency_key: null },
+      data: {
+        object: {
+          id: "cs_test_broken",
+          object: "checkout.session",
+          client_reference_id: tenant2.id,
+          customer: "cus_broken",
+          subscription: "sub_broken",
+        },
+      },
+    };
+    const req = buildSignedRequest(payload);
+    const res = await POST(req);
+
+    // El handler lanza → 500 (Stripe reintentaría).
+    expect(res.status).toBe(500);
+
+    // El error queda registrado en stripe_events con processing_error
+    // descriptivo (incluye el id de la sub problemática).
+    const evRow = await prismaMaster.stripeEvent.findUnique({
+      where: { eventId: "evt_checkout_broken" },
+    });
+    expect(evRow).not.toBeNull();
+    expect(evRow!.processedAt).toBeNull();
+    expect(evRow!.processingError).toContain("sub_broken");
+    expect(evRow!.processingError).toContain("missing current_period_start/end");
   });
 });
 
