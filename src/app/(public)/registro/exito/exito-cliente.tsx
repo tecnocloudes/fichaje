@@ -1,46 +1,77 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  decideNextState,
+  decideOnFetchError,
+  type ApiResponse,
+  type VisualState,
+} from "./transitions";
 
-type Status = "pending" | "provisioning" | "active" | "error" | "unknown";
+/**
+ * Polling de /api/onboarding/status hasta llegar a "active" → redirect
+ * a <slug>.<root>/login. La lógica de transiciones vive en
+ * `./transitions.ts` (pura, testeable). Este componente solo conecta
+ * la máquina al fetch y al render.
+ */
+
+const POLL_INTERVAL_MS = 2000;
 
 export function ExitoCliente({ sessionId }: { sessionId: string }) {
-  const [status, setStatus] = useState<Status>("pending");
+  const [visual, setVisual] = useState<VisualState>("waiting");
   const [tenantSlug, setTenantSlug] = useState<string | null>(null);
 
   useEffect(() => {
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let unknownStreak = 0;
+    const startedAt = Date.now();
 
     async function poll() {
+      if (stopped) return;
       try {
         const r = await fetch(
           `/api/onboarding/status?session_id=${encodeURIComponent(sessionId)}`,
           { cache: "no-store" },
         );
         if (!r.ok) {
-          if (!stopped) setStatus("error");
+          // 4xx/5xx persistente → tratamos como error terminal.
+          setVisual("error");
           return;
         }
-        const body = (await r.json()) as { status: Status; slug?: string };
+        const body = (await r.json()) as ApiResponse;
         if (stopped) return;
-        setStatus(body.status);
-        if (body.slug) setTenantSlug(body.slug);
-        if (body.status === "active") {
-          // Redirigir al subdominio del tenant.
-          if (body.slug) {
-            const root = window.location.host.split(".").slice(1).join(".");
-            const port = window.location.port ? `:${window.location.port}` : "";
-            const protocol = window.location.protocol;
-            const target = `${protocol}//${body.slug}.${root || window.location.host}${port}/login`;
-            window.location.href = target;
-          }
+
+        if (body.status === "unknown") {
+          console.warn(
+            `[onboarding] poll #${unknownStreak + 1} devolvió status=unknown ` +
+              `para session_id=${sessionId.slice(0, 24)}…`,
+          );
+        }
+
+        const elapsed = Date.now() - startedAt;
+        const decision = decideNextState(body, unknownStreak, elapsed);
+        unknownStreak = decision.nextUnknownStreak;
+        if (decision.slug) setTenantSlug(decision.slug);
+        setVisual(decision.visual);
+
+        if (decision.visual === "active" && decision.slug) {
+          const root = window.location.host.split(".").slice(1).join(".");
+          const port = window.location.port ? `:${window.location.port}` : "";
+          const protocol = window.location.protocol;
+          const target = `${protocol}//${decision.slug}.${root || window.location.host}${port}/login`;
+          window.location.href = target;
           return;
         }
-        // Reintentar en 2s.
-        timer = setTimeout(poll, 2000);
-      } catch {
-        if (!stopped) setStatus("error");
+
+        if (decision.continuePolling) {
+          timer = setTimeout(poll, POLL_INTERVAL_MS);
+        }
+      } catch (err) {
+        console.error("[onboarding] fetch falló:", err);
+        if (!stopped) {
+          setVisual(decideOnFetchError().visual);
+        }
       }
     }
 
@@ -61,7 +92,7 @@ export function ExitoCliente({ sessionId }: { sessionId: string }) {
       }}
     >
       <h1 style={{ fontSize: 28 }}>Estamos preparando tu cuenta</h1>
-      {status === "pending" || status === "provisioning" ? (
+      {visual === "waiting" || visual === "slow" ? (
         <>
           <div
             style={{
@@ -74,10 +105,19 @@ export function ExitoCliente({ sessionId }: { sessionId: string }) {
               animation: "spin 1s linear infinite",
             }}
           />
-          <p>Esto suele tardar entre 5 y 15 segundos. No cierres esta página.</p>
+          {visual === "waiting" ? (
+            <p>
+              Esto suele tardar entre 5 y 15 segundos. No cierres esta página.
+            </p>
+          ) : (
+            <p style={{ color: "#b45309" }}>
+              Esto está tardando más de lo esperado. Seguimos intentándolo. Si
+              llevas más de 5 minutos aquí, contacta con soporte.
+            </p>
+          )}
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </>
-      ) : status === "active" ? (
+      ) : visual === "active" ? (
         <p>
           Cuenta lista. Redirigiendo a <strong>{tenantSlug}</strong>…
         </p>
