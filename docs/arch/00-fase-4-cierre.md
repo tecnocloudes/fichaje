@@ -112,32 +112,24 @@ npx tsc --noEmit          → exit 0
 npx eslint src/app/api    → 0 violaciones de fichaje/no-legacy-prisma
 ```
 
-## 5. TODOs nuevos descubiertos
+## 5. TODOs nuevos descubiertos (con destino)
 
-1. **ADR-008 lifecycle SUSPENDED → DELETED** (RD 8/2019 vs GDPR art. 17).
-   Pendiente antes de Fase 5.
-2. **Audit log master** (master.audit_log) para escalado de tenants
-   PROVISIONING stuck. Hoy log a console; Fase 7 lo materializa.
-3. **Email super-admin** cuando `stuck_tenant.retryCount ≥ 3`. Hoy
-   `console.error`; Fase 4 final cuando exista al menos 1 super-admin
-   con email.
-4. **BullMQ + Redis** si Trigger A (p50 > 10s) o B (>3 errors/sem)
-   se cumplen. Métrica `received_at → processed_at` ya en
-   master.stripe_events; falta dashboard.
-5. **E2E real con Stripe CLI** del operador (criterio 14):
-   ```
-   stripe login
-   stripe listen --forward-to localhost:3000/api/webhooks/stripe
-   # En otra terminal:
-   npm run dev:all
-   # Visitar http://app.localhost:3000/registro
-   ```
-6. **`stripe:bootstrap`** ejecución del operador para sembrar 10
-   products + 13 prices en cuenta Stripe test antes del primer
-   registro real.
-7. **Test E2E del flow completo** (commit 14-22) con Playwright
-   o equivalente. Aplazado — la suite integration cubre las piezas;
-   el flow visual queda para verificación manual.
+| # | TODO | Destino |
+|---|------|---------|
+| 1 | Lifecycle SUSPENDED → DELETED (RD 8/2019 vs GDPR art. 17) | **ADR-008** (en revisión, pre-Fase 5) |
+| 2 | `master.audit_log` para escalado super-admin de PROVISIONING stuck | **Fase 7** (panel super-admin + ADR-007) |
+| 3 | Email a super-admin cuando `stuck_tenant.retryCount ≥ 3` | **Fase 4 final** (cuando exista 1+ super-admin con email — pendiente de `super-admin:create`) |
+| 4 | BullMQ + Redis si Trigger A (p50 > 10s) o B (>3 errors/sem) | **Fase 9** (optimización; métrica ya en `master.stripe_events`, falta dashboard) |
+| 5 | E2E real con Stripe CLI (criterio 14 §13) | **Operador** (pendiente, ver §8) |
+| 6 | `stripe:bootstrap` ejecución para sembrar products + prices en Stripe test | **Operador** (pendiente, ver §8) |
+| 7 | Test E2E completo con Playwright (form + checkout + login) | **Fase 9** (aplazado; integration tests cubren las piezas; visual queda manual hasta entonces) |
+
+**Distribución por fase**:
+- Pre-Fase 5: 1 TODO (ADR-008).
+- Operador (esta semana): 2 TODOs (5, 6).
+- Fase 4 final: 1 TODO (3, depende de super-admin).
+- Fase 7: 1 TODO (2).
+- Fase 9: 2 TODOs (4, 7).
 
 ## 6. git log de Fase 4 (19 commits)
 
@@ -170,9 +162,31 @@ Sesión continua: ~1h45m wall-clock. Calibración para futuras fases:
 paradas obligatorias (Enmienda 2 + Enmienda 3) cerraron sin
 incidentes — patrones claros desde Fase 3 ayudan.
 
-## 8. E2E manual pendiente (operador)
+## 8. Tareas pendientes del operador (4 puntos)
 
-Para cerrar criterio 14, el operador debe:
+### 8.1 — `stripe login` + `stripe listen` (interactivo)
+
+```bash
+stripe login
+# Se abre navegador, autoriza la cuenta test.
+
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+# Emite un secret efímero whsec_... que copia a .env como STRIPE_WEBHOOK_SECRET.
+```
+
+### 8.2 — `npm run stripe:bootstrap` (sembrar products + prices)
+
+Una sola vez por cuenta Stripe test:
+
+```bash
+STRIPE_SECRET_KEY=sk_test_... npm run stripe:bootstrap
+```
+
+Emite a stdout las 13 env vars `STRIPE_PRICE_*` para copiar al `.env`. Idempotente — re-ejecutarse no duplica products (upsert por `metadata.fichaje_key`).
+
+### 8.3 — E2E real del registro (criterio 14)
+
+Para cerrar criterio 14 §13, el operador debe ejecutar manualmente:
 
 ```bash
 # 1. Cuenta Stripe en modo test, sk_test_... y pk_test_... en .env.
@@ -203,4 +217,20 @@ docker exec fichaje_postgres psql -U fichaje_admin -d fichaje_db -c \
 # Debe mostrar status=active, stripe_customer_id=cus_...
 ```
 
-Si todo verde, criterio 14 cerrado y Fase 4 lista para mergear a main.
+Si todo verde, criterio 14 cerrado.
+
+### 8.4 — Decisión: merge a main vs continuar Fase 5
+
+Tras cerrar criterio 14 (§8.3), opciones:
+
+- (A) Mergear `feature/saas-migration` → `main` ahora. Coste: la app
+  en `main` queda multi-tenant pero sin feature flags productivos
+  (Fase 5 todavía pendiente). Riesgo: registros reales pueden empezar
+  a llegar y la app responde sin gating de features.
+- (B) Continuar Fase 5 sobre la rama (HOFs `withFeature`/`withQuota`,
+  `<FeatureGate>`, `/api/me/features`) y mergear tras Fase 5. Más
+  prudente.
+
+Recomendación: **opción B**. Mantener la rama hasta cerrar Fase 5
+y validar feature flags productivos con `tenant_dev` y al menos un
+tenant real de test.
