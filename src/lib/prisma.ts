@@ -120,6 +120,28 @@ function getTenantClientCache(): TenantClientCache {
   return g._tenantClients;
 }
 
+/**
+ * Invalida el cliente Prisma cacheado para un slug. Usar tras
+ * provisionTenantSchema(slug) para forzar que el siguiente
+ * `prismaApp.<modelo>` reconstruya el cliente con el schema recién
+ * creado (Enmienda 2 del plan de Fase 4 — el cliente Prisma cachea
+ * info del schema en su pool al primer connect; si el schema se creó
+ * después de la primera consulta, el cliente puede tener una vista
+ * obsoleta).
+ *
+ * También dispone el cliente (cierra el pool pg) si existía.
+ */
+export function invalidateTenantClient(slug: string): void {
+  const cache = getTenantClientCache();
+  const existing = cache.get(slug);
+  if (existing) {
+    // Best-effort dispose: cerrar el pool. Si lanza, ignorar — no es
+    // crítico; el cliente nuevo abrirá uno fresco.
+    void existing.$disconnect().catch(() => {});
+    cache.delete(slug);
+  }
+}
+
 function buildPrismaAppProxy(): PrismaClientTenant {
   return new Proxy({} as PrismaClientTenant, {
     get(_target, prop) {
