@@ -222,6 +222,91 @@ El patrón es defensa en profundidad. La barrera principal sigue siendo
 `currentTenant()` falla si no hay store; el RESET es el cinturón de
 seguridad.
 
+> **ENMIENDA 5 (Fase 3 commit 17 — pivot del cliente del producto)**
+>
+> El diseño anterior ("un cliente Prisma único + `SET search_path` por
+> query") **no funciona** con Prisma 7 + `@prisma/adapter-pg`. Verificado
+> empíricamente en commit 17 (leak test) con log directo del SQL emitido:
+>
+> ```
+> prisma:query SET search_path TO "tenant_acme", public   -- OK, ejecuta
+> prisma:error permission denied for table User           -- falla aquí
+> prisma:query RESET search_path                          -- OK
+> ```
+>
+> Y la query SQL que Prisma envió:
+>
+> ```sql
+> SELECT "public"."User"."id", "public"."User"."email", … FROM "public"."User"
+> ```
+>
+> Aunque el modelo no lleve `@@schema(...)` y `multiSchema` esté apagado,
+> el adapter cualifica con `"public"."User"` — `SET search_path` no
+> afecta a queries con schema cualificado. Las opciones para no
+> cualificar (sin `@@schema` y sin `multiSchema`) tampoco son fiables:
+> Prisma 7 sigue inyectando un default que el adapter usa.
+>
+> **Pivot implementado** (`src/lib/prisma.ts`):
+>
+> - `prismaApp` es un **Proxy** sobre `PrismaClientTenant` que en cada
+>   acceso de propiedad (`prismaApp.user`, `prismaApp.tienda`, …) lee
+>   `currentTenant().slug` y devuelve el **cliente Prisma del tenant
+>   correspondiente**, cacheado en `globalThis._tenantClients:
+>   Map<slug, PrismaClientTenant>`.
+> - Cada cliente se construye con `new PrismaPg(pool, { schema:
+>   "tenant_<slug>" })`. El SQL emitido será
+>   `SELECT … FROM "tenant_<slug>"."User"` — sin race con SET, sin
+>   contaminación entre tenants concurrentes.
+> - `getTenantSchemaName(slug)` invoca `quoteSchemaName(slug)` (ADR-001
+>   §2.5) para validar el regex antes de pasar el schema literal a
+>   `PrismaPgOptions`. Defensa en profundidad equivalente.
+> - El `$extends({ query })` con `SET search_path` se ELIMINA. El
+>   `RESET search_path` también — innecesario porque el SQL ya cualifica.
+>
+> **Implicaciones**:
+>
+> - **Memoria**: ~1 cliente Prisma + 1 pool `pg` por tenant activo en el
+>   proceso. Para 10–100 tenants es manejable. A volumen >100 se añade
+>   LRU + dispose (TODO Fase 9). Hasta entonces, el `Map` crece sin
+>   límite — aceptable a 10–50 tenants.
+> - **Concurrencia inter-tenant**: cada cliente tiene su propio pool, no
+>   hay race condition entre tenants. Mejora respecto al diseño previo.
+> - **Defensa escenario 1 del test de fuga (ADR-001 §2.4)**: el Proxy
+>   llama `currentTenant()` en el `get` síncrono. Si no hay store, lanza
+>   antes de devolver la propiedad — más temprano que con `$extends`.
+>
+> **Diseño funcionante de referencia** (commit 17 → cierre Fase 3):
+>
+> ```ts
+> // Pseudocódigo simplificado de src/lib/prisma.ts
+> function buildPrismaAppProxy(): PrismaClientTenant {
+>   return new Proxy({} as PrismaClientTenant, {
+>     get(_t, prop) {
+>       const { slug } = currentTenant(); // lanza si no hay store
+>       const cache = getTenantClientCache();
+>       let client = cache.get(slug);
+>       if (!client) {
+>         const pool = new pg.Pool({ connectionString: APP_DATABASE_URL });
+>         const adapter = new PrismaPg(pool, {
+>           schema: getTenantSchemaName(slug), // valida con quoteSchemaName
+>         });
+>         client = new PrismaClientTenant({ adapter });
+>         cache.set(slug, client);
+>       }
+>       const value = Reflect.get(client, prop);
+>       return typeof value === "function" ? value.bind(client) : value;
+>     },
+>   });
+> }
+> ```
+>
+> Esta enmienda **sustituye** los párrafos de "Aplicación de SET
+> search_path por query" y "RESET search_path al final de cada query"
+> arriba para el cliente del producto. El resto de §2.2 (lifecycle del
+> contexto via AsyncLocalStorage, `runWithTenant`/`currentTenant`)
+> permanece válido — pero la propagación al handler tiene su propia
+> enmienda en §3.5.
+
 ### 2.3 Caché in-memory de la resolución host→tenant
 
 Estructura:
@@ -409,6 +494,92 @@ misma estrategia de defensa en profundidad de §2.5 ADR-001.
 | **401** (elegida) | No revela existencia del otro tenant     | El usuario puede confundirse con "credenciales mal" cuando es slot wrong |
 | 403              | Más preciso semánticamente                | Filtra que el otro tenant existe                                         |
 | Redirect al subdominio correcto | UX cómoda           | Convierte un cross-tenant en un tenant-discovery oracle                  |
+
+> **ENMIENDA 6 (Fase 3 cierre §11.3 — propagación de contexto + JWT)**
+>
+> Verificación empírica en runtime real (`next dev` + `dev.localhost`)
+> demostró que **Next 16 NO propaga `AsyncLocalStorage` del `proxy.ts`
+> al handler de la ruta API** (continuaciones distintas). El log de
+> Next lo confirma:
+>
+> ```
+> GET /api/dashboard 500 in 168ms (proxy.ts: 4ms, application-code: 55ms)
+> Error: No hay tenant en el contexto.
+>     at currentTenant
+>     at Object.get (prismaApp Proxy)
+>     at GET (src/app/api/dashboard/route.ts)
+> ```
+>
+> El `runWithTenant` que el proxy.ts envolvía no llegaba al handler.
+> Mismo patrón observado con `authorize` de NextAuth (corre en una
+> continuación interna de Auth.js que tampoco hereda el store).
+>
+> **Pivot implementado**:
+>
+> - **Cada handler de ruta API** se envuelve con un HOF
+>   `withTenant` (`src/lib/tenant/with-tenant.ts`):
+>
+>   ```ts
+>   import { withTenant } from "@/lib/tenant/with-tenant";
+>   export const GET = withTenant(async (req) => {
+>     // currentTenant() funciona aquí. prismaApp también.
+>   });
+>   ```
+>
+>   `withTenant` lee `req.headers.get("host")`, ejecuta
+>   `resolveTenant(host)` (cache hit del resolver, sin BD si el proxy
+>   ya lo cacheó), valida status (404/503/402/410), JWT
+>   cross-validation, y reanida `runWithTenant`.
+>
+> - **`proxy.ts` mantiene** `resolveTenant` + cache + status check +
+>   redirect 301 apex→app + auth wrapping para el redirect /login en
+>   páginas (defensa en profundidad — el handler también valida).
+>
+> - **`proxy.ts` ELIMINA**: el `runWithTenant` envolvente (no
+>   propagaba) y el JWT cross-validation (movido al HOF).
+>
+> - **JWT cross-validation** se ejecuta dentro del HOF: `getToken({
+>   req, secret: AUTH_SECRET })` → si `token.tenantSlug` existe y no
+>   coincide con `ctx.slug` → 401 (mantenemos la decisión de §3.5
+>   tabla arriba: 401, no 403).
+>
+> - **Endpoints exentos** (no usan `withTenant`):
+>   - `/api/auth/[...nextauth]` — NextAuth gestiona su propio handler.
+>   - `/api/setup`, `/api/setup/reset` — legacy mono-tenant,
+>     eliminados en Fase 4.
+>   - `/api/webhooks/**` — Fase 4, no son de tenant.
+>   - `/api/admin/**` — Fase 7, panel super-admin con su propio
+>     contexto.
+>
+>   Whitelist explícita en `eslint.config.mjs` (regla `fichaje/no-legacy-prisma`).
+>
+> - **`authorize` de NextAuth (caso especial)**: corre en continuación
+>   interna fuera del flujo del proxy y de los handlers. Mitigación
+>   local en `src/lib/auth.ts`:
+>
+>   ```ts
+>   async authorize(credentials, req) {
+>     const host = req.headers?.get("host") ?? "";
+>     const resolved = await resolveTenant(host);
+>     if (resolved.kind !== "tenant" || resolved.ctx.status !== "active") return null;
+>     return await runWithTenant(resolved.ctx, async () => {
+>       // prisma.user.findUnique, bcrypt.compare, return { …, tenantId, tenantSlug }
+>     });
+>   }
+>   ```
+>
+> **Verificación E2E** (cierre Fase 3):
+>
+> ```
+> POST /api/auth/callback/credentials  → 302 + session-token cookie ✅
+> GET  /api/dashboard (cookie session) → 200 con datos del tenant_dev ✅
+> GET  /api/empleados (cookie session) → 200 con admin@dev.local ✅
+> GET  /api/tiendas   (cookie session) → 200 con [] ✅
+> ```
+>
+> Esta enmienda **complementa** la decisión §3.5 sobre el código HTTP
+> (401) — solo cambia **dónde** se aplica la validación (HOF en lugar
+> de proxy).
 
 ### 3.6 Cómo accede el middleware a `master.tenants` para resolver el slug — y quién escribe contadores de quota
 
