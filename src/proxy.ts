@@ -1,3 +1,11 @@
+// Proxy de Next 16 (antes "middleware"). El rename + change a Node runtime
+// por defecto en Next 16 (proxy.md línea 219, 770) habilita AsyncLocalStorage
+// nativo, que la Fase 3 explota para propagar el TenantContext desde aquí
+// hasta los server actions y route handlers.
+//
+// Esta versión sigue siendo mono-tenant (rol → redirect). El commit 8 la
+// reescribe con resolución host→tenant + runWithTenant.
+
 import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
