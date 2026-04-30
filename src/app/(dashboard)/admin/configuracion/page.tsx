@@ -103,9 +103,7 @@ export default function ConfiguracionPage() {
   const [savingNotif, setSavingNotif] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editandoTipo, setEditandoTipo] = useState<TipoAusencia | null>(null);
-  const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const [resetConfirm, setResetConfirm] = useState("");
-  const [resetting, setResetting] = useState(false);
+  // Reset del sistema eliminado en Fase 4 (legacy mono-tenant).
   const [showPassword, setShowPassword] = useState(false);
   const [generatingVapid, setGeneratingVapid] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
@@ -324,28 +322,7 @@ export default function ConfiguracionPage() {
     }
   };
 
-  // ── Reset ───────────────────────────────────────────────────────────────────
-
-  const handleReset = async () => {
-    if (resetConfirm !== "BORRAR TODO") {
-      toast({ title: "Escribe exactamente: BORRAR TODO", variant: "destructive" });
-      return;
-    }
-    setResetting(true);
-    try {
-      const res = await fetch("/api/setup/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirmacion: "BORRAR TODO" }),
-      });
-      if (!res.ok) throw new Error();
-      toast({ title: "Sistema reiniciado. Redirigiendo..." });
-      setTimeout(() => signOut({ callbackUrl: "/setup" }), 1500);
-    } catch {
-      toast({ title: "Error al reiniciar el sistema", variant: "destructive" });
-      setResetting(false);
-    }
-  };
+  // handleReset eliminado en Fase 4 (legacy mono-tenant).
 
   if (!config) return <div className="p-6 animate-pulse"><div className="h-40 bg-gray-100 rounded-xl" /></div>;
 
@@ -435,24 +412,10 @@ export default function ConfiguracionPage() {
             </CardContent>
           </Card>
 
-          {/* Reset */}
-          <Card className="border-red-200">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2 text-red-600">
-                <AlertTriangle className="h-4 w-4" /> Reset del sistema
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
-                Borra <strong>todos los datos</strong>: empleados, sedes, fichajes, turnos, ausencias y configuración.
-                La app quedará como nueva y mostrará el asistente de configuración inicial.
-                <span className="text-red-600 font-medium"> Esta acción es irreversible.</span>
-              </p>
-              <Button variant="destructive" onClick={() => { setResetConfirm(""); setResetDialogOpen(true); }}>
-                <Trash2 className="h-4 w-4 mr-2" /> Reiniciar sistema
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Fase 4: el reset del sistema se eliminó. En multi-tenant no
+              tiene sentido un wipe global desde la UI del tenant — el
+              control plane (master.tenants) se gestiona desde el panel
+              super-admin (Fase 7). */}
         </>
       )}
 
@@ -887,29 +850,7 @@ export default function ConfiguracionPage() {
 
       {/* ── Dialogs ───────────────────────────────────────────────────────────── */}
 
-      {/* Reset dialog */}
-      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-red-600 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" /> Confirmar reset del sistema
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-2 space-y-4">
-            <p className="text-sm text-gray-600">Se eliminarán <strong>todos los datos</strong> del sistema sin posibilidad de recuperación.</p>
-            <div>
-              <Label>Escribe <span className="font-mono font-bold text-red-600">BORRAR TODO</span> para confirmar</Label>
-              <Input className="mt-1 border-red-300" value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)} placeholder="BORRAR TODO" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setResetDialogOpen(false)}>Cancelar</Button>
-            <Button variant="destructive" disabled={resetConfirm !== "BORRAR TODO" || resetting} onClick={handleReset}>
-              {resetting ? "Reiniciando..." : "Confirmar reset"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Reset dialog eliminado en Fase 4 (legacy mono-tenant). */}
 
       {/* Tipo ausencia dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

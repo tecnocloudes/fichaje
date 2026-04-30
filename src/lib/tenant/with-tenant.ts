@@ -19,8 +19,11 @@
  *    profundidad).
  *  - JWT cross-validation: el slug del host vs JWT.tenantSlug → 401.
  *
+
  * Se aplica a los ~40 endpoints en src/app/api/** (excepto whitelist:
- * /api/auth, /api/setup, /api/webhooks, /api/admin, /api/health).
+ * /api/auth, /api/webhooks, /api/onboarding, /api/admin, /api/health).
+ *
+ * /api/setup y /api/setup/reset eliminados en Fase 4.
  */
 
 import { type NextRequest, NextResponse } from "next/server";

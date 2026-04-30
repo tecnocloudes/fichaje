@@ -27,8 +27,8 @@ const fichajePlugin = {
       },
       create(context) {
         const EXEMPT_PATHS = [
-          // Endpoints que se eliminan/refactorizan en Fase 4.
-          "/api/setup/",
+          // /api/setup y /api/setup/reset ELIMINADOS en Fase 4.
+          // Endpoints que se refactorizan en Fase 4.
           "/api/auth/",
           // Webhook Stripe: vive en subdominio app, sin tenant en
           // contexto. Usa prismaMaster para idempotencia y dispatch

@@ -40,9 +40,11 @@ interface LoginPageProps {
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  // Redirect to setup if no users exist
-  const userCount = await prisma.user.count();
-  if (userCount === 0) redirect("/setup");
+  // Fase 4: el flow de "primer admin con /setup" se eliminó. El primer
+  // OWNER se crea automáticamente desde el webhook checkout.session.completed
+  // (commit 7 Fase 4) tras un registro real con Stripe. Si llegas aquí
+  // sin usuarios, el tenant no fue provisionado correctamente — contacta
+  // soporte (en local: ejecutar `npm run dev:seed-tenant`).
 
   // If already authenticated, redirect
   const session = await auth();

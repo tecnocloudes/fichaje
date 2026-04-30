@@ -109,12 +109,11 @@ function tenantSubdomainHandler(req: AuthedRequest): NextResponse {
   const rol = req.auth?.user?.rol;
 
   const isAuthPage = nextUrl.pathname.startsWith("/login");
-  const isSetupPage = nextUrl.pathname.startsWith("/setup");
   const isApiRoute = nextUrl.pathname.startsWith("/api");
 
   if (isApiRoute) return NextResponse.next();
-
-  if (isSetupPage) return NextResponse.next();
+  // /setup eliminado en Fase 4 (legacy mono-tenant; reemplazado por
+  // flow Stripe en subdominio app).
 
   if (!isLoggedIn && !isAuthPage) {
     return NextResponse.redirect(new URL("/login", nextUrl));
