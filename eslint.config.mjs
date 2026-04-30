@@ -34,6 +34,9 @@ const fichajePlugin = {
           // contexto. Usa prismaMaster para idempotencia y dispatch
           // (ADR-003 §2.3.c, AGENTS.md "server actions del subdominio app").
           "/api/webhooks/",
+          // Onboarding status: lookup tenant por session_id (subdominio
+          // app, sin tenant en contexto).
+          "/api/onboarding/",
         ];
         return {
           ImportDeclaration(node) {
