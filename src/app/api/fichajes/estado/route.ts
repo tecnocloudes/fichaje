@@ -2,7 +2,8 @@ import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
 import { TipoFichaje } from "@/generated/prisma-tenant/client";
 
-export async function GET() {
+import { withTenant } from "@/lib/tenant/with-tenant";
+export const GET = withTenant(async () => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -84,4 +85,4 @@ export async function GET() {
     console.error("GET /api/fichajes/estado error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});

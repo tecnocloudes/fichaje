@@ -3,7 +3,8 @@ import { prismaApp as prisma } from "@/lib/prisma";
 import { Rol, EstadoTurno } from "@/generated/prisma-tenant/client";
 import type { NextRequest } from "next/server";
 
-export async function GET(request: NextRequest) {
+import { withTenant } from "@/lib/tenant/with-tenant";
+export const GET = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -66,9 +67,9 @@ export async function GET(request: NextRequest) {
     console.error("GET /api/turnos error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -139,4 +140,4 @@ export async function POST(request: NextRequest) {
     console.error("POST /api/turnos error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});

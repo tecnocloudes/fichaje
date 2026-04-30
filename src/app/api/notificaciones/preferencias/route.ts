@@ -2,7 +2,8 @@ import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
 import type { NextRequest } from "next/server";
 
-export async function GET() {
+import { withTenant } from "@/lib/tenant/with-tenant";
+export const GET = withTenant(async () => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -21,9 +22,9 @@ export async function GET() {
     console.error("GET /api/notificaciones/preferencias error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});
 
-export async function PUT(request: NextRequest) {
+export const PUT = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -47,4 +48,4 @@ export async function PUT(request: NextRequest) {
     console.error("PUT /api/notificaciones/preferencias error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});

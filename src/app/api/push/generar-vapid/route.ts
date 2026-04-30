@@ -3,7 +3,8 @@ import { prismaApp as prisma } from "@/lib/prisma";
 import { Rol } from "@/generated/prisma-tenant/client";
 import webpush from "web-push";
 
-export async function POST() {
+import { withTenant } from "@/lib/tenant/with-tenant";
+export const POST = withTenant(async () => {
   try {
     const session = await auth();
     const user = session?.user as { rol?: string } | undefined;
@@ -31,4 +32,4 @@ export async function POST() {
     console.error("POST /api/push/generar-vapid error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});

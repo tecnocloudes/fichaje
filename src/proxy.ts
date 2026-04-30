@@ -1,35 +1,32 @@
 /**
  * Proxy de Next 16 (renombrado desde middleware.ts en commit 7). ADR-002.
  *
- * Flow por request:
- *  1. Extraer Host header.
- *  2. resolveTenant(host) → { kind, ... } con cache.
- *  3. Routing por kind:
- *     - "apex"           → 301 a app.<root>.
- *     - "app"            → handler de subdominio app (login global,
- *                            registro Fase 4, webhooks Stripe Fase 4).
- *                            NO runWithTenant.
- *     - "admin"          → 503 "panel pendiente" (Fase 7 lo materializa).
- *                            NO runWithTenant.
- *     - "invalid"/"not_found" → 404 (indistinguible).
- *     - "tenant"         → validar status:
- *         - pending/provisioning → 503 + Retry-After: 30.
- *         - suspended            → 402.
- *         - deleted              → 410.
- *         - active               → runWithTenant(ctx, () => authFlow(req)).
+ * Verificado empíricamente en Fase 3 — riesgo §11.3 confirmado abierto:
+ * Next 16 NO propaga el `runWithTenant` de este proxy al handler de la
+ * ruta API (corren en continuaciones distintas). Por eso:
  *
- * El JWT cross-validation (slug del host vs JWT.tenantSlug → 401) se
- * añade en commit 9 cuando el callback JWT ya guarde tenantSlug.
+ *  - Este proxy YA NO envuelve con runWithTenant.
+ *  - Cada handler en src/app/api/** aplica explícitamente el HOF
+ *    `withTenant` (src/lib/tenant/with-tenant.ts) que re-resuelve el
+ *    tenant desde host (cache hit gratis) y reanida runWithTenant.
  *
- * Runtime: Node.js (default Next 16, proxy.md línea 219). AsyncLocalStorage
- * nativo. Server actions y route handlers heredan el ctx envuelto aquí.
+ * El proxy mantiene:
+ *  - parseHost: distinguir tenant vs subdominio reservado vs apex.
+ *  - 301 apex → app.<root>.
+ *  - status check + códigos HTTP (defensa en profundidad: si un handler
+ *    se olvida del HOF, el proxy ya devuelve 503/402/410 antes).
+ *  - Cache de tenant (resolveTenant con cache compartido).
+ *  - Auth wrapping (NextAuth) para el redirect /login en páginas.
+ *
+ * Lo que se ha movido al HOF withTenant:
+ *  - JWT cross-validation (slug del host vs JWT.tenantSlug → 401).
+ *  - runWithTenant.
  */
 
 import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
 import { NextResponse, type NextRequest } from "next/server";
 import { resolveTenant } from "@/lib/tenant/resolver";
-import { runWithTenant, type TenantContext } from "@/lib/tenant/context";
 
 const { auth } = NextAuth(authConfig);
 
@@ -54,14 +51,10 @@ export default auth(async (req) => {
   }
 
   if (resolved.kind === "app") {
-    // Subdominio público: landing/registro/checkout/webhooks. No envuelve
-    // con runWithTenant — su routing es global. La auth (login global) se
-    // gestiona dentro del flow de auth de NextAuth aplicado por `auth()`.
     return appSubdomainHandler(req as AuthedRequest);
   }
 
   if (resolved.kind === "admin") {
-    // Panel super-admin (Fase 7). Mientras llega:
     return new NextResponse("Panel super-admin pendiente (Fase 7)", {
       status: 503,
       headers: { "retry-after": "300" },
@@ -69,7 +62,6 @@ export default auth(async (req) => {
   }
 
   if (resolved.kind === "invalid" || resolved.kind === "not_found") {
-    // Mismo 404 indistinguible — anti-enumeración de subdominios.
     return new NextResponse("Not Found", { status: 404 });
   }
 
@@ -85,27 +77,17 @@ export default auth(async (req) => {
     );
   }
   if (ctx.status === "suspended") {
-    return new NextResponse(
-      "Cuenta suspendida. Revisa la facturación.",
-      { status: 402 },
-    );
+    return new NextResponse("Cuenta suspendida. Revisa la facturación.", {
+      status: 402,
+    });
   }
   if (ctx.status === "deleted") {
     return new NextResponse("Cuenta eliminada", { status: 410 });
   }
 
-  // status === "active": validar JWT cross-tenant antes del runWithTenant.
-  const authedReq = req as AuthedRequest;
-  const jwtSlug = authedReq.auth?.user?.tenantSlug;
-  if (jwtSlug && jwtSlug !== ctx.slug) {
-    // ADR-002 §2.5: 401 (no 403). El JWT viene firmado por el tenant
-    // donde el usuario hizo login; si llega a otro host, el cookie
-    // (con `__Host-` y SameSite) no debería propagarse — pero si lo hace,
-    // se rechaza sin revelar la existencia del otro tenant.
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
-
-  return runWithTenant(ctx, () => tenantSubdomainHandler(authedReq, ctx));
+  // status === "active": el handler aplicará withTenant si toca BD del
+  // producto. El proxy solo aplica los redirects de auth basados en rol.
+  return tenantSubdomainHandler(req as AuthedRequest);
 });
 
 function appSubdomainHandler(req: AuthedRequest): NextResponse {
@@ -114,9 +96,6 @@ function appSubdomainHandler(req: AuthedRequest): NextResponse {
   const isAuthPage = nextUrl.pathname.startsWith("/login");
   const isApiRoute = nextUrl.pathname.startsWith("/api");
 
-  // El subdominio app sirve registro, checkout y webhooks. La lógica de
-  // login en la landing global llegará en Fase 4. Por ahora redirige a
-  // /registro como home.
   if (isApiRoute) return NextResponse.next();
   if (isLoggedIn && isAuthPage) {
     return NextResponse.redirect(new URL("/", nextUrl));
@@ -124,10 +103,7 @@ function appSubdomainHandler(req: AuthedRequest): NextResponse {
   return NextResponse.next();
 }
 
-function tenantSubdomainHandler(
-  req: AuthedRequest,
-  _ctx: TenantContext,
-): NextResponse {
+function tenantSubdomainHandler(req: AuthedRequest): NextResponse {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
   const rol = req.auth?.user?.rol;
@@ -138,8 +114,6 @@ function tenantSubdomainHandler(
 
   if (isApiRoute) return NextResponse.next();
 
-  // /setup será retirado en Fase 4 cuando el flow de Stripe Checkout lo
-  // sustituya. Hasta entonces se mantiene exonerado.
   if (isSetupPage) return NextResponse.next();
 
   if (!isLoggedIn && !isAuthPage) {
@@ -148,7 +122,8 @@ function tenantSubdomainHandler(
 
   if (isLoggedIn && isAuthPage) {
     if (rol === "OWNER") return NextResponse.redirect(new URL("/admin", nextUrl));
-    if (rol === "MANAGER") return NextResponse.redirect(new URL("/manager", nextUrl));
+    if (rol === "MANAGER")
+      return NextResponse.redirect(new URL("/manager", nextUrl));
     return NextResponse.redirect(new URL("/empleado", nextUrl));
   }
 

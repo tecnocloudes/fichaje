@@ -3,9 +3,10 @@ import { prismaApp as prisma } from "@/lib/prisma";
 import { Rol, TipoFichaje } from "@/generated/prisma-tenant/client";
 import type { NextRequest } from "next/server";
 
+import { withTenant } from "@/lib/tenant/with-tenant";
 type TipoInforme = "fichajes" | "ausencias" | "turnos" | "resumen" | "presencia" | "presencia-global";
 
-export async function GET(request: NextRequest) {
+export const GET = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
     console.error("GET /api/informes error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});
 
 async function informeFichajes(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

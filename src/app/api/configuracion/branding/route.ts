@@ -4,9 +4,10 @@ import { Rol } from "@/generated/prisma-tenant/client";
 import { runMigrations } from "@/lib/migrate";
 import type { NextRequest } from "next/server";
 
+import { withTenant } from "@/lib/tenant/with-tenant";
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB per image
 
-export async function GET() {
+export const GET = withTenant(async () => {
   try {
     const config = await prisma.configuracionEmpresa.findFirst({
       select: { logo: true, appNombre: true, colorPrimario: true, colorSidebar: true },
@@ -20,9 +21,9 @@ export async function GET() {
   } catch {
     return Response.json({ logo: null, appNombre: "HR Suite", colorPrimario: "#6366f1", colorSidebar: "#1e1b4b" });
   }
-}
+});
 
-export async function PUT(request: NextRequest) {
+export const PUT = withTenant(async (request: NextRequest) => {
   try {
     await runMigrations();
 
@@ -67,4 +68,4 @@ export async function PUT(request: NextRequest) {
     console.error("PUT /api/configuracion/branding error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});

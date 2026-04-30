@@ -3,10 +3,9 @@ import { prismaApp as prisma } from "@/lib/prisma";
 import { Rol, EstadoAusencia } from "@/generated/prisma-tenant/client";
 import type { NextRequest } from "next/server";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+import { withTenant } from "@/lib/tenant/with-tenant";
+export const PATCH = withTenant(async (request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -101,12 +100,10 @@ export async function PATCH(
     console.error("PATCH /api/ausencias/[id] error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const DELETE = withTenant(async (_request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -132,4 +129,4 @@ export async function DELETE(
     console.error("DELETE /api/ausencias/[id] error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});

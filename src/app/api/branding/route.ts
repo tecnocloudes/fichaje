@@ -1,7 +1,8 @@
 import { prismaApp as prisma } from "@/lib/prisma";
 
 // Public endpoint – no auth required (used in layout for CSS vars + metadata)
-export async function GET() {
+import { withTenant } from "@/lib/tenant/with-tenant";
+export const GET = withTenant(async () => {
   try {
     const config = await prisma.configuracionEmpresa.findFirst({
       select: {
@@ -39,4 +40,4 @@ export async function GET() {
       hasFavicon: false,
     });
   }
-}
+});

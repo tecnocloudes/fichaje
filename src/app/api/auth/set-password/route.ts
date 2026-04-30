@@ -2,7 +2,8 @@ import { prismaApp as prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import type { NextRequest } from "next/server";
 
-export async function POST(request: NextRequest) {
+import { withTenant } from "@/lib/tenant/with-tenant";
+export const POST = withTenant(async (request: NextRequest) => {
   try {
     const body = await request.json();
     const { token, password } = body as { token: string; password: string };
@@ -36,4 +37,4 @@ export async function POST(request: NextRequest) {
     console.error("POST /api/auth/set-password error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});

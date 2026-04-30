@@ -6,10 +6,9 @@ import { invitacionTemplate } from "@/lib/email-templates";
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
 
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+import { withTenant } from "@/lib/tenant/with-tenant";
+export const POST = withTenant(async (_request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -60,4 +59,4 @@ export async function POST(
     console.error("POST /api/empleados/[id]/reenviar-invitacion error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});

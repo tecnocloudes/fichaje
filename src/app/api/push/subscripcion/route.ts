@@ -2,7 +2,8 @@ import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
 import type { NextRequest } from "next/server";
 
-export async function POST(request: NextRequest) {
+import { withTenant } from "@/lib/tenant/with-tenant";
+export const POST = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -26,9 +27,9 @@ export async function POST(request: NextRequest) {
     console.error("POST /api/push/subscripcion error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(request: NextRequest) {
+export const DELETE = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -50,4 +51,4 @@ export async function DELETE(request: NextRequest) {
     console.error("DELETE /api/push/subscripcion error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});

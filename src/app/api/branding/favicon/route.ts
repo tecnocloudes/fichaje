@@ -1,6 +1,7 @@
 import { prismaApp as prisma } from "@/lib/prisma";
 
-export async function GET() {
+import { withTenant } from "@/lib/tenant/with-tenant";
+export const GET = withTenant(async () => {
   try {
     const config = await prisma.configuracionEmpresa.findFirst({
       select: { favicon: true },
@@ -24,4 +25,4 @@ export async function GET() {
   } catch {
     return new Response(null, { status: 500 });
   }
-}
+});

@@ -4,6 +4,7 @@ import { Rol } from "@/generated/prisma-tenant/client";
 import bcrypt from "bcryptjs";
 import type { NextRequest } from "next/server";
 
+import { withTenant } from "@/lib/tenant/with-tenant";
 const userSelect = {
   id: true,
   email: true,
@@ -22,10 +23,8 @@ const userSelect = {
   updatedAt: true,
 } as const;
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const GET = withTenant(async (_request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -68,12 +67,10 @@ export async function GET(
     console.error("GET /api/empleados/[id] error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const PUT = withTenant(async (request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -163,12 +160,10 @@ export async function PUT(
     console.error("PUT /api/empleados/[id] error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const DELETE = withTenant(async (_request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -215,4 +210,4 @@ export async function DELETE(
     console.error("DELETE /api/empleados/[id] error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});

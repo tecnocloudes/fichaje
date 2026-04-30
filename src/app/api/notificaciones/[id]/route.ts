@@ -2,10 +2,9 @@ import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
 import type { NextRequest } from "next/server";
 
-export async function PATCH(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+import { withTenant } from "@/lib/tenant/with-tenant";
+export const PATCH = withTenant(async (_request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -34,4 +33,4 @@ export async function PATCH(
     console.error("PATCH /api/notificaciones/[id] error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});

@@ -3,7 +3,8 @@ import { prismaApp as prisma } from "@/lib/prisma";
 import { Rol } from "@/generated/prisma-tenant/client";
 import { sendEmail } from "@/lib/email";
 
-export async function POST() {
+import { withTenant } from "@/lib/tenant/with-tenant";
+export const POST = withTenant(async () => {
   try {
     const session = await auth();
     const user = session?.user as { rol?: string; email?: string } | undefined;
@@ -33,4 +34,4 @@ export async function POST() {
     const code = error?.code ?? null;
     return Response.json({ error: message, code }, { status: 500 });
   }
-}
+});

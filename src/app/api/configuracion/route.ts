@@ -4,7 +4,8 @@ import { Rol } from "@/generated/prisma-tenant/client";
 import { runMigrations } from "@/lib/migrate";
 import type { NextRequest } from "next/server";
 
-export async function GET() {
+import { withTenant } from "@/lib/tenant/with-tenant";
+export const GET = withTenant(async () => {
   try {
     await runMigrations();
 
@@ -37,9 +38,9 @@ export async function GET() {
     console.error("GET /api/configuracion error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});
 
-export async function PUT(request: NextRequest) {
+export const PUT = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
     const user = session?.user as { rol?: string } | undefined;
@@ -75,4 +76,4 @@ export async function PUT(request: NextRequest) {
     console.error("PUT /api/configuracion error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-}
+});
