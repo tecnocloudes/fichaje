@@ -1,17 +1,17 @@
 /**
  * Helpers de runtime para feature flags. ADR-004 §2.1, §2.4.
  *
- * Fase 2: implementa funciones puras sobre `Map<string, ResolvedFeature>`
- * + getTenantBySlug y loadFeaturesFor que sí tocan BD. La envoltura que
- * lee del `AsyncLocalStorage` con `currentTenant().features` (ADR-002 §2.2)
- * llega en Fase 3 como un wrapper sobre estas mismas funciones puras.
+ * Fase 2: funciones puras sobre `Map<string, ResolvedFeature>` —
+ * `hasFeatureInMap`, `getLimitFromMap`, `resolveFeatureRows`.
  *
- * `consumeQuota` se aplaza a Fase 3-5 (necesita prismaQuotaWriter +
- * AsyncLocalStorage).
+ * Fase 3 (este archivo): wrappers `hasFeature(key)` y `getLimit(key)`
+ * que leen de `currentTenant().features` directamente. consumeQuota se
+ * añade en commit 16 con prismaQuotaWriter.
  */
 
 import { prismaMaster } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
+import { currentTenant } from "@/lib/tenant/context";
 
 export type FeatureSource = "plan" | "addon" | "manual_override";
 
@@ -252,13 +252,11 @@ function normalizeJsonValue(v: Prisma.JsonValue): boolean | number | null {
 // ─── hasFeature / getLimit ───────────────────────────────────────────────────
 
 /**
- * Devuelve `true` si la feature boolean está activa para el tenant según
- * el Map ya resuelto (sin tocar BD). Función pura.
- *
- * Para keys fuera del catálogo: throw en dev/test, fail-closed en producción
- * (ADR-004 §2.4 enmendado).
+ * (Pura) Devuelve `true` si la feature boolean está activa según el Map
+ * resuelto. Para keys fuera del catálogo: throw en dev/test, fail-closed
+ * en producción (ADR-004 §2.4 enmendado).
  */
-export function hasFeature(
+export function hasFeatureInMap(
   features: Map<string, ResolvedFeature>,
   key: string,
 ): boolean {
@@ -268,11 +266,10 @@ export function hasFeature(
 }
 
 /**
- * Devuelve el límite numérico de la feature (limit o quota), o null si es
- * unlimited. Para feature no aprovisionada en el tenant devuelve 0
- * (fail-closed). Función pura.
+ * (Pura) Devuelve el límite numérico (limit o quota) o null si unlimited.
+ * Para feature no aprovisionada en el tenant: 0 (fail-closed).
  */
-export function getLimit(
+export function getLimitFromMap(
   features: Map<string, ResolvedFeature>,
   key: string,
 ): number | null {
@@ -281,8 +278,28 @@ export function getLimit(
   if (!f) return 0;
   if (f.value === null) return null;
   if (typeof f.value === "boolean") {
-    // Caller error: usar getLimit sobre una feature boolean.
     throw new Error(`getLimit llamado sobre feature boolean: ${key}`);
   }
   return f.value;
+}
+
+// ─── Wrappers de runtime que leen currentTenant() ────────────────────────────
+
+/**
+ * `hasFeature(key)` lee `currentTenant().features` y delega en
+ * `hasFeatureInMap`. Lanza si no hay tenant en contexto (debe llamarse
+ * dentro de runWithTenant).
+ *
+ * ADR-004 §2.4. ADR-002 §2.2.
+ */
+export function hasFeature(key: string): boolean {
+  return hasFeatureInMap(currentTenant().features, key);
+}
+
+/**
+ * `getLimit(key)` lee `currentTenant().features` y delega en
+ * `getLimitFromMap`. Lanza si no hay tenant en contexto.
+ */
+export function getLimit(key: string): number | null {
+  return getLimitFromMap(currentTenant().features, key);
 }

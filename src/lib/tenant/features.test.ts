@@ -14,8 +14,8 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
-  hasFeature,
-  getLimit,
+  hasFeatureInMap as hasFeature,
+  getLimitFromMap as getLimit,
   resolveFeatureRows,
   type ResolvedFeature,
   type FeatureSource,
