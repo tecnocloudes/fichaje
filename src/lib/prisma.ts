@@ -32,10 +32,19 @@
 import { PrismaClient as PrismaClientMaster } from "@/generated/prisma/client";
 import { PrismaClient as PrismaClientTenant } from "@/generated/prisma-tenant/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { currentTenant } from "@/lib/tenant/context";
+import { quoteSchemaName } from "@/lib/tenant/quote";
+
+/**
+ * Cliente tenant con $extends que aplica SET search_path por query.
+ * Tipo inferido: el extends devuelve un tipo enriquecido distinto al
+ * PrismaClient base.
+ */
+type PrismaClientTenantExtended = ReturnType<typeof buildExtendedTenantClient>;
 
 type CachedClients = {
   prismaMaster?: PrismaClientMaster;
-  prismaApp?: PrismaClientTenant;
+  prismaApp?: PrismaClientTenantExtended;
   prismaRuntime?: PrismaClientMaster;
   prismaQuotaWriter?: PrismaClientMaster;
 };
@@ -50,11 +59,50 @@ function createMasterClient(connectionString: string): PrismaClientMaster {
   });
 }
 
-function createTenantClient(connectionString: string): PrismaClientTenant {
+/**
+ * Construye el cliente tenant base + envoltura $extends({ query }) que
+ * aplica SET search_path por query. ADR-002 §2.2 + ADR-001 §2.5.
+ *
+ * Para cada operación:
+ *  1. Lee `currentTenant().slug` (lanza si no hay contexto — defensa en
+ *     profundidad: cierra escenario 1 del test de fuga ADR-001 §2.4).
+ *  2. Valida slug + entrecomilla con quoteSchemaName.
+ *  3. SET search_path TO "tenant_<slug>", public
+ *  4. Ejecuta la query original.
+ *  5. RESET search_path en finally (defensa si la conexión vuelve al pool).
+ *
+ * Caveat de concurrencia (Fase 3 → optimización Fase 9): en session
+ * pooling con conexión compartida, si dos queries de tenants distintos
+ * llegan al mismo cliente Prisma exactamente en paralelo, podría haber
+ * race entre SET de una y query de otra. Mitigación parcial: las queries
+ * de un mismo request son serializadas por await; el riesgo está en
+ * concurrencia inter-request en el mismo proceso Node. El test de fuga
+ * (commit 17) ejercita este escenario; si se detecta leak, se migrará a
+ * `$transaction` interactiva o a single-connection-per-request en Fase 9.
+ */
+function buildExtendedTenantClient(connectionString: string) {
   const adapter = new PrismaPg({ connectionString });
-  return new PrismaClientTenant({
+  const base = new PrismaClientTenant({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+  });
+
+  return base.$extends({
+    name: "tenant-search-path",
+    query: {
+      $allOperations: async ({ args, query }) => {
+        const { slug } = currentTenant();
+        const schemaIdent = quoteSchemaName(slug);
+        try {
+          await base.$executeRawUnsafe(
+            `SET search_path TO ${schemaIdent}, public`,
+          );
+          return await query(args);
+        } finally {
+          await base.$executeRawUnsafe("RESET search_path");
+        }
+      },
+    },
   });
 }
 
@@ -109,12 +157,13 @@ export const prismaMaster: PrismaClientMaster = lazyClient(
 );
 
 // ─── prismaApp (lazy, cliente del producto) ──────────────────────────────────
-// Usado por el producto tras SET search_path al schema del tenant. El
-// $extends que aplica search_path se añade en commit 6.
-export const prismaApp: PrismaClientTenant = lazyClient(
+// Aplica `SET search_path TO "tenant_<slug>", public` por query mediante
+// $extends({ query }). El slug se lee de `currentTenant()` (commit 3) y se
+// valida con `quoteSchemaName` (commit 4). RESET en finally.
+export const prismaApp: PrismaClientTenantExtended = lazyClient(
   "APP_DATABASE_URL",
   "prismaApp",
-  createTenantClient,
+  buildExtendedTenantClient,
 );
 
 // ─── prismaRuntime (lazy) ────────────────────────────────────────────────────
