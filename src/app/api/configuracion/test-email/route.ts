@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prismaApp as prisma } from "@/lib/prisma";
 import { Rol } from "@/generated/prisma/client";
 import { sendEmail } from "@/lib/email";
 

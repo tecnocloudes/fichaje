@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prismaApp as prisma } from "@/lib/prisma";
 
 // Public endpoint – no auth required (used in layout for CSS vars + metadata)
 export async function GET() {

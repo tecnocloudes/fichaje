@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prismaApp as prisma } from "@/lib/prisma";
 import type { NextRequest } from "next/server";
 
 export async function PATCH(

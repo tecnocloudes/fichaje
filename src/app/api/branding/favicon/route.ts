@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prismaApp as prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
