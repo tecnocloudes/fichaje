@@ -45,6 +45,10 @@ next-env.d.ts
 /src/generated/prisma
 /src/generated/prisma-tenant
 
+# Scripts efímeros del operador (E2E manual, debug). No commitear.
+/scripts/_*.ts
+/scripts/_*.cjs
+
 # Ruflo / Claude Code metadata locales
 .claude/
 .claude-flow/

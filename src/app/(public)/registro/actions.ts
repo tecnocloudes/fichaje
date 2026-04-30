@@ -105,7 +105,11 @@ export async function registrarTenantAction(
         ? { trial_period_days: trialDays }
         : {}),
     },
-    customer_creation: "always",
+    // customer_creation NO aplica en mode=subscription — Stripe crea el
+    // Customer automáticamente al completar el checkout. En su día se
+    // incluyó copiando del plan §2.1; rompía la API real con
+    // "customer_creation can only be used in payment mode" (verificado
+    // en E2E real Fase 4).
     customer_email: data.email,
     success_url:
       process.env.STRIPE_CHECKOUT_SUCCESS_URL ??
