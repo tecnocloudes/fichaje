@@ -331,18 +331,39 @@ Archivo: `prisma/seed.ts` (extendido sobre el existente).
 | `pro`        | Plan Pro          | 20         |
 | `enterprise` | Plan Enterprise   | 30         |
 
-### 5.2 `master.features` — 30 filas (catálogo §11.3 + §11.4)
+### 5.2 `master.features` — 32 filas (catálogo §11.3 + §11.4)
 
-**Booleans (22)**: `multi_tienda`, `geofencing`, `fichaje_movil`,
-`fichaje_tablet`, `bolsa_horas`, `turnos_publicacion`,
-`ausencias_aprobacion`, `onboarding_offboarding`, `comunicados`,
-`articulos`, `documentos`, `notificaciones_email`,
-`notificaciones_push`, `branding_personalizado`,
-`dominio_personalizado`, `export_csv`, `export_excel`, `export_pdf`,
-`api_access`, `webhooks`, `integraciones_nomina`,
-`firma_electronica`, `auditoria_avanzada`, `people_analytics`.
-(24 con `evaluaciones`/`objetivos` futuros — los **excluyo** de seed
-inicial para no contaminar; se añadirán cuando se implementen).
+**Booleans (24)** — los 24 que aparecen en §11.4 de la auditoría
+y que el seed siembra (`prisma/seeds/master.ts`):
+
+1. `multi_tienda`
+2. `geofencing`
+3. `fichaje_movil`
+4. `fichaje_tablet`
+5. `bolsa_horas`
+6. `turnos_publicacion`
+7. `ausencias_aprobacion`
+8. `onboarding_offboarding`
+9. `comunicados`
+10. `articulos`
+11. `documentos`
+12. `notificaciones_email`
+13. `notificaciones_push`
+14. `export_csv`
+15. `export_excel`
+16. `export_pdf`
+17. `api_access`
+18. `webhooks`
+19. `integraciones_nomina`
+20. `firma_electronica`
+21. `branding_personalizado`
+22. `dominio_personalizado`
+23. `auditoria_avanzada`
+24. `people_analytics`
+
+`evaluaciones` y `objetivos` (mencionados como "Próximamente" en
+§11.5 auditoría) **no aparecen** en el cuadro §11.4 ni en el seed.
+Se añadirán cuando se implementen los módulos correspondientes.
 
 **Limits (4)**: `max_employees`, `max_tiendas`, `historial_meses`,
 `max_storage_mb`.
@@ -350,7 +371,7 @@ inicial para no contaminar; se añadirán cuando se implementen).
 **Quotas (4)**: `emails_mes` (period `mes`), `pushs_mes` (`mes`),
 `exports_mes` (`mes`), `api_calls_dia` (`dia`).
 
-Total: 22 booleans + 4 limits + 4 quotas = **30 features**.
+Total: **24 booleans + 4 limits + 4 quotas = 32 features**.
 
 `max_owners` **no entra** en este seed (es cap operativo en código,
 §11.3 auditoría).
@@ -358,16 +379,16 @@ Total: 22 booleans + 4 limits + 4 quotas = **30 features**.
 `registro_jornada_legal` **no entra** (es CORE no desactivable,
 §11.2 auditoría — no se chequea con `hasFeature`).
 
-### 5.3 `master.plan_features` — 3 × 30 = 90 filas (con limits/quotas válidos)
+### 5.3 `master.plan_features` — 3 × 32 = 96 filas (con limits/quotas válidos)
 
 Mapping exacto del cuadro §11.4 auditoría. Lista verbose disponible en
 el archivo de seed; resumen:
 
 | Plan       | Filas insertadas (features incluidas) |
 |------------|----------------------------------------|
-| starter    | 30 filas (todas las del catálogo, con valor según §11.4: ej. `max_employees=10`, `geofencing=true`, `api_access=false`, etc.) |
-| pro        | 30 filas (con valores Pro: `max_employees=50`, `api_access=false`, `dominio_personalizado=false` aunque haya addon)         |
-| enterprise | 30 filas (con valores Enterprise: muchos `unlimited`/`null`, `api_access=true`, `dominio_personalizado=true`)               |
+| starter    | 32 filas (todas las del catálogo, con valor según §11.4: ej. `max_employees=10`, `geofencing=true`, `api_access=false`, etc.) |
+| pro        | 32 filas (con valores Pro: `max_employees=50`, `api_access=false`, `dominio_personalizado=false` aunque haya addon)         |
+| enterprise | 32 filas (con valores Enterprise: muchos `unlimited`/`null`, `api_access=true`, `dominio_personalizado=true`)               |
 
 Los **addons** comercializados (§11.4 columna Addon) **no se siembran**
 en `plan_features`: son productos Stripe separados que insertan en
@@ -573,8 +594,8 @@ en CI.
 |-------------------------------------------------|----------------------------------------------------|
 | Ejecutar seed dos veces consecutivas            | No duplica filas (idempotencia)                    |
 | `master.plans` tiene 3 filas tras seed          | Counts                                             |
-| `master.features` tiene 30 filas tras seed      | Counts                                             |
-| `master.plan_features` tiene 90 filas           | 3 planes × 30 features                             |
+| `master.features` tiene 32 filas tras seed      | Counts                                             |
+| `master.plan_features` tiene 96 filas           | 3 planes × 32 features                             |
 | `master.reserved_slugs` tiene 45 filas          | Counts                                             |
 | Plan starter tiene `max_employees = 10`         | Lectura cruzada plan_features × features           |
 
@@ -842,7 +863,7 @@ ciertos:
 
 1. `npm run db:migrate:deploy` aplica todas las migraciones nuevas
    contra una BD limpia sin errores.
-2. `npm run db:seed` siembra 3 planes, 30 features, 90 plan_features y
+2. `npm run db:seed` siembra 3 planes, 32 features, 96 plan_features y
    45 reserved_slugs. Re-ejecutable sin duplicar.
 3. `npm run super-admin:create -- --email=test@example.com --name=Test`
    crea una cuenta de super-admin. Idempotente.
@@ -883,7 +904,7 @@ ciertos:
 
 - **5 enums**, **10 tablas nuevas** en schema `master`, **4 roles
   Postgres** (3 nuevos).
-- **Seeds**: 3 planes, 30 features, 90 plan_features, 45
+- **Seeds**: 3 planes, 32 features, 96 plan_features, 45
   reserved_slugs. Super-admin se crea con comando aparte.
 - **4 clientes Prisma** (3 nuevos): `prismaMaster`, `prismaApp`,
   `prismaRuntime`, `prismaQuotaWriter`.
