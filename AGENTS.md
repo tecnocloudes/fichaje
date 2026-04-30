@@ -135,6 +135,28 @@ async authorize(credentials, req) {
 Si en Fase 4+ se añaden otros providers de NextAuth (OAuth, Email),
 aplicar el mismo patrón en sus callbacks `authorize`/`signIn`.
 
+## Server actions del subdominio `app` usan `prismaMaster`
+
+Las server actions de páginas en el subdominio `app`
+(`/registro`, `/registro/exito`, futuros checkout/landing) **NO
+tienen tenant en contexto** (el proxy las trata como `kind=app`, sin
+`runWithTenant`). Por tanto:
+
+```ts
+"use server";
+import { prismaMaster } from "@/lib/prisma";
+
+export async function registrarTenantAction(formData: FormData) {
+  // Usar prismaMaster para INSERT en master.tenants.
+  // NO usar prismaApp aquí — lanza "No hay tenant en el contexto".
+  await prismaMaster.tenant.create({ data: { ... } });
+}
+```
+
+Análogo al webhook `/api/webhooks/stripe` y a `/api/onboarding/status`:
+todos en subdominio app, todos usan `prismaMaster`. Whitelist
+explícita en `eslint.config.mjs` para `fichaje/no-legacy-prisma`.
+
 ## Discrepancia desarrollo vs producción (roles Postgres)
 
 En desarrollo local usamos un único superuser (`fichaje_admin` en el
