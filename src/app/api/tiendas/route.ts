@@ -4,6 +4,9 @@ import { Rol } from "@/generated/prisma-tenant/client";
 import type { NextRequest } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
+import { currentTenant } from "@/lib/tenant/context";
+import { getLimit } from "@/lib/tenant/features";
+import { HttpError, wrapHttpErrors } from "@/lib/feature-guard/http-error";
 export const GET = withTenant(async () => {
   try {
     const session = await auth();
@@ -23,8 +26,20 @@ export const GET = withTenant(async () => {
   }
 });
 
-export const POST = withTenant(async (request: NextRequest) => {
-  try {
+/**
+ * POST /api/tiendas — crea una tienda en el tenant actual.
+ *
+ * Plan Fase 5 §5.1: feature `max_tiendas` (limit). Race-safe con
+ * advisory lock siguiendo el mismo patrón que `max_employees` (§5.5)
+ * para que dos POSTs concurrentes no sobrepasen el límite.
+ *
+ * `multi_tienda` (boolean) NO es una restricción independiente — el
+ * plan starter expone max_tiendas=1, plan pro max_tiendas=N. La
+ * presencia de la feature multi_tienda en el catálogo es informativa
+ * (UI puede mostrar/ocultar tabs); el control real es max_tiendas.
+ */
+export const POST = withTenant(
+  wrapHttpErrors(async (request: NextRequest) => {
     const session = await auth();
     if (!session?.user) {
       return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -67,24 +82,42 @@ export const POST = withTenant(async (request: NextRequest) => {
       );
     }
 
-    const tienda = await prisma.tienda.create({
-      data: {
-        nombre,
-        direccion,
-        ciudad,
-        codigoPostal,
-        telefono,
-        email,
-        latitud,
-        longitud,
-        radio,
-        color,
-      },
+    const { tenantId } = currentTenant();
+
+    const tienda = await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+        `tenant:max_tiendas:${tenantId}`,
+      );
+
+      const max = getLimit("max_tiendas");
+      const count = await tx.tienda.count({ where: { activa: true } });
+      if (max !== null && count >= max) {
+        throw new HttpError(402, {
+          error: "limit_reached",
+          feature_key: "max_tiendas",
+          current: count,
+          max,
+          upgrade_url: "/admin/configuracion/facturacion?upgrade=max_tiendas",
+        });
+      }
+
+      return tx.tienda.create({
+        data: {
+          nombre,
+          direccion,
+          ciudad,
+          codigoPostal,
+          telefono,
+          email,
+          latitud,
+          longitud,
+          radio,
+          color,
+        },
+      });
     });
 
     return Response.json(tienda, { status: 201 });
-  } catch (error) {
-    console.error("POST /api/tiendas error:", error);
-    return Response.json({ error: "Error interno del servidor" }, { status: 500 });
-  }
-});
+  })
+);
