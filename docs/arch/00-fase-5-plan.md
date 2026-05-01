@@ -44,6 +44,18 @@ Para que el plan sea autocontenido sin reescribir el ADR:
 
 ## 2. HOFs server-side `withFeature` y `withQuota`
 
+> **Importante (enmienda 1 pre-implementación)**: `hasFeature(key)`,
+> `getLimit(key)`, `getQuotaConfig(key)` y cualquier helper de lectura
+> leen **EXCLUSIVAMENTE** del Map `currentTenant().features` precargado
+> por `withTenant` (Fase 3) o `withTenantPage` (Fase 4 fix). **NO
+> consultan BD**. Cualquier `getLimit`/`hasFeature` que tuviera que
+> tocar BD sería un bug.
+>
+> `consumeQuota(key, n)` es el **ÚNICO** helper que toca BD (UPDATE
+> atómico `master.tenant_quota_usage` con `quota_writer_role`). Es el
+> más caro; se invoca dentro de `withQuota` **DESPUÉS** de que
+> `withFeature` haya validado contratación.
+
 ### 2.1 Composabilidad con `withTenant` y `withTenantPage`
 
 Tres HOFs apilables. Orden obligatorio:
@@ -133,6 +145,39 @@ export function FeatureGate({
 **Trade-off**: el cliente no puede toggle dinámicamente sin re-fetch de la página. Para casos donde se necesita toggle inmediato sin recarga (raros — typical: tras pagar el upgrade), se hace `router.refresh()`.
 
 **Versión client `<FeatureGateClient>`** opcional: lee de `useFeatures()` que consume `/api/me/features` cacheado. Útil dentro de pages cliente. Pendiente de §15.
+
+> **Restricción importante (enmienda 3 pre-implementación)**:
+> `<FeatureGate>` es **server component**, por lo que **NO puede ser
+> hijo directo de un client component** (uno con `'use client'` o un
+> componente cliente como `<Dialog>`, `<Modal>`). Next 16 lanzará
+> error en build/runtime.
+>
+> Si necesitas un gate dentro de UI cliente, usa `<FeatureGateClient>`
+> (helper opcional definido en §15.1 como server por defecto +
+> client opt-in) que consume el hook `useFeatures()`.
+>
+> **Patrón recomendado**: hacer el gate en el **server component
+> padre** y NO renderear el client component hijo si la feature está
+> OFF. Eso garantiza que NUNCA se envía al navegador código JS de
+> features que el cliente no puede usar (mejor para bundle size y
+> para evitar leaks de UI por inspección).
+>
+> ```tsx
+> // ✓ Recomendado: gate server-side antes del client component.
+> <FeatureGate feature="api_access" fallback={<UpsellCTA feature="api_access" />}>
+>   <ApiTokensClientPanel />   {/* client, solo si gate OK */}
+> </FeatureGate>
+>
+> // ✗ NO funciona: <FeatureGate> dentro de un client component.
+> "use client";
+> export function ClientPanel() {
+>   return (
+>     <FeatureGate feature="api_access">  {/* error en runtime */}
+>       <Inner />
+>     </FeatureGate>
+>   );
+> }
+> ```
 
 ### 3.2 `<UpsellCTA>` y patrón de fallback
 
@@ -381,6 +426,51 @@ Ya existen 21 tests de Fase 2 + 7 tests runtime de Fase 3. Añadir:
 - **`getLimit` con plan + addon (sumas)** (existente).
 - **`consumeQuota` mock**: cubierto en `features.runtime.test.ts`. Añadir caso `period_unavailable`.
 
+**Tests del orden de composición (enmienda 2 pre-implementación)** —
+cierran posibilidad de invertir HOFs por error:
+
+1. **`withFeature` aplicado fuera de `withTenant` lanza error
+   descriptivo**:
+
+   ```ts
+   const handler = withFeature("api_access", mockHandler); // sin withTenant
+   await expect(handler(req)).rejects.toThrow(
+     /currentTenant is undefined.*falta withTenant/i,
+   );
+   ```
+
+   Esto verifica que `hasFeature(key)` (que lee `currentTenant()`)
+   lanza con mensaje útil cuando se invoca sin contexto, en lugar de
+   un cryptic `Cannot read properties of undefined (reading 'features')`.
+
+2. **Orden invertido `withQuota → withFeature` consume quota
+   innecesariamente** (TEST DE REGRESIÓN):
+
+   ```ts
+   // Setup: tenant SIN export_csv en plan (booleana false).
+   //        tenant_quota_usage con consumed=0.
+   const handler = withTenant(
+     withQuota("exports_mes", 1,
+       withFeature("export_csv", mockHandler), // ← ORDEN INVERTIDO
+     ),
+   );
+   const res = await handler(req);
+   expect(res.status).toBe(402); // feature_required
+
+   // CRÍTICO: consumed NO debe haber aumentado. Si aumentó, es bug
+   // del orden invertido — el HOF de quota consumió antes de validar
+   // feature.
+   const row = await prismaMaster.tenantQuotaUsage.findFirst({...});
+   expect(Number(row.consumed)).toBe(0);
+   ```
+
+   El test pasa solo si los HOFs respetan la semántica de "validar
+   antes de consumir". Si en el futuro alguien cambia la implementación
+   y el orden invertido empieza a consumir, este test lo detecta.
+
+   Estos tests verifican que el orden recomendado en §2.1 es el correcto
+   y que invertir falla con mensaje útil (no cryptic).
+
 ### 7.2 Integration de `consumeQuota` con concurrencia
 
 `src/lib/tenant/quota-concurrency.integration.test.ts` (nuevo):
@@ -584,70 +674,125 @@ Heredamos los criterios de **ADR-004 §6** (11 puntos) + 4 propios:
 
 ---
 
-## 15. Puntos a confirmar antes de empezar
+## 15. Puntos a confirmar antes de empezar — RESPUESTAS DEL OPERADOR
 
-### 15.1 `<FeatureGate>` server component (recomendación) o client?
+Las 9 decisiones quedaron cerradas en aprobación del plan
+(2026-05-01). Las respuestas vinculan la implementación.
 
-Server con re-render forzado en cambios. Trade-off: cliente toggle inmediato es más complejo (requiere `useFeatures` hook + invalidación coordinada). Para Fase 5 inicial, **server** es más simple y suficiente.
+### 15.1 ✅ Server por defecto + `<FeatureGateClient>` opt-in
 
-**Confirmación necesaria**: ¿server, o ambos (server por defecto + client opcional)?
+**Decisión**: `<FeatureGate>` es **server component** (recomendado).
+Se añade `<FeatureGateClient>` con hook `useFeatures()` como helper
+opcional para casos cliente. **Implementar en commit 7**.
 
-### 15.2 `withFeaturePage` HOF para páginas que solo existen si feature está
+### 15.2 ✅ Opción B (FeatureGate inline). Opción A diferida
 
-Casos: `/admin/api-tokens` (solo si `api_access`), `/admin/firmas` (solo si `firma_electronica`).
+**Decisión**: por defecto se usa `<FeatureGate>` inline en el
+componente con `<UpsellCTA>` como fallback. La página existe siempre
+pero su contenido está bloqueado.
 
-**Opción A**: declarar `withFeaturePage(key, fn)` HOF separado que lanza `notFound()` si feature ausente.
-**Opción B**: usar `<FeatureGate>` inline en el componente con fallback a `<UpsellCTA>` (página visible pero contenido bloqueado).
+`withFeaturePage` (opción A) — helper para casos donde la URL no
+debería existir — **NO se implementa en Fase 5**. Aplazado a futuro
+si surge necesidad real.
 
-ADR-004 sugiere B implícitamente. Para opt-in de A en casos donde la URL ni siquiera debería existir, dejarlo como helper opcional.
+### 15.3 ✅ `current` solo para `max_employees` y `max_tiendas`
 
-**Confirmación necesaria**: ¿A o B? (Recomendación: B por defecto, A opcional para casos contables).
+**Decisión**: solo esos 2 limits llevan `current` calculado. Los
+otros (`historial_meses`, `max_storage_mb`) se exponen sin
+`current`; la UI muestra solo `max`. TODO Fase 9 con vista
+materializada para storage (registrado en
+`00-todos-consolidados.md` §9.2).
 
-### 15.3 `current` opt-in en limits — ¿qué limits incluir en Fase 5?
+### 15.4 ✅ Worker no consume quotas (operativos del super-admin)
 
-ADR-004 §4.2 lista 2 (max_employees, max_tiendas). Otros (`historial_meses`, `max_storage_mb`) no tienen `current` calculable barato.
+**Decisión**: los emails que envían los jobs cron del worker
+(`cron:cleanup-pending-tenants`, `cron:detect-provisioning-stuck`,
+`cron:notify-tenant-purge-imminent`) **NO consumen `emails_mes`**.
+Son operativos del super-admin, no del tenant.
 
-**Confirmación necesaria**: ¿solo los 2 propuestos o añadir un placeholder `null` para los otros?
+**Acción concreta**: documentar en `scripts/worker.ts` con un
+comentario explícito:
 
-### 15.4 Worker no consume quotas
+```ts
+// NOTA: los emails que envían los jobs cron son operativos del
+// super-admin, NO del tenant. NO consumen quota emails_mes.
+// Cualquier sendEmail() invocado desde estos handlers va al provider
+// directamente (Resend o mock console) sin pasar por consumeQuota.
+```
 
-¿Aceptamos que `cron:cleanup-pending-tenants` y `cron:detect-provisioning-stuck` envíen emails fuera de cuota (son emails operativos al super-admin, no al tenant)?
+### 15.5 ✅ `test:feature-coverage` falla CI si feature no envuelta
 
-**Confirmación necesaria**: sí (recomendación) o exigir que cualquier `sendEmail` consuma quota.
+**Decisión**: sí. El script `npm run test:feature-coverage` lee
+las 32 features del catálogo §11.4 y verifica que cada una aparece
+en al menos un `withFeature(...)` / `withQuota(...)` /
+`getLimit(...)`. Si falta alguna → exit code != 0 → CI rojo.
 
-### 15.5 Test `test:feature-coverage` script
+Excepción declarada: `registro_jornada_legal` y CORE features de
+§2.9 ADR-004 (la regla `no-feature-gate-on-core` lo cubre).
 
-¿Falla CI si una feature de §11.4 NO aparece en `feature-guard/coverage.ts`? Sí (recomendación) — fuerza al dev a actualizar la tabla declarativa cuando añade una feature nueva.
+### 15.6 ✅ Orden inviolable: `withTenant → withFeature → withQuota → handler`
 
-**Confirmación necesaria**: sí.
+**Decisión**: este orden es OBLIGATORIO. Tests de la enmienda 2
+(§7.1) verifican que invertir falla con mensaje útil y que orden
+invertido `withQuota → withFeature` consume quota indebidamente
+(test de regresión).
 
-### 15.6 Composabilidad orden de HOFs
+### 15.7 ✅ `dev:seed-tenant` con plan `enterprise` por defecto
 
-Recomendado: `withTenant > withFeature > withQuota > handler`.
+**Decisión**: cambiar `scripts/dev-seed-tenant.ts` para asignar plan
+**`enterprise`** al tenant `dev` (todas las features activas). Razón:
+desarrollo no debe tener rozamiento.
 
-**Confirmación necesaria**: ¿OK con este orden, o invertir para que `withQuota` evalúe ANTES que `withFeature` (no — porque entonces consumiríamos quota de features no contratadas)?
+`tenant_test1` (Stripe Starter desde Fase 4) cubre el caso "cliente
+real con plan limitado" para tests visuales del FeatureGate /
+UpsellCTA.
 
-### 15.7 ¿Eliminar `dev:seed-tenant` ahora con flag `--features-active=all`?
+**Acción concreta**: editar línea 41 de `scripts/dev-seed-tenant.ts`:
 
-`tenant_dev` (provisionado manual) debería tener TODAS las features activas para desarrollo cómodo. **Acción Fase 5**: extender `scripts/dev-seed-tenant.ts` para asignar plan `enterprise` (con todas las features) en lugar de `starter`.
+```ts
+// ANTES:  const DEV_PLAN = "starter";
+// DESPUÉS: const DEV_PLAN = "enterprise";
+```
 
-**Confirmación necesaria**: ¿plan enterprise o un toggle de "all features true"?
+Quien quiera testear con plan limitado en dev: usar `tenant_test1`
+o crear un segundo tenant manual.
 
-### 15.8 `route-must-use-withTenant` — alcance
+### 15.8 ✅ Reglas ESLint separadas
 
-¿Solo verifica que cada handler tiene `withTenant(...)`, o también que cada feature de `feature-guard/coverage.ts` tiene su `withFeature`/`withQuota` correspondiente?
+**Decisión**: dos reglas custom independientes:
 
-Recomendación: dos reglas separadas (`route-must-use-withTenant` y `route-must-use-withFeature`).
+- `route-must-use-withTenant`: aplica a TODOS los handlers en
+  `src/app/api/**` (excepto whitelist `/api/auth`, `/api/webhooks`,
+  `/api/admin`, `/api/onboarding`).
+- `route-must-use-withFeature`: aplica solo a handlers listados en
+  `src/lib/feature-guard/coverage.ts`. Verifica que tienen
+  `withFeature` o `withQuota`.
 
-**Confirmación necesaria**: ¿separadas o unificadas?
+Más simples de mantener (cada regla con un único objetivo).
 
-### 15.9 `pg_advisory_xact_lock` con `tenant_runtime_role`
+### 15.9 ✅ `pg_advisory_xact_lock` con `app_role`: verificar empíricamente
 
-`max_employees` advisory lock se ejecuta dentro de `prismaApp.$transaction`. `prismaApp` usa `app_role`. ¿`app_role` puede ejecutar `pg_advisory_xact_lock`?
+**Decisión**: postgres default permite `pg_advisory_xact_lock` a
+cualquier rol con CONNECT. Verificar empíricamente al inicio del
+**bloque commit 10** (max_employees + advisory lock).
 
-Default Postgres: sí, cualquier rol con CONNECT puede usar advisory locks. Pero verificar.
+Si NO funciona: alternativas declaradas en orden de preferencia:
 
-**Confirmación necesaria**: trivial (test rápido al inicio Fase 5).
+1. `SERIALIZABLE` isolation level en la transacción.
+2. `SELECT ... FOR UPDATE` sobre una fila sentinela en
+   `master.tenants` (tenta de bloqueo cross-schema).
+3. GRANT EXECUTE ON FUNCTION `pg_advisory_xact_lock` a `app_role`
+   (manual, requiere superuser una sola vez).
+
+Verificación: query de smoke al inicio del commit 10:
+
+```sql
+-- Como app_role
+SELECT pg_advisory_xact_lock(hashtextextended('test', 0));
+-- Si lanza: error de permisos → activar plan B/C/D.
+```
+
+---
 
 ---
 
