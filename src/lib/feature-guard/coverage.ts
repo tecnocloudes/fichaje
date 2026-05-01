@@ -63,7 +63,7 @@ export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
   // api_access, webhooks, integraciones_nomina, firma_electronica:
   // endpoints planeados Fase 6+. Cobertura declarativa hasta entonces.
   { endpointGlob: "v1/**/route.ts", featureKey: "api_access", guard: "withFeature" },
-  { endpointGlob: "webhooks-tenant/**/route.ts", featureKey: "webhooks", guard: "withFeature", deferred: true },
+  { endpointGlob: "webhooks-tenant/route.ts", featureKey: "webhooks", guard: "withFeature" },
   { endpointGlob: "integraciones/nomina/route.ts", featureKey: "integraciones_nomina", guard: "withFeature" },
   { endpointGlob: "firmas/route.ts", featureKey: "firma_electronica", guard: "withFeature" },
 

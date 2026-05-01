@@ -372,6 +372,20 @@ model Festivo {
   createdAt DateTime @default(now())
 }
 
+// Webhook outbound del tenant. Plan D.5.
+model TenantWebhook {
+  id          String   @id @default(cuid())
+  url         String
+  events      String[]
+  secret      String
+  active      Boolean  @default(true)
+  lastFiredAt DateTime? @map("last_fired_at")
+  failCount   Int      @default(0) @map("fail_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([active])
+}
+
 model ProcesoOnboarding {
   id          String            @id @default(cuid())
   userId      String
