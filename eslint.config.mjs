@@ -43,6 +43,9 @@ const fichajePlugin = {
           // /api/configuracion/dominio modifica master.tenants
           // (control plane), no datos del tenant. Plan Fase 6 §4.5.
           "/api/configuracion/dominio",
+          // /api/admin/** es el panel super-admin: opera sobre master
+          // (tenants, audit_log, super_admins). Plan Fase 7.
+          "/api/admin/",
         ];
         return {
           ImportDeclaration(node) {
