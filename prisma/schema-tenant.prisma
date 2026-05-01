@@ -239,6 +239,10 @@ model ConfiguracionEmpresa {
   colorPrimario       String   @default("#6366f1")
   colorSidebar        String   @default("#1e1b4b")
   appNombre           String   @default("TelecomFichaje")
+  // Fase 6 §3.1: configuración general por tenant.
+  zonaHoraria         String   @default("Europe/Madrid")
+  diasLaborables      Int[]    @default([1, 2, 3, 4, 5])
+  ausenciasDefaults   Json?
   updatedAt           DateTime @updatedAt
 }
 
