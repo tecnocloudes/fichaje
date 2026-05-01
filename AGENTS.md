@@ -199,3 +199,26 @@ roles separados (`master_role`, `app_role`, `tenant_runtime_role`,
 no existan (try/catch en GRANTs) — alineado con esta decisión. No
 intentes crear los 4 roles en local, no aporta seguridad y rompe la
 provisión.
+
+## Convención: NO fetch interno entre rutas Next del mismo proceso
+
+PROHIBIDO hacer `fetch("http://...localhost:3000/api/...")` desde un
+route handler para llamar a otro endpoint del mismo proceso.
+
+Razón: en Node runtime, `dev.localhost`/`tenant.host` se resuelve
+distinto que en el navegador (Node sigue DNS y `/etc/hosts`; no
+trata `*.localhost` como loopback automático en todos los OS), y en
+producción el contenedor puede no llegarse a sí mismo por nombre.
+Resultado típico: `ECONNREFUSED` con stack `fetch failed` →
+500 en runtime y bug invisible en tests con mocks.
+
+Patrón correcto: extraer la lógica compartida a una función pura en
+`src/lib/<dominio>/` que reciba el cliente Prisma como dependencia.
+Ambos handlers la invocan directamente. Caso de referencia:
+`src/lib/informes/queries.ts` (compartido por `/api/informes` y
+`/api/informes/exportar`).
+
+Test E2E recomendado para cualquier endpoint feature-gated: ver
+`src/tests/integration/feature-guarded-endpoint.e2e.test.ts` y
+`src/tests/integration/informes-export.e2e.test.ts` — invocan al
+handler directamente con un `NextRequest`, sin levantar HTTP server.

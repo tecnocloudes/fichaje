@@ -30,6 +30,7 @@ Cada TODO tiene 4 campos:
 | N2 | **Patrón obligatorio** para nuevos endpoints feature-gated: añadir test E2E sin mocks (patrón `src/tests/integration/feature-guarded-endpoint.e2e.test.ts`). Habría detectado los bugs de FIX 1 (catálogo) y FIX 2 (rotación) en Fase 5 | Bloque A cierre + bug catálogo + bug rotación | Fase 6+ | mejora | pendiente |
 | N3 | Audit completado: `hasFeature`/`getLimit`/`consumeQuota` SOLO se invocan dentro de handlers envueltos con `withTenant` o `withTenantPage` (que cargan catálogo). Worker (cron jobs) y scripts NO los llaman. Si en Fase 6+ se introduce uso fuera del runtime HTTP, llamar `ensureFeatureCatalogLoaded()` explícito | Audit FIX 1 | n/a (registro) | informativo | cerrado |
 | N4 | Discrepancia timezone entre `date_trunc('month', now())` (Postgres UTC) y `computeCurrentPeriod` (hora local proceso). Las dos filas `tenant_quota_usage` resultantes pueden solapar 1-2h. No causa bug (UNIQUE keys distintas), pero conviene unificar a UTC en Fase 9 si crece el riesgo de drift por DST | FIX 2 + test rotación | Fase 9 | mejora | pendiente |
+| N5 | **Convención**: PROHIBIDO `fetch` interno entre rutas Next del mismo proceso. Si una ruta necesita datos de otra, extraer la lógica a función pura compartida en `src/lib/`. Documentado en AGENTS.md. Detectado tras FIX 3 cuando `/api/informes/exportar` lanzaba `ECONNREFUSED` en Node runtime real (Node no resuelve `*.localhost` como el navegador) | FIX 3 cierre Fase 5 | n/a (regla) | bloqueante | cerrado |
 
 ## Fase 5 — Feature flags productivos
 

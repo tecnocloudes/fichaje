@@ -19,14 +19,19 @@
 
 import { auth } from "@/lib/auth";
 import { hasFeature, consumeQuota } from "@/lib/tenant/features";
+import { prismaApp } from "@/lib/prisma";
+import type { Rol } from "@/generated/prisma-tenant/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import {
   generarCSV,
   generarExcel,
   generarPDF,
-  type InformePayload,
 } from "@/lib/informes/generators";
+import {
+  getInformeData,
+  type InformeTipo,
+} from "@/lib/informes/queries";
 
 const FORMATO_TO_FEATURE: Record<string, string> = {
   csv: "export_csv",
@@ -96,19 +101,29 @@ export const GET = withTenant(async (req: NextRequest) => {
     );
   }
 
-  // Datos vía proxy interno a /api/informes. Cookies + host del request
-  // original se propagan; withTenant resuelve el tenant de nuevo allí.
-  const proxiedUrl = new URL(req.url);
-  proxiedUrl.pathname = "/api/informes";
-  proxiedUrl.searchParams.delete("formato");
-  const proxied = await fetch(proxiedUrl, { headers: req.headers });
-  if (!proxied.ok) {
+  // Datos vía función pura compartida (FIX 3): NO fetch interno.
+  // Antes: proxiedUrl + fetch a /api/informes → ECONNREFUSED en Node
+  // runtime porque dev.localhost no resuelve igual que el navegador.
+  // Ver convención AGENTS.md "no fetch interno entre rutas Next".
+  const dataResult = await getInformeData({
+    tipo: (searchParams.get("tipo") as InformeTipo) ?? "fichajes",
+    fechaInicio: searchParams.get("fechaInicio"),
+    fechaFin: searchParams.get("fechaFin"),
+    tiendaId: searchParams.get("tiendaId"),
+    userId: searchParams.get("userId"),
+    fecha: searchParams.get("fecha"),
+    userRol: (session.user as { rol: Rol }).rol,
+    userTiendaId: (session.user as { tiendaId: string | null }).tiendaId ?? null,
+    sessionUserId: session.user.id!,
+    prisma: prismaApp,
+  });
+  if (!dataResult.ok) {
     return NextResponse.json(
-      { error: "informes_failed", status: proxied.status },
-      { status: 500 },
+      { error: dataResult.error },
+      { status: dataResult.status },
     );
   }
-  const payload = (await proxied.json()) as InformePayload;
+  const payload = dataResult.data;
 
   const fechaSlug = new Date().toISOString().slice(0, 10);
   const tipoSlug = String(payload.tipo ?? "informe").replace(/[^a-z0-9-]+/gi, "_");
