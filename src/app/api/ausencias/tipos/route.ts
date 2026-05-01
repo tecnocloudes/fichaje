@@ -4,7 +4,9 @@ import { Rol } from "@/generated/prisma-tenant/client";
 import type { NextRequest } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
-export const GET = withTenant(async () => {
+import { withFeature } from "@/lib/feature-guard/with-feature";
+
+export const GET = withTenant(withFeature("ausencias_aprobacion", async () => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -21,9 +23,9 @@ export const GET = withTenant(async () => {
     console.error("GET /api/ausencias/tipos error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-});
+}));
 
-export const POST = withTenant(async (request: NextRequest) => {
+export const POST = withTenant(withFeature("ausencias_aprobacion", async (request: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -72,4 +74,4 @@ export const POST = withTenant(async (request: NextRequest) => {
     console.error("POST /api/ausencias/tipos error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-});
+}));
