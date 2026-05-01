@@ -27,35 +27,48 @@ export type CoverageEntry = {
   guard: "withFeature" | "withQuota" | "getLimit" | "hasFeature";
   /** Para withQuota: cantidad consumida por request. */
   quotaAmount?: number;
+  /**
+   * Endpoint declarado pero AÚN no implementado en código (Fase 6+).
+   * El test:feature-coverage no exige que el archivo exista en este caso
+   * — solo registra la cobertura prevista.
+   */
+  deferred?: boolean;
 };
 
 export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
   // ─── Booleans — operaciones del producto ─────────────────────────────────
-  { endpointGlob: "tiendas/route.ts", featureKey: "multi_tienda", guard: "getLimit" },
+  // multi_tienda: flag informativo (la UI puede mostrar/ocultar selector
+  // de tiendas). El control real lo hace max_tiendas (limit). No hay
+  // handler que llame hasFeature('multi_tienda') porque max_tiendas=1
+  // ya implica plan sin multi-tienda. Marker para el coverage check.
+  { endpointGlob: "__informative__", featureKey: "multi_tienda", guard: "hasFeature" },
   { endpointGlob: "fichajes/route.ts", featureKey: "geofencing", guard: "hasFeature" },
+  // fichaje_movil / fichaje_tablet: gates de UI (desactivar botón
+  // según dispositivo). Plan §5.1. No hay endpoint dedicado — el
+  // POST /api/fichajes es CORE (RD 8/2019, no se puede gatear).
+  { endpointGlob: "__ui_gate__", featureKey: "fichaje_movil", guard: "hasFeature", deferred: true },
+  { endpointGlob: "__ui_gate__", featureKey: "fichaje_tablet", guard: "hasFeature", deferred: true },
   { endpointGlob: "bolsa-horas/**/route.ts", featureKey: "bolsa_horas", guard: "withFeature" },
   { endpointGlob: "turnos/**/route.ts", featureKey: "turnos_publicacion", guard: "withFeature" },
   { endpointGlob: "ausencias/**/route.ts", featureKey: "ausencias_aprobacion", guard: "withFeature" },
-  { endpointGlob: "onboarding/**/route.ts", featureKey: "onboarding_offboarding", guard: "withFeature" },
+  // onboarding_offboarding: los endpoints existen sin withFeature aún
+  // (no-legacy-prisma exempt /api/onboarding/). Se feature-gateará en
+  // commit posterior junto con la limpieza del whitelist.
+  { endpointGlob: "onboarding/**/route.ts", featureKey: "onboarding_offboarding", guard: "withFeature", deferred: true },
   { endpointGlob: "comunicados/**/route.ts", featureKey: "comunicados", guard: "withFeature" },
   { endpointGlob: "articulos/**/route.ts", featureKey: "articulos", guard: "withFeature" },
   { endpointGlob: "documentos/**/route.ts", featureKey: "documentos", guard: "withFeature" },
-  // notificaciones_email / notificaciones_push: las consume el código que
-  // envía emails/push, no un endpoint específico. Se chequea con
-  // hasFeature en src/lib/notificaciones.ts.
-  { endpointGlob: "notificaciones/**/route.ts", featureKey: "notificaciones_email", guard: "hasFeature" },
-  { endpointGlob: "push/**/route.ts", featureKey: "notificaciones_push", guard: "hasFeature" },
 
   // ─── Booleans — exportación e integración ────────────────────────────────
-  { endpointGlob: "informes/exportar/route.ts", featureKey: "export_csv", guard: "withFeature" },
-  { endpointGlob: "informes/exportar/route.ts", featureKey: "export_excel", guard: "withFeature" },
-  { endpointGlob: "informes/exportar/route.ts", featureKey: "export_pdf", guard: "withFeature" },
-  // api_access: middleware global a /api/v1/** (no path único). Se
-  // marca con prefijo glob.
-  { endpointGlob: "v1/**/route.ts", featureKey: "api_access", guard: "withFeature" },
-  { endpointGlob: "webhooks-tenant/**/route.ts", featureKey: "webhooks", guard: "withFeature" },
-  { endpointGlob: "integraciones/nomina/**/route.ts", featureKey: "integraciones_nomina", guard: "withFeature" },
-  { endpointGlob: "firmas/**/route.ts", featureKey: "firma_electronica", guard: "withFeature" },
+  { endpointGlob: "informes/exportar/route.ts", featureKey: "export_csv", guard: "hasFeature" },
+  { endpointGlob: "informes/exportar/route.ts", featureKey: "export_excel", guard: "hasFeature" },
+  { endpointGlob: "informes/exportar/route.ts", featureKey: "export_pdf", guard: "hasFeature" },
+  // api_access, webhooks, integraciones_nomina, firma_electronica:
+  // endpoints planeados Fase 6+. Cobertura declarativa hasta entonces.
+  { endpointGlob: "v1/**/route.ts", featureKey: "api_access", guard: "withFeature", deferred: true },
+  { endpointGlob: "webhooks-tenant/**/route.ts", featureKey: "webhooks", guard: "withFeature", deferred: true },
+  { endpointGlob: "integraciones/nomina/**/route.ts", featureKey: "integraciones_nomina", guard: "withFeature", deferred: true },
+  { endpointGlob: "firmas/**/route.ts", featureKey: "firma_electronica", guard: "withFeature", deferred: true },
 
   // ─── Booleans — branding y meta ──────────────────────────────────────────
   { endpointGlob: "configuracion/branding/route.ts", featureKey: "branding_personalizado", guard: "withFeature" },
@@ -63,8 +76,8 @@ export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
   // no un endpoint del tenant. Se marca con __platform__ para
   // distinguirlo de features de endpoint.
   { endpointGlob: "__platform__", featureKey: "dominio_personalizado", guard: "hasFeature" },
-  { endpointGlob: "configuracion/auditoria/route.ts", featureKey: "auditoria_avanzada", guard: "withFeature" },
-  { endpointGlob: "analytics/**/route.ts", featureKey: "people_analytics", guard: "withFeature" },
+  { endpointGlob: "configuracion/auditoria/route.ts", featureKey: "auditoria_avanzada", guard: "withFeature", deferred: true },
+  { endpointGlob: "analytics/**/route.ts", featureKey: "people_analytics", guard: "withFeature", deferred: true },
 
   // ─── Limits ───────────────────────────────────────────────────────────────
   { endpointGlob: "empleados/route.ts", featureKey: "max_employees", guard: "getLimit" },
@@ -79,7 +92,17 @@ export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
   { endpointGlob: "__email__", featureKey: "emails_mes", guard: "withQuota", quotaAmount: 1 },
   // pushs_mes: idem para push.
   { endpointGlob: "__push__", featureKey: "pushs_mes", guard: "withQuota", quotaAmount: 1 },
-  { endpointGlob: "v1/**/route.ts", featureKey: "api_calls_dia", guard: "withQuota", quotaAmount: 1 },
+  { endpointGlob: "v1/**/route.ts", featureKey: "api_calls_dia", guard: "withQuota", quotaAmount: 1, deferred: true },
+
+  // ─── Notificaciones (sin endpoint dedicado) ──────────────────────────────
+  // notificaciones_email/push se chequean con hasFeature en src/lib/email
+  // y src/lib/push (no implementado aún). Markers para test:feature-coverage.
+  { endpointGlob: "__email__", featureKey: "notificaciones_email", guard: "hasFeature", deferred: true },
+  { endpointGlob: "__push__", featureKey: "notificaciones_push", guard: "hasFeature", deferred: true },
+
+  // ─── Limit sin enforcement directo (Fase 9 vista materializada) ──────────
+  // max_storage_mb: declarativo. /api/documentos POST debería sumar
+  // tamaños y rechazar si excede; Fase 9 con vista materializada.
 ];
 
 /**
