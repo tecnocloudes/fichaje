@@ -68,6 +68,19 @@ export function setCachedMiss(host: string, reason: string): void {
   });
 }
 
+/**
+ * Invalida la entrada cacheada para un host. Plan Fase 6 §9.3:
+ * llamado tras POST/DELETE en /api/configuracion/dominio para que la
+ * resolución del nuevo host no quede pegada al estado anterior.
+ *
+ * Caso de uso típico: OWNER cambia su custom domain. La entrada vieja
+ * (positivo o negativo) sería válida hasta TTL expirado; con
+ * invalidación explícita la próxima request la regenera.
+ */
+export function invalidateTenantHostCache(host: string): void {
+  cache.delete(host.toLowerCase());
+}
+
 /** Solo para tests. */
 export function _resetCache(): void {
   cache.clear();

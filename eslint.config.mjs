@@ -40,6 +40,9 @@ const fichajePlugin = {
           // por session_id post-checkout). Resto de /api/onboarding/
           // es tenant-scoped y ya migró a prismaApp + withFeature.
           "/api/onboarding/status/",
+          // /api/configuracion/dominio modifica master.tenants
+          // (control plane), no datos del tenant. Plan Fase 6 §4.5.
+          "/api/configuracion/dominio",
         ];
         return {
           ImportDeclaration(node) {
