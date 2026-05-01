@@ -1,13 +1,15 @@
 import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
 import { Rol } from "@/generated/prisma-tenant/client";
-import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { invitacionTemplate } from "@/lib/email-templates";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
+import { currentTenant } from "@/lib/tenant/context";
+import { getLimit } from "@/lib/tenant/features";
+import { HttpError, wrapHttpErrors } from "@/lib/feature-guard/http-error";
 export const GET = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
@@ -73,8 +75,29 @@ export const GET = withTenant(async (request: NextRequest) => {
   }
 });
 
-export const POST = withTenant(async (request: NextRequest) => {
-  try {
+/**
+ * POST /api/empleados — crea un usuario en el tenant actual.
+ *
+ * Plan Fase 5 §5.5: race-safe contra `max_employees` con advisory
+ * transaction lock. Sin él, dos POST concurrentes pueden ambos leer
+ * count<max y ambos crear, sobrepasando el límite.
+ *
+ * Orden:
+ *  1. wrapHttpErrors capta HttpError lanzado dentro de la transacción
+ *     y lo convierte en 402 con shape estandarizado (ADR-004 §2.10).
+ *  2. prismaApp.$transaction abre una tx — el advisory lock se libera
+ *     al COMMIT/ROLLBACK automáticamente.
+ *  3. pg_advisory_xact_lock(hashtextextended('tenant:max_employees:<id>',0))
+ *     serializa los POST concurrentes del mismo tenant.
+ *  4. Lectura del count + comparación contra getLimit("max_employees").
+ *  5. Si limit_reached → throw HttpError(402) → la tx hace ROLLBACK,
+ *     wrapHttpErrors devuelve la respuesta JSON.
+ *
+ * NO se usa withFeature ni withQuota — `max_employees` es **limit**,
+ * no boolean ni quota. Plan Fase 5 §5.5.
+ */
+export const POST = withTenant(
+  wrapHttpErrors(async (request: NextRequest) => {
     const session = await auth();
     if (!session?.user) {
       return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -122,39 +145,63 @@ export const POST = withTenant(async (request: NextRequest) => {
     const resetToken = crypto.randomBytes(32).toString("hex");
     const resetTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    const empleado = await prisma.user.create({
-      data: {
-        email,
-        nombre,
-        apellidos,
-        dni: dni || undefined,
-        telefono: telefono || undefined,
-        foto: foto || undefined,
-        rol,
-        tiendaId: tiendaId || null,
-        resetToken,
-        resetTokenExpiry,
-      },
-      select: {
-        id: true,
-        email: true,
-        nombre: true,
-        apellidos: true,
-        dni: true,
-        telefono: true,
-        foto: true,
-        rol: true,
-        tiendaId: true,
-        tienda: { select: { id: true, nombre: true } },
-        activo: true,
-        password: true,
-        resetToken: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const { tenantId } = currentTenant();
+
+    const empleado = await prisma.$transaction(async (tx) => {
+      // Advisory lock por tenant — serializa POSTs concurrentes.
+      // Se libera automáticamente al COMMIT/ROLLBACK de la tx.
+      await tx.$executeRawUnsafe(
+        `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+        `tenant:max_employees:${tenantId}`,
+      );
+
+      const max = getLimit("max_employees");
+      const count = await tx.user.count({ where: { activo: true } });
+      if (max !== null && count >= max) {
+        throw new HttpError(402, {
+          error: "limit_reached",
+          feature_key: "max_employees",
+          current: count,
+          max,
+          upgrade_url: "/admin/configuracion/facturacion?upgrade=max_employees",
+        });
+      }
+
+      return tx.user.create({
+        data: {
+          email,
+          nombre,
+          apellidos,
+          dni: dni || undefined,
+          telefono: telefono || undefined,
+          foto: foto || undefined,
+          rol,
+          tiendaId: tiendaId || null,
+          resetToken,
+          resetTokenExpiry,
+        },
+        select: {
+          id: true,
+          email: true,
+          nombre: true,
+          apellidos: true,
+          dni: true,
+          telefono: true,
+          foto: true,
+          rol: true,
+          tiendaId: true,
+          tienda: { select: { id: true, nombre: true } },
+          activo: true,
+          password: true,
+          resetToken: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
     });
 
-    // Send invite email (fire-and-forget)
+    // Send invite email (fire-and-forget) — fuera de la tx para no
+    // romperla si el SMTP tarda o falla.
     const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
     prisma.configuracionEmpresa.findFirst({
       select: {
@@ -179,8 +226,5 @@ export const POST = withTenant(async (request: NextRequest) => {
     }).catch(() => {});
 
     return Response.json(empleado, { status: 201 });
-  } catch (error) {
-    console.error("POST /api/empleados error:", error);
-    return Response.json({ error: "Error interno del servidor" }, { status: 500 });
-  }
-});
+  })
+);
