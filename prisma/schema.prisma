@@ -87,6 +87,7 @@ model Tenant {
   tenantFeatures   TenantFeature[]
   subscriptions    Subscription[]
   quotaUsage       TenantQuotaUsage[]
+  apiTokens        ApiToken[]
 
   @@index([status])
   @@map("tenants")
@@ -273,6 +274,29 @@ model SuperAdmin {
   auditLogs AuditLog[]
 
   @@map("super_admins")
+  @@schema("master")
+}
+
+// Tokens API por tenant. Plan Fase D.1.
+// Token plain-text se devuelve UNA vez al crearlo; en BD solo hash bcrypt.
+model ApiToken {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  // Prefijo público para identificar el token sin desencriptar (UI).
+  prefix    String   @unique
+  // Hash bcrypt del secret. La parte plain-text solo se devuelve en POST.
+  tokenHash String   @map("token_hash")
+  lastUsedAt DateTime? @map("last_used_at")
+  expiresAt DateTime? @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  createdById String? @map("created_by_id") // user id del tenant
+
+  @@index([tenantId])
+  @@index([prefix])
+  @@map("api_tokens")
   @@schema("master")
 }
 

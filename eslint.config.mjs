@@ -46,6 +46,8 @@ const fichajePlugin = {
           // /api/admin/** es el panel super-admin: opera sobre master
           // (tenants, audit_log, super_admins). Plan Fase 7.
           "/api/admin/",
+          // /api/me/api-tokens gestiona master.api_tokens. Plan D.1.
+          "/api/me/api-tokens",
         ];
         return {
           ImportDeclaration(node) {
@@ -184,13 +186,17 @@ const fichajePlugin = {
               if (!HTTP.has(v.id.name)) continue;
               const init = v.init;
               if (!init) continue;
-              // Buscar primera CallExpression cuyo callee sea Identifier 'withTenant'.
+              // Buscar primera CallExpression cuyo callee sea Identifier
+              // de un wrapper que internamente envuelve withTenant. Los
+              // wrappers válidos son: withTenant directo o
+              // withApiV1 (Plan D.1 — internamente llama withTenant).
+              const VALID_WRAPPERS = new Set(["withTenant", "withApiV1"]);
               let cur = init;
               let found = false;
               for (let depth = 0; depth < 5 && cur; depth++) {
                 if (cur.type !== "CallExpression") break;
                 const callee = cur.callee;
-                if (callee.type === "Identifier" && callee.name === "withTenant") {
+                if (callee.type === "Identifier" && VALID_WRAPPERS.has(callee.name)) {
                   found = true;
                   break;
                 }

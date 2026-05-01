@@ -62,7 +62,7 @@ export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
   { endpointGlob: "informes/exportar/route.ts", featureKey: "export_pdf", guard: "hasFeature" },
   // api_access, webhooks, integraciones_nomina, firma_electronica:
   // endpoints planeados Fase 6+. Cobertura declarativa hasta entonces.
-  { endpointGlob: "v1/**/route.ts", featureKey: "api_access", guard: "withFeature", deferred: true },
+  { endpointGlob: "v1/**/route.ts", featureKey: "api_access", guard: "withFeature" },
   { endpointGlob: "webhooks-tenant/**/route.ts", featureKey: "webhooks", guard: "withFeature", deferred: true },
   { endpointGlob: "integraciones/nomina/**/route.ts", featureKey: "integraciones_nomina", guard: "withFeature", deferred: true },
   { endpointGlob: "firmas/**/route.ts", featureKey: "firma_electronica", guard: "withFeature", deferred: true },
@@ -88,7 +88,7 @@ export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
   { endpointGlob: "__email__", featureKey: "emails_mes", guard: "withQuota", quotaAmount: 1 },
   // pushs_mes: idem para push.
   { endpointGlob: "__push__", featureKey: "pushs_mes", guard: "withQuota", quotaAmount: 1 },
-  { endpointGlob: "v1/**/route.ts", featureKey: "api_calls_dia", guard: "withQuota", quotaAmount: 1, deferred: true },
+  { endpointGlob: "v1/**/route.ts", featureKey: "api_calls_dia", guard: "withQuota", quotaAmount: 1 },
 
   // ─── Notificaciones (sin endpoint dedicado) ──────────────────────────────
   // notificaciones_email/push se chequean con hasFeature en src/lib/email
