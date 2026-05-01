@@ -26,6 +26,7 @@ import "dotenv/config";
 import { isValidTenantSlug } from "@/lib/tenant/quote";
 import { prismaMaster } from "@/lib/prisma";
 import { provisionTenantSchema } from "@/lib/tenant/provision";
+import { computeCurrentPeriod, isQuotaPeriod } from "@/lib/feature-guard/period";
 
 const USAGE = `
 tenants:provision <slug> <plan_key>
@@ -127,12 +128,15 @@ async function main() {
   const quotas = await prismaMaster.feature.findMany({
     where: { type: "quota", key: { in: plan.planFeatures.map((p) => p.featureKey) } },
   });
-  const now = new Date();
-  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   for (const q of quotas) {
     const pf = plan.planFeatures.find((p) => p.featureKey === q.key);
     if (!pf) continue;
+    if (!isQuotaPeriod(q.quotaPeriod)) {
+      throw new Error(
+        `Feature quota ${q.key} con quota_period inválido: ${JSON.stringify(q.quotaPeriod)}`,
+      );
+    }
+    const { start: periodStart, end: periodEnd } = computeCurrentPeriod(q.quotaPeriod);
     const max = typeof pf.value === "number" ? BigInt(pf.value) : null;
     await prismaMaster.tenantQuotaUsage.upsert({
       where: {

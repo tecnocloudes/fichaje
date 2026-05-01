@@ -18,8 +18,17 @@
  *   }
  * }
  *
+ * Clasificación: el catálogo `master.features.type` es la fuente de verdad
+ * (boolean | limit | quota). NO se infiere del tipo de `value`, porque
+ * limit y quota son ambos numéricos.
+ *
  * `current` opt-in: solo `max_employees` y `max_tiendas` (plan §15.3).
  * Los otros limits se exponen sin `current`.
+ *
+ * Quotas: si no existe fila en `tenant_quota_usage` para el periodo actual
+ * (caso típico: tenant recién provisionado, aún sin consumo registrado), se
+ * sintetiza `{ used: 0, max: feature.value, resetAt: <fin del periodo> }`
+ * usando `computeCurrentPeriod()` para alinearse con `tenants-provision.ts`.
  *
  * Cliente cachea en sessionStorage (5 min). Hook useFeatures (commit 7).
  */
@@ -29,6 +38,11 @@ import { currentTenant } from "@/lib/tenant/context";
 import { prismaApp, prismaRuntime } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import type { ResolvedFeature } from "@/lib/tenant/features";
+import { computeCurrentPeriod, type QuotaPeriod } from "@/lib/feature-guard/period";
+import {
+  loadTypedFeatureCatalog,
+  type FeatureMeta,
+} from "@/lib/feature-guard/catalog";
 
 type LimitOut = { current?: number; max: number | null };
 type QuotaOut = { used: number; max: number | null; resetAt: string };
@@ -45,12 +59,20 @@ const LIMIT_CURRENT_LOADERS: Record<string, () => Promise<number>> = {
 export const GET = withTenant(async () => {
   const ctx = currentTenant();
 
+  const catalog = await loadTypedFeatureCatalog();
+
   const booleans: Record<string, boolean> = {};
   const limits: Record<string, LimitOut> = {};
+  const quotaKeys: { key: string; max: number | null; period: QuotaPeriod }[] = [];
 
-  // Recorrer el Map ya cargado por withTenant.
   for (const [key, feature] of ctx.features.entries()) {
-    classifyFeature(key, feature, booleans, limits);
+    const meta = catalog.get(key);
+    if (!meta) {
+      // Feature en tenant_features pero no en catálogo activo:
+      // catálogo se considera fuente de verdad. Omitir.
+      continue;
+    }
+    classifyFeature(key, feature, meta, booleans, limits, quotaKeys);
   }
 
   // Calcular `current` opt-in para los limits con loader.
@@ -65,7 +87,8 @@ export const GET = withTenant(async () => {
     }
   }
 
-  // Quotas desde master.tenant_quota_usage (rol read-only).
+  // Quotas: leer filas existentes de master.tenant_quota_usage para el
+  // periodo actual y, para las que no tengan fila, sintetizar con used=0.
   const now = new Date();
   const usageRows = await prismaRuntime.tenantQuotaUsage.findMany({
     where: {
@@ -74,13 +97,25 @@ export const GET = withTenant(async () => {
       periodEnd: { gt: now },
     },
   });
+  const usageByKey = new Map(usageRows.map((r) => [r.featureKey, r] as const));
+
   const quotas: Record<string, QuotaOut> = {};
-  for (const row of usageRows) {
-    quotas[row.featureKey] = {
-      used: Number(row.consumed),
-      max: row.max === null ? null : Number(row.max),
-      resetAt: row.periodEnd.toISOString(),
-    };
+  for (const q of quotaKeys) {
+    const row = usageByKey.get(q.key);
+    if (row) {
+      quotas[q.key] = {
+        used: Number(row.consumed),
+        max: row.max === null ? null : Number(row.max),
+        resetAt: row.periodEnd.toISOString(),
+      };
+    } else {
+      const { end } = computeCurrentPeriod(q.period, now);
+      quotas[q.key] = {
+        used: 0,
+        max: q.max,
+        resetAt: end.toISOString(),
+      };
+    }
   }
 
   return NextResponse.json({ booleans, limits, quotas });
@@ -89,13 +124,30 @@ export const GET = withTenant(async () => {
 function classifyFeature(
   key: string,
   feature: ResolvedFeature,
+  meta: FeatureMeta,
   booleans: Record<string, boolean>,
   limits: Record<string, LimitOut>,
+  quotaKeys: { key: string; max: number | null; period: QuotaPeriod }[],
 ): void {
-  if (typeof feature.value === "boolean") {
-    booleans[key] = feature.value;
-  } else {
-    // value: number | null — limit (numérico) o unlimited (null).
-    limits[key] = { max: feature.value };
+  if (meta.type === "boolean") {
+    booleans[key] = feature.value === true;
+    return;
+  }
+  if (meta.type === "limit") {
+    limits[key] = {
+      max: typeof feature.value === "number" ? feature.value : null,
+    };
+    return;
+  }
+  if (meta.type === "quota") {
+    if (meta.quotaPeriod === null) {
+      // Catálogo inconsistente: type=quota sin quota_period. Omitir.
+      return;
+    }
+    quotaKeys.push({
+      key,
+      max: typeof feature.value === "number" ? feature.value : null,
+      period: meta.quotaPeriod,
+    });
   }
 }
