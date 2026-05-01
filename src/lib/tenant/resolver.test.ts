@@ -9,6 +9,7 @@ import { _resetCache } from "./cache";
 function makeDeps(overrides: Partial<ResolveDeps> = {}): ResolveDeps {
   return {
     findTenantBySlug: async (_slug) => null,
+    findTenantByCustomDomain: async (_host) => null,
     loadFeaturesFor: async () => new Map(),
     ...overrides,
   };
@@ -35,9 +36,60 @@ describe("resolveTenant", () => {
     expect(r.kind).toBe("admin");
   });
 
-  it("host inválido → kind=invalid con reason", async () => {
+  it("host fuera del root sin custom_domain registrado → kind=invalid", async () => {
+    // Antes Fase 6 esto era invalid sin tocar BD. Ahora consulta la
+    // tabla y solo devuelve invalid si findTenantByCustomDomain
+    // retorna null (lo cual hace makeDeps por default).
     const r = await resolveTenant("evil.com", makeDeps());
     expect(r).toMatchObject({ kind: "invalid", reason: expect.any(String) });
+  });
+
+  it("custom_domain verificado + feature ON → kind=tenant", async () => {
+    const r = await resolveTenant(
+      "fichaje.empresa.com",
+      makeDeps({
+        findTenantByCustomDomain: async (host) => {
+          if (host === "fichaje.empresa.com")
+            return { id: "tnt_emp", slug: "empresa", status: "active" };
+          return null;
+        },
+        loadFeaturesFor: async () =>
+          new Map([
+            [
+              "dominio_personalizado",
+              {
+                key: "dominio_personalizado",
+                value: true,
+                source: "addon" as const,
+                expiresAt: null,
+              },
+            ],
+          ]),
+      }),
+    );
+    expect(r).toMatchObject({
+      kind: "tenant",
+      ctx: { tenantId: "tnt_emp", slug: "empresa", status: "active" },
+    });
+  });
+
+  it("custom_domain verificado pero feature OFF → kind=invalid", async () => {
+    const r = await resolveTenant(
+      "fichaje.empresa.com",
+      makeDeps({
+        findTenantByCustomDomain: async () => ({
+          id: "tnt_emp",
+          slug: "empresa",
+          status: "active",
+        }),
+        // features VACÍO o sin dominio_personalizado=true → invalid.
+        loadFeaturesFor: async () => new Map(),
+      }),
+    );
+    expect(r).toMatchObject({
+      kind: "invalid",
+      reason: expect.stringContaining("feature"),
+    });
   });
 
   it("tenant existente → kind=tenant con ctx", async () => {

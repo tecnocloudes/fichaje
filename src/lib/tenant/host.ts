@@ -22,14 +22,31 @@
 
 const SLUG_REGEX = /^[a-z][a-z0-9_]{2,30}$/;
 
-export type HostKind = "tenant" | "app" | "admin" | "apex" | "invalid";
+export type HostKind =
+  | "tenant"
+  | "app"
+  | "admin"
+  | "apex"
+  | "custom_domain_candidate"
+  | "invalid";
 
 export type ParsedHost =
   | { kind: "tenant"; slug: string }
   | { kind: "app" }
   | { kind: "admin" }
   | { kind: "apex" }
+  | { kind: "custom_domain_candidate"; host: string }
   | { kind: "invalid"; reason: string };
+
+/**
+ * Hosts conocidos que NUNCA son custom domain (evita queries DB
+ * inútiles y posibles loops si alguien apunta su DNS al root).
+ */
+const NEVER_CUSTOM_DOMAIN = new Set([
+  "localhost",
+  "127.0.0.1",
+  "0.0.0.0",
+]);
 
 const RESERVED_TO_APP = new Set(["app", "www"]);
 const RESERVED_TO_ADMIN = new Set(["admin"]);
@@ -79,7 +96,16 @@ export function parseHost(rawHost: string | null | undefined): ParsedHost {
     return classifySubdomain(slug);
   }
 
-  return { kind: "invalid", reason: `host fuera de ${root}` };
+  // Host fuera del root: candidato a custom domain.
+  // Plan Fase 6 §4. resolveTenant lo verifica contra master.tenants.customDomain.
+  if (NEVER_CUSTOM_DOMAIN.has(host)) {
+    return { kind: "invalid", reason: `host fuera de ${root}` };
+  }
+  // Validación mínima: debe parecer un FQDN (al menos un punto, no IP).
+  if (!host.includes(".") || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    return { kind: "invalid", reason: `host fuera de ${root}` };
+  }
+  return { kind: "custom_domain_candidate", host };
 }
 
 function classifySubdomain(slug: string): ParsedHost {

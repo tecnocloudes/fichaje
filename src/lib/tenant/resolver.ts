@@ -42,6 +42,13 @@ type TenantLookupRow = {
 
 export type ResolveDeps = {
   findTenantBySlug: (slug: string) => Promise<TenantLookupRow | null>;
+  /**
+   * Busca tenant por custom domain verificado. Devuelve null si no
+   * existe O si customDomainVerified=false. Plan Fase 6 §4.3.
+   * El check de la feature `dominio_personalizado` se hace post-lookup
+   * en `resolveTenant` (después de cargar features).
+   */
+  findTenantByCustomDomain: (host: string) => Promise<TenantLookupRow | null>;
   loadFeaturesFor: (tenantId: string) => Promise<Map<string, ResolvedFeature>>;
 };
 
@@ -49,6 +56,12 @@ const defaultDeps: ResolveDeps = {
   async findTenantBySlug(slug) {
     return prismaRuntime.tenant.findUnique({
       where: { slug },
+      select: { id: true, slug: true, status: true },
+    });
+  },
+  async findTenantByCustomDomain(host) {
+    return prismaRuntime.tenant.findFirst({
+      where: { customDomain: host, customDomainVerified: true },
       select: { id: true, slug: true, status: true },
     });
   },
@@ -65,23 +78,48 @@ export async function resolveTenant(
   if (parsed.kind === "apex") return { kind: "apex" };
   if (parsed.kind === "invalid") return { kind: "invalid", reason: parsed.reason };
 
-  const slug = parsed.slug;
   const hostKey = (host ?? "").toLowerCase();
 
   // Cache primero.
   const cached = getCachedTenant(hostKey);
   if (cached?.kind === "hit") return { kind: "tenant", ctx: cached.ctx };
-  if (cached?.kind === "miss") return { kind: "not_found", slug };
+  if (cached?.kind === "miss") {
+    return parsed.kind === "tenant"
+      ? { kind: "not_found", slug: parsed.slug }
+      : { kind: "invalid", reason: "custom domain no verificado" };
+  }
 
-  // Lookup en BD.
-  const row = await deps.findTenantBySlug(slug);
-  if (!row) {
-    setCachedMiss(hostKey, "tenant no existe");
-    return { kind: "not_found", slug };
+  // Lookup en BD según kind.
+  let row: TenantLookupRow | null = null;
+  if (parsed.kind === "tenant") {
+    row = await deps.findTenantBySlug(parsed.slug);
+    if (!row) {
+      setCachedMiss(hostKey, "tenant no existe");
+      return { kind: "not_found", slug: parsed.slug };
+    }
+  } else {
+    // custom_domain_candidate
+    row = await deps.findTenantByCustomDomain(parsed.host);
+    if (!row) {
+      setCachedMiss(hostKey, "custom domain no encontrado");
+      return { kind: "invalid", reason: "custom domain no registrado o no verificado" };
+    }
   }
 
   // Carga features (siempre para tenant — coste ~1 query por miss).
   const features = await deps.loadFeaturesFor(row.id);
+
+  // Para custom_domain: requerir feature dominio_personalizado activa.
+  // Si la feature está OFF (downgrade del plan), el host no resuelve
+  // aunque el dominio esté verificado en BD. Plan Fase 6 §15.6.
+  if (parsed.kind === "custom_domain_candidate") {
+    const feature = features.get("dominio_personalizado");
+    const active = feature?.value === true;
+    if (!active) {
+      setCachedMiss(hostKey, "feature dominio_personalizado inactiva");
+      return { kind: "invalid", reason: "custom domain feature inactiva" };
+    }
+  }
 
   const ctx: TenantContext = {
     tenantId: row.id,

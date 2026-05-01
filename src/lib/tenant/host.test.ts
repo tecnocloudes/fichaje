@@ -59,9 +59,21 @@ describe("parseHost", () => {
     });
   });
 
-  it("host fuera del dominio root es invalid", () => {
-    expect(parseHost("acme.example.com")).toMatchObject({ kind: "invalid" });
-    expect(parseHost("evil.com")).toMatchObject({ kind: "invalid" });
+  it("host fuera del dominio root → custom_domain_candidate (Fase 6)", () => {
+    expect(parseHost("acme.example.com")).toEqual({
+      kind: "custom_domain_candidate",
+      host: "acme.example.com",
+    });
+    expect(parseHost("evil.com")).toEqual({
+      kind: "custom_domain_candidate",
+      host: "evil.com",
+    });
+  });
+
+  it("hosts NEVER_CUSTOM_DOMAIN siguen siendo invalid", () => {
+    expect(parseHost("127.0.0.1")).toMatchObject({ kind: "invalid" });
+    expect(parseHost("0.0.0.0")).toMatchObject({ kind: "invalid" });
+    expect(parseHost("192.168.1.1")).toMatchObject({ kind: "invalid" });
   });
 
   it("localhost es apex", () => {
@@ -92,6 +104,10 @@ describe("parseHost", () => {
       kind: "tenant",
       slug: "acme",
     });
-    expect(parseHost("acme.ficha.tecnocloud.es")).toMatchObject({ kind: "invalid" });
+    // Hosts fuera del root configurado son custom_domain_candidate.
+    expect(parseHost("acme.ficha.tecnocloud.es")).toEqual({
+      kind: "custom_domain_candidate",
+      host: "acme.ficha.tecnocloud.es",
+    });
   });
 });
