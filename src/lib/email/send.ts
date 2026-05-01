@@ -1,12 +1,19 @@
 /**
- * Envío de emails. Usa Resend si RESEND_API_KEY está definida y no
- * vacía; en otro caso, fallback a console.log para desarrollo.
+ * Wrapper retro-compatible: redirige a `sendSystemEmail` en
+ * `@/lib/email`. Plan Fase 5 §15.4 + TODO N17.
  *
- * §15.4 del plan de Fase 4 — el provider se infiere de la presencia
- * de RESEND_API_KEY.
+ * Antes era el helper directo. Ahora se unifica en `@/lib/email`:
+ * - `sendEmail` (con gates feature + quota) para flows del tenant.
+ * - `sendSystemEmail` (sin gates) para flows de plataforma (Stripe
+ *   handlers, worker, super-admin).
+ *
+ * Este file se mantiene SOLO por compatibilidad con los imports
+ * existentes en `src/lib/stripe/handlers/*`. Refactor opcional Fase 9
+ * (mover los Stripe handlers a `import { sendSystemEmail } from
+ * "@/lib/email"`).
  */
 
-import { Resend } from "resend";
+import { sendSystemEmail } from "@/lib/email";
 
 export type SendEmailParams = {
   to: string;
@@ -17,27 +24,8 @@ export type SendEmailParams = {
 };
 
 export async function sendEmail(params: SendEmailParams): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || apiKey.length === 0) {
-    // Fallback dev: mock por consola (no bloquea el flow).
-    console.log("[email mock]", {
-      to: params.to,
-      subject: params.subject,
-      preview: params.text.slice(0, 200),
-    });
-    return;
-  }
-  const resend = new Resend(apiKey);
-  const result = await resend.emails.send({
+  await sendSystemEmail(params.to, params.subject, params.html, {
     from: params.from,
-    to: params.to,
-    subject: params.subject,
-    html: params.html,
     text: params.text,
   });
-  if (result.error) {
-    throw new Error(
-      `Resend error: ${result.error.name}: ${result.error.message}`,
-    );
-  }
 }
