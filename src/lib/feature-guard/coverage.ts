@@ -46,8 +46,8 @@ export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
   // fichaje_movil / fichaje_tablet: gates de UI (desactivar botón
   // según dispositivo). Plan §5.1. No hay endpoint dedicado — el
   // POST /api/fichajes es CORE (RD 8/2019, no se puede gatear).
-  { endpointGlob: "__ui_gate__", featureKey: "fichaje_movil", guard: "hasFeature", deferred: true },
-  { endpointGlob: "__ui_gate__", featureKey: "fichaje_tablet", guard: "hasFeature", deferred: true },
+  { endpointGlob: "__ui_gate__", featureKey: "fichaje_movil", guard: "hasFeature" },
+  { endpointGlob: "__ui_gate__", featureKey: "fichaje_tablet", guard: "hasFeature" },
   { endpointGlob: "bolsa-horas/**/route.ts", featureKey: "bolsa_horas", guard: "withFeature" },
   { endpointGlob: "turnos/**/route.ts", featureKey: "turnos_publicacion", guard: "withFeature" },
   { endpointGlob: "ausencias/**/route.ts", featureKey: "ausencias_aprobacion", guard: "withFeature" },
