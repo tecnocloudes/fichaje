@@ -15,6 +15,8 @@ import { signOut } from "next-auth/react";
 import { PlanUsageCard } from "@/components/plan-usage-card";
 import { FeatureGateClient } from "@/components/feature-gate-client";
 import { UpsellCTA } from "@/components/upsell-cta";
+import { CalendarioTab } from "@/components/configuracion/calendario-tab";
+import { DominioTab } from "@/components/configuracion/dominio-tab";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -50,6 +52,9 @@ interface Configuracion {
   favicon: string | null;
   colorPrimario: string;
   colorSidebar: string;
+  // Fase 6 §3: configuración general por tenant.
+  zonaHoraria: string;
+  diasLaborables: number[];
 }
 
 interface TipoAusencia {
@@ -93,7 +98,7 @@ function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: bool
 
 // ── Tab type ─────────────────────────────────────────────────────────────────
 
-type Tab = "general" | "ausencias" | "notificaciones" | "branding";
+type Tab = "general" | "ausencias" | "notificaciones" | "branding" | "calendario" | "dominio";
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -126,6 +131,7 @@ export default function ConfiguracionPage() {
     pushActivo: false, pushVapidPublicKey: null,
     appNombre: "TelecomFichaje", logo: null, favicon: null,
     colorPrimario: "#6366f1", colorSidebar: "#1e1b4b",
+    zonaHoraria: "Europe/Madrid", diasLaborables: [1, 2, 3, 4, 5],
   };
 
   const fetchData = useCallback(async () => {
@@ -342,12 +348,14 @@ export default function ConfiguracionPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200">
-        {(["general", "ausencias", "notificaciones", "branding"] as Tab[]).map((t) => {
+        {(["general", "ausencias", "notificaciones", "branding", "calendario", "dominio"] as Tab[]).map((t) => {
           const labels: Record<Tab, string> = {
             general: "General",
             ausencias: "Tipos de ausencia",
             notificaciones: "Notificaciones",
             branding: "Branding",
+            calendario: "Calendario",
+            dominio: "Dominio",
           };
           return (
             <button
@@ -866,6 +874,18 @@ export default function ConfiguracionPage() {
         </div>
         </FeatureGateClient>
       )}
+
+      {/* ── TAB: Calendario ───────────────────────────────────────────────────── */}
+      {tab === "calendario" && (
+        <CalendarioTab
+          zonaHoraria={config.zonaHoraria}
+          diasLaborables={config.diasLaborables}
+          onUpdateConfig={(patch) => setConfig((c) => c && ({ ...c, ...patch }))}
+        />
+      )}
+
+      {/* ── TAB: Dominio ──────────────────────────────────────────────────────── */}
+      {tab === "dominio" && <DominioTab />}
 
       {/* ── Dialogs ───────────────────────────────────────────────────────────── */}
 
