@@ -69,10 +69,9 @@ export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
 
   // ─── Booleans — branding y meta ──────────────────────────────────────────
   { endpointGlob: "configuracion/branding/route.ts", featureKey: "branding_personalizado", guard: "withFeature" },
-  // dominio_personalizado: lo gestiona el panel super-admin (Fase 7),
-  // no un endpoint del tenant. Se marca con __platform__ para
-  // distinguirlo de features de endpoint.
-  { endpointGlob: "__platform__", featureKey: "dominio_personalizado", guard: "hasFeature" },
+  // dominio_personalizado: gestionado por OWNER del tenant en Fase 6.
+  // /api/configuracion/dominio + /verify usan withFeature.
+  { endpointGlob: "configuracion/dominio/route.ts", featureKey: "dominio_personalizado", guard: "withFeature" },
   { endpointGlob: "configuracion/auditoria/route.ts", featureKey: "auditoria_avanzada", guard: "withFeature", deferred: true },
   { endpointGlob: "analytics/**/route.ts", featureKey: "people_analytics", guard: "withFeature", deferred: true },
 
