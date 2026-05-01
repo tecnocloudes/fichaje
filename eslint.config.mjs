@@ -48,6 +48,9 @@ const fichajePlugin = {
           "/api/admin/",
           // /api/me/api-tokens gestiona master.api_tokens. Plan D.1.
           "/api/me/api-tokens",
+          // /api/configuracion/auditoria lee master.audit_log filtrado
+          // por tenant. Plan D.6.
+          "/api/configuracion/auditoria",
         ];
         return {
           ImportDeclaration(node) {
