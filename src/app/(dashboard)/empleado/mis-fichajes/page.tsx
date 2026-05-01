@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { FeatureGateClient } from "@/components/feature-gate-client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -234,18 +235,20 @@ export default function MisFichajesPage() {
             </p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          onClick={() => {
-            const url = `/api/informes/exportar?fechaInicio=${dateFrom}&fechaFin=${dateTo}&formato=csv`;
-            window.open(url, "_blank");
-          }}
-        >
-          <Download className="h-4 w-4" />
-          Exportar
-        </Button>
+        <FeatureGateClient feature="export_csv">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => {
+              const url = `/api/informes/exportar?fechaInicio=${dateFrom}&fechaFin=${dateTo}&formato=csv`;
+              window.open(url, "_blank");
+            }}
+          >
+            <Download className="h-4 w-4" />
+            Exportar
+          </Button>
+        </FeatureGateClient>
       </div>
 
       {/* Filters */}

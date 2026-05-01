@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { FileSpreadsheet, FileText, BarChart2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FeatureGateClient } from "@/components/feature-gate-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -104,12 +105,16 @@ export default function AdminInformesPage() {
           <p className="text-gray-500 text-sm mt-1">Análisis de asistencia de todas las sedes</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" disabled={exportando} onClick={() => handleExport("xlsx")}>
-            <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
-          </Button>
-          <Button variant="outline" disabled={exportando} onClick={() => handleExport("pdf")}>
-            <FileText className="h-4 w-4 mr-2" /> PDF
-          </Button>
+          <FeatureGateClient feature="export_excel">
+            <Button variant="outline" disabled={exportando} onClick={() => handleExport("xlsx")}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+            </Button>
+          </FeatureGateClient>
+          <FeatureGateClient feature="export_pdf">
+            <Button variant="outline" disabled={exportando} onClick={() => handleExport("pdf")}>
+              <FileText className="h-4 w-4 mr-2" /> PDF
+            </Button>
+          </FeatureGateClient>
         </div>
       </div>
 

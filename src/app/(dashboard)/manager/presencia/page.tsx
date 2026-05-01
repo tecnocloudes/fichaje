@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { RefreshCw, Download, Edit2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FeatureGateClient } from "@/components/feature-gate-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -133,9 +134,11 @@ export default function PresenciaPage() {
           <Button variant="outline" size="icon" onClick={fetchPresencia}>
             <RefreshCw className="h-4 w-4" />
           </Button>
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" /> Exportar
-          </Button>
+          <FeatureGateClient feature="export_excel">
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" /> Exportar
+            </Button>
+          </FeatureGateClient>
         </div>
       </div>
 
