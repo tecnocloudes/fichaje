@@ -69,8 +69,19 @@ export default function AdminInformesPage() {
         formato,
       });
       if (tiendaId !== "todas") params.set("tiendaId", tiendaId);
-      const res = await fetch(`/api/informes?${params}`);
-      if (!res.ok) throw new Error();
+      const res = await fetch(`/api/informes/exportar?${params}`);
+      if (!res.ok) {
+        if (res.status === 402 || res.status === 429) {
+          const body = (await res.json()) as { error?: string; upgrade_url?: string };
+          toast({
+            title: body.error === "limit_reached" ? "Límite de exports alcanzado" : "Función no disponible en tu plan",
+            description: body.upgrade_url ? "Actualiza tu plan para usar exportación." : undefined,
+            variant: "destructive",
+          });
+          return;
+        }
+        throw new Error();
+      }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");

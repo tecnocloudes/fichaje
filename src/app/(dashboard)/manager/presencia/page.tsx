@@ -89,8 +89,19 @@ export default function PresenciaPage() {
   const handleExport = async () => {
     try {
       const res = await fetch(
-        `/api/informes?tipo=fichajes&fechaInicio=${fechaSeleccionada}&fechaFin=${fechaSeleccionada}&formato=xlsx`
+        `/api/informes/exportar?tipo=fichajes&fechaInicio=${fechaSeleccionada}&fechaFin=${fechaSeleccionada}&formato=xlsx`
       );
+      if (!res.ok) {
+        if (res.status === 402 || res.status === 429) {
+          const body = (await res.json()) as { error?: string };
+          toast({
+            title: body.error === "limit_reached" ? "Límite de exports alcanzado" : "Función no disponible en tu plan",
+            variant: "destructive",
+          });
+          return;
+        }
+        throw new Error();
+      }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");

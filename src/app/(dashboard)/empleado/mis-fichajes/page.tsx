@@ -239,7 +239,7 @@ export default function MisFichajesPage() {
           size="sm"
           className="gap-2"
           onClick={() => {
-            const url = `/api/informes?fechaInicio=${dateFrom}&fechaFin=${dateTo}&formato=csv`;
+            const url = `/api/informes/exportar?fechaInicio=${dateFrom}&fechaFin=${dateTo}&formato=csv`;
             window.open(url, "_blank");
           }}
         >

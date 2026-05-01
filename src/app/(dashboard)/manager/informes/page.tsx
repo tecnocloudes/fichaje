@@ -65,9 +65,19 @@ export default function ManagerInformesPage() {
     setExportando(true);
     try {
       const res = await fetch(
-        `/api/informes?tipo=fichajes&fechaInicio=${fechaInicio}T00:00:00Z&fechaFin=${fechaFin}T23:59:59Z&formato=${formato}`
+        `/api/informes/exportar?tipo=fichajes&fechaInicio=${fechaInicio}T00:00:00Z&fechaFin=${fechaFin}T23:59:59Z&formato=${formato}`
       );
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        if (res.status === 402 || res.status === 429) {
+          const body = (await res.json()) as { error?: string };
+          toast({
+            title: body.error === "limit_reached" ? "Límite de exports alcanzado" : "Función no disponible en tu plan",
+            variant: "destructive",
+          });
+          return;
+        }
+        throw new Error();
+      }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
