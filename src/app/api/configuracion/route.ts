@@ -60,9 +60,35 @@ export const PUT = withTenant(async (request: NextRequest) => {
       "emailActivo", "emailHost", "emailPort", "emailSecure", "emailUser", "emailPassword", "emailFrom",
       "pushActivo", "pushVapidPublicKey",
       "colorPrimario", "colorSidebar",
+      // Fase 6 §3.1: configuración general por tenant.
+      "zonaHoraria", "diasLaborables", "ausenciasDefaults",
     ];
     for (const key of allowed) {
       if (key in body) data[key] = body[key];
+    }
+
+    // Validación campos Fase 6.
+    if ("diasLaborables" in data) {
+      const v = data.diasLaborables;
+      if (
+        !Array.isArray(v) ||
+        v.some((x) => typeof x !== "number" || x < 0 || x > 6 || !Number.isInteger(x))
+      ) {
+        return Response.json(
+          { error: "diasLaborables_invalid", reason: "array de enteros 0-6" },
+          { status: 400 },
+        );
+      }
+    }
+    if ("zonaHoraria" in data) {
+      try {
+        new Intl.DateTimeFormat("es-ES", { timeZone: String(data.zonaHoraria) });
+      } catch {
+        return Response.json(
+          { error: "zonaHoraria_invalid", reason: "no reconocida por Intl" },
+          { status: 400 },
+        );
+      }
     }
 
     const config = await prisma.configuracionEmpresa.upsert({
