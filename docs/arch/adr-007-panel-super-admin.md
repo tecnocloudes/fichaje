@@ -1,7 +1,8 @@
 # ADR-007 — Panel super-admin + `master.audit_log`
 
-- **Estado**: PROPUESTO (pendiente de aprobación)
-- **Fecha**: 2026-05-01
+- **Estado**: APROBADO
+- **Fecha PROPUESTO**: 2026-05-01
+- **Fecha APROBADO**: 2026-05-01 (modo turbo cierre nocturno; sin enmiendas)
 - **Contexto previo**: ADR-002 §2.5 menciona "ADR-007 panel super-admin" como pendiente. ADR-008 §2.6, §2.9, §5.2 referencian `master.audit_log` y la UI de `tenants:purge` como diferidos a este ADR.
 - **ADRs relacionados**: ADR-001 (master_role + tenant_runtime_role), ADR-002 (status del tenant), ADR-003 (subscriptions, stripe_events), ADR-008 (lifecycle SUSPENDED → DELETED — operaciones que el panel ejecuta).
 
