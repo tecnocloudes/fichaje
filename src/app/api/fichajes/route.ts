@@ -4,6 +4,7 @@ import { TipoFichaje, MetodoFichaje, Rol } from "@/generated/prisma-tenant/clien
 import type { NextRequest } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
+import { getLimit, hasFeature } from "@/lib/tenant/features";
 export const GET = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
@@ -40,6 +41,16 @@ export const GET = withTenant(async (request: NextRequest) => {
       const end = new Date(fecha);
       end.setHours(23, 59, 59, 999);
       where.timestamp = { gte: start, lte: end };
+    } else {
+      // Plan Fase 5 §5.1 + coverage: historial_meses limit. El plan
+      // starter expone 6 meses, pro 36, enterprise null (sin límite).
+      // Si limit es null o falta loader, no filtrar.
+      const meses = getLimit("historial_meses");
+      if (meses !== null && meses > 0) {
+        const horizon = new Date();
+        horizon.setMonth(horizon.getMonth() - meses);
+        where.timestamp = { ...(where.timestamp ?? {}), gte: horizon };
+      }
     }
 
     const fichajes = await prisma.fichaje.findMany({
@@ -119,14 +130,23 @@ export const POST = withTenant(async (request: NextRequest) => {
     const forwarded = request.headers.get("x-forwarded-for");
     const ip = forwarded ? forwarded.split(",")[0].trim() : null;
 
+    // Plan Fase 5 §5.1: geofencing es CORE-safe — NUNCA rechaza el
+    // fichaje (RD 8/2019). Solo controla si registramos lat/lon y
+    // distancia para auditoría. Sin la feature, descartamos los
+    // datos de geolocalización aunque el cliente los envíe.
+    const geofencingActivo = hasFeature("geofencing");
+    const lat = geofencingActivo ? latitud : null;
+    const lon = geofencingActivo ? longitud : null;
+    const dist = geofencingActivo ? distancia : null;
+
     const fichaje = await prisma.fichaje.create({
       data: {
         userId: userId!,
         tiendaId: userTiendaId,
         tipo,
-        latitud,
-        longitud,
-        distancia,
+        latitud: lat,
+        longitud: lon,
+        distancia: dist,
         metodo,
         nota,
         ip,
