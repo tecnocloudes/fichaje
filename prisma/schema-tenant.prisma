@@ -108,6 +108,7 @@ model User {
   articulos                Articulo[]
   documentos               Documento[]               @relation("DocumentoEmpleado")
   documentosSubidos        Documento[]               @relation("DocumentoSubido")
+  firmas                   Firma[]                   @relation("FirmaUsuario")
   onboardings              ProcesoOnboarding[]
   bolsaHoras               BolsaHoras[]
   bolsaHorasAprobadas      BolsaHoras[]              @relation("BolsaHorasAprobador")
@@ -338,9 +339,29 @@ model Documento {
   subidoPorId String
   subidoPor   User     @relation("DocumentoSubido", fields: [subidoPorId], references: [id])
   createdAt   DateTime @default(now())
+  firmas      Firma[]
 
   @@index([userId])
   @@index([subidoPorId])
+}
+
+// Firma electrónica de documentos. Plan D.2.
+// Stub: integración con DocuSign/proveedor real diferida a Fase 9.
+// Hoy registra el "intent" y el hash del documento al firmar (sello
+// temporal), suficiente para auditoría legal básica.
+model Firma {
+  id          String   @id @default(cuid())
+  documentoId String
+  documento   Documento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation("FirmaUsuario", fields: [userId], references: [id])
+  documentHash String  @map("document_hash")
+  ip          String?
+  userAgent   String?  @map("user_agent")
+  firmadoEn   DateTime @default(now()) @map("firmado_en")
+
+  @@index([documentoId])
+  @@index([userId])
 }
 
 model Festivo {

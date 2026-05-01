@@ -65,7 +65,7 @@ export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
   { endpointGlob: "v1/**/route.ts", featureKey: "api_access", guard: "withFeature" },
   { endpointGlob: "webhooks-tenant/**/route.ts", featureKey: "webhooks", guard: "withFeature", deferred: true },
   { endpointGlob: "integraciones/nomina/**/route.ts", featureKey: "integraciones_nomina", guard: "withFeature", deferred: true },
-  { endpointGlob: "firmas/**/route.ts", featureKey: "firma_electronica", guard: "withFeature", deferred: true },
+  { endpointGlob: "firmas/route.ts", featureKey: "firma_electronica", guard: "withFeature" },
 
   // ─── Booleans — branding y meta ──────────────────────────────────────────
   { endpointGlob: "configuracion/branding/route.ts", featureKey: "branding_personalizado", guard: "withFeature" },
