@@ -27,6 +27,7 @@ import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
 import { NextResponse, type NextRequest } from "next/server";
 import { resolveTenant } from "@/lib/tenant/resolver";
+import { isPublicAuthPath } from "@/proxy-paths";
 
 const { auth } = NextAuth(authConfig);
 
@@ -108,7 +109,9 @@ function tenantSubdomainHandler(req: AuthedRequest): NextResponse {
   const isLoggedIn = !!req.auth;
   const rol = req.auth?.user?.rol;
 
-  const isAuthPage = nextUrl.pathname.startsWith("/login");
+  // PUBLIC_AUTH_PATHS + isPublicAuthPath en src/proxy-paths.ts
+  // (matcher exacto/prefijo-slash, no laxo). Bug 5 Fase 4.
+  const isAuthPage = isPublicAuthPath(nextUrl.pathname);
   const isApiRoute = nextUrl.pathname.startsWith("/api");
 
   if (isApiRoute) return NextResponse.next();
