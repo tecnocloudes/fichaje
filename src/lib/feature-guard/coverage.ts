@@ -73,7 +73,7 @@ export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
   // /api/configuracion/dominio + /verify usan withFeature.
   { endpointGlob: "configuracion/dominio/route.ts", featureKey: "dominio_personalizado", guard: "withFeature" },
   { endpointGlob: "configuracion/auditoria/route.ts", featureKey: "auditoria_avanzada", guard: "withFeature", deferred: true },
-  { endpointGlob: "analytics/**/route.ts", featureKey: "people_analytics", guard: "withFeature", deferred: true },
+  { endpointGlob: "analytics/route.ts", featureKey: "people_analytics", guard: "withFeature" },
 
   // ─── Limits ───────────────────────────────────────────────────────────────
   { endpointGlob: "empleados/route.ts", featureKey: "max_employees", guard: "getLimit" },
