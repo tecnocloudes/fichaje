@@ -20,6 +20,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useFeatures } from "@/lib/hooks/use-features";
+import { useDeviceType, deviceFichajeFeature } from "@/lib/device";
+import { UpsellCTA } from "@/components/upsell-cta";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -349,6 +352,30 @@ export default function EmpleadoPage() {
     );
   }
 
+  function DeviceGatedFichaje({ children }: { children: React.ReactNode }) {
+    // Gate por device + feature según ADR-004 §11.4 + plan A.3.
+    // CORE-safe: el fichaje sigue accesible — desde otro device.
+    const device = useDeviceType();
+    const { data: features, loading: featuresLoading } = useFeatures();
+    if (featuresLoading || device === "unknown") {
+      return <>{children}</>; // optimistic — evita parpadeo en SSR/primer paint
+    }
+    const required = deviceFichajeFeature(device);
+    if (required && features && features.booleans[required] === false) {
+      return (
+        <div className="space-y-3">
+          <UpsellCTA feature={required} />
+          <p className="text-xs text-muted-foreground text-center">
+            Tu plan no permite fichar desde {device === "mobile" ? "móvil" : "tablet"}.
+            Usa un PC/kiosko web del centro de trabajo o solicita upgrade al
+            administrador.
+          </p>
+        </div>
+      );
+    }
+    return <>{children}</>;
+  }
+
   function ActionButtons() {
     const isLoading = loadingAction !== null;
 
@@ -524,8 +551,10 @@ export default function EmpleadoPage() {
           {/* Divider */}
           <div className="border-t border-border" />
 
-          {/* Action buttons */}
-          <ActionButtons />
+          {/* Action buttons (con gate por device) */}
+          <DeviceGatedFichaje>
+            <ActionButtons />
+          </DeviceGatedFichaje>
 
           {/* Location status */}
           <div className="flex justify-center">
