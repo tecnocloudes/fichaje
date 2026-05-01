@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { signOut } from "next-auth/react";
+import { PlanUsageCard } from "@/components/plan-usage-card";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -334,6 +335,8 @@ export default function ConfiguracionPage() {
         <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
         <p className="text-gray-500 text-sm mt-1">Parámetros generales de la empresa</p>
       </div>
+
+      <PlanUsageCard />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200">
