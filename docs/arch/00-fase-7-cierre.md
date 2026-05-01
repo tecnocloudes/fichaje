@@ -1,16 +1,35 @@
 # Cierre de Fase 7 — Panel super-admin + master.audit_log
 
-- **Estado**: CERRADA
-- **Fecha**: 2026-05-01
+- **Estado**: CERRADA (UI minimal — UI completa = TODO N7 Fase 9)
+- **Fecha cierre inicial**: 2026-05-01
+- **Fecha cierre formal**: 2026-05-02 (mini-sesión post-N17)
 - **Plan**: [`00-fase-7-plan.md`](./00-fase-7-plan.md)
 - **ADR base**: ADR-007 APROBADO.
 
 ## 1. Resumen ejecutivo
 
 Fase 7 cerrada en **8 commits** (plan estimaba 12-18). Modo turbo:
-UI mínima (login + dashboard). UI completa diferida a Fase 9 si
-demanda — el operador puede gestionar el panel via API directamente
-hasta entonces.
+UI mínima (login + dashboard). UI completa diferida a Fase 9 (TODO
+N7) — el operador puede gestionar el panel via API directamente.
+
+**Pantallas implementadas** (cubren lo bloqueante):
+- `/admin/login`: form email + password → POST `/api/admin/login` →
+  redirect `/admin/dashboard`.
+- `/admin/dashboard`: cards con métricas tenants/subscriptions/audit24h.
+- Layout slate con nav (Dashboard / Tenants / Audit log) + Salir.
+
+**Pantallas pendientes Fase 9** (no bloqueantes para Fase 8):
+- `/admin/tenants` lista con filtros visuales.
+- `/admin/tenants/[slug]` detalle (features, subscription, quotas).
+- `/admin/tenants/[slug]/features` editor manual_override + reason.
+- `/admin/audit-log` viewer con filtros visuales.
+- Botones "Suspend/Restore/Purge" desde browser (hoy via curl).
+- Settings cuenta del super-admin (cambiar password, MFA — N9).
+
+**Bug build resuelto post-cierre inicial**:
+- "Two parallel pages" entre `(admin)/login` y `(auth)/login`.
+- Fix: eliminado grupo `(admin)`, movido a path real `src/app/admin/*`.
+  proxy.ts actualizado para `kind=admin` (Fase 7 ya no devuelve 503).
 
 Bloques entregados:
 

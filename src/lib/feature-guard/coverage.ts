@@ -91,10 +91,10 @@ export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
   { endpointGlob: "v1/**/route.ts", featureKey: "api_calls_dia", guard: "withQuota", quotaAmount: 1 },
 
   // ─── Notificaciones (sin endpoint dedicado) ──────────────────────────────
-  // notificaciones_email/push se chequean con hasFeature en src/lib/email
-  // y src/lib/push (no implementado aún). Markers para test:feature-coverage.
-  { endpointGlob: "__email__", featureKey: "notificaciones_email", guard: "hasFeature", deferred: true },
-  { endpointGlob: "__push__", featureKey: "notificaciones_push", guard: "hasFeature", deferred: true },
+  // N17 cerrado: src/lib/email.ts:sendEmail y src/lib/push.ts:sendPush
+  // chequean hasFeature + consumeQuota antes de enviar.
+  { endpointGlob: "__email__", featureKey: "notificaciones_email", guard: "hasFeature" },
+  { endpointGlob: "__push__", featureKey: "notificaciones_push", guard: "hasFeature" },
 
   // ─── Limit sin enforcement directo (Fase 9 vista materializada) ──────────
   // max_storage_mb: declarativo. /api/documentos POST debería sumar

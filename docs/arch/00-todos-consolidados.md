@@ -31,6 +31,22 @@ Cada TODO tiene 4 campos:
 | N3 | Audit completado: `hasFeature`/`getLimit`/`consumeQuota` SOLO se invocan dentro de handlers envueltos con `withTenant` o `withTenantPage` (que cargan catálogo). Worker (cron jobs) y scripts NO los llaman. Si en Fase 6+ se introduce uso fuera del runtime HTTP, llamar `ensureFeatureCatalogLoaded()` explícito | Audit FIX 1 | n/a (registro) | informativo | cerrado |
 | N4 | Discrepancia timezone entre `date_trunc('month', now())` (Postgres UTC) y `computeCurrentPeriod` (hora local proceso). Las dos filas `tenant_quota_usage` resultantes pueden solapar 1-2h. No causa bug (UNIQUE keys distintas), pero conviene unificar a UTC en Fase 9 si crece el riesgo de drift por DST | FIX 2 + test rotación | Fase 9 | mejora | pendiente |
 | N5 | **Convención**: PROHIBIDO `fetch` interno entre rutas Next del mismo proceso. Si una ruta necesita datos de otra, extraer la lógica a función pura compartida en `src/lib/`. Documentado en AGENTS.md. Detectado tras FIX 3 cuando `/api/informes/exportar` lanzaba `ECONNREFUSED` en Node runtime real (Node no resuelve `*.localhost` como el navegador) | FIX 3 cierre Fase 5 | n/a (regla) | bloqueante | cerrado |
+| N6 | Invalidación pub/sub del cache `currentTenant().features` cuando se modifica directamente en BD (sin pasar por Stripe webhook). Hoy TTL 60s + invalidación manual de host (POST/DELETE dominio). Considerar canal pub/sub en Fase 9 | Fase 6 cierre | Fase 9 | mejora | pendiente |
+| N7 | UI completa panel super-admin (tenants list/detail con filtros, editor features, viewer audit-log expandido, suspend/restore desde browser) | Fase 7 cierre — UI minimal | Fase 9 | mejora | pendiente |
+| N8 | Purge endpoint real conectado con CLI tenants-purge (hoy stub registra intención + manda al CLI) | Fase 7 cierre | Fase 9 | mejora | pendiente |
+| N9 | MFA TOTP para super-admin | Fase 7 cierre | Fase 9 | mejora | pendiente |
+| N10 | Archive cron `master.audit_log` entries > 7 años | Fase 7 cierre | Fase 9 | mejora | pendiente |
+| N11 | Importar `[AUDIT]` históricos de stdout a `master.audit_log` (opcional bajo demanda) | Fase 7 cierre | Fase 9 | opcional | pendiente |
+| N12 | Métricas avanzadas (cohorts, churn, MRR real desde Stripe price) | Fase 7 cierre | Fase 9 | mejora | pendiente |
+| N13 | Impersonate seguro auditable (read-only o full con cookie temporal) | Fase 7 cierre | Fase 9-10 | mejora | pendiente |
+| N14 | DocuSign integration real (firmas más allá del stub document_hash) | D.2 cierre | Fase 9 | mejora | pendiente |
+| N15 | Disparo real de webhooks tenant + verificación HMAC + reintentos exponenciales | D.5 cierre | Fase 9 | mejora | pendiente |
+| N16 | Implementación real integraciones nómina (provider por provider: A3, Sage, Holded) | D.3 cierre | Fase 9 | mejora | pendiente |
+| N17 | sendEmail/sendPush con hasFeature gate + consumeQuota | D.6 cierre + bloque cierre formal | Fase 5.5 | bloqueante | **CERRADO** (commit 59d448d) |
+| N18 | Cálculo exacto horas trabajadas pareando ENTRADA/SALIDA en SQL (hoy aproximación basada en count salidas * 8) | D.4 cierre | Fase 9 | mejora | pendiente |
+| N19 | `super-admin:create` no carga `.env` automáticamente — el operador debe usar `dotenv-cli` o variables inline. Workaround: documentar en help del script | Mini-sesión cierre formal | Fase 8 | menor | pendiente |
+| N20 | `super-admin:create` debe ocultar password al teclear (readline con noEcho). Hoy se ve en pantalla | Mini-sesión cierre formal | Fase 8 | media | pendiente |
+| N21 | Documentar en `00-fase-7-cierre.md` que UI minimal (login + dashboard métricas) cubre lo bloqueante; el resto es N7 Fase 9 | Mini-sesión cierre formal | Fase 7 cierre | menor | cerrado en este commit |
 
 ## Fase 5 — Feature flags productivos
 
