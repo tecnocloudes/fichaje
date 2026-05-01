@@ -1,18 +1,31 @@
 # Cierre de Fase 5 — Feature flags + addons + UI gating
 
-- **Estado**: CERRADA
-- **Fecha**: 2026-04-30
+- **Estado**: COMPLETAMENTE CERRADA (todos los criterios §6 ADR-004 verdes)
+- **Fecha cierre inicial**: 2026-04-30
+- **Fecha cierre completo**: 2026-05-01 (bloque A: concurrency + generadores reales + device gates + onboarding)
 - **Plan**: [`00-fase-5-plan.md`](./00-fase-5-plan.md)
 - **ADR**: [`adr-004-feature-flags-y-addons.md`](./adr-004-feature-flags-y-addons.md)
 - **Estado heredado**: feature/saas-migration con Fase 4 cerrada (Stripe + webhooks)
 
 ## 1. Resumen ejecutivo
 
-Fase 5 cerrada con **19 commits** (plan estimaba 12-18, +1 por la
-parada obligatoria post-commit 8). El bug detectado en la PARADA fue
-de implementación pequeño (clasificación binaria boolean/number en
-vez de ternaria boolean/limit/quota), corregido en el mismo bloque y
-verificado empíricamente con `curl`.
+Fase 5 cerrada con **19 commits del plan original** + **5 commits del
+bloque A de cierre** = 24 commits totales. El bug detectado en la
+parada obligatoria post-commit 8 (clasificación binaria boolean/number
+en vez de ternaria boolean/limit/quota) se corrigió en el mismo
+bloque. Bloque A completó los pendientes:
+
+- A.1 (commit 2265851): test concurrencia consumeQuota con 100 promesas
+  (50 ok / 50 limit_reached / consumed=50 exacto). Atomicidad SQL
+  `WHERE consumed+n<=max RETURNING` verificada empíricamente.
+- A.2 (commit 8c792f5): generadores reales CSV / Excel / PDF con
+  librerías xlsx + jsPDF + jspdf-autotable. 7 tests unit verde.
+- A.3 (commit 3218bbe): UI gates `fichaje_movil` / `fichaje_tablet`
+  con detección de dispositivo CORE-safe (RD 8/2019).
+- A.4 (commit df05120): `withFeature("onboarding_offboarding")` en
+  los 5 route.ts de `/api/onboarding/` + sale de whitelist
+  `no-legacy-prisma` (status sigue exempt).
+- A.5 (este commit): cierre completo actualizado.
 
 Funcionalidad entregada:
 
@@ -86,7 +99,7 @@ Funcionalidad entregada:
 | 2 | Roles `tenant_runtime_role` y `quota_writer_role` con permisos exactos; regla `no-quota-writer-leak` activa | ✅ Roles Fase 3; regla ESLint commit 16 |
 | 3 | `currentTenant().features` poblado en cada request | ✅ Cerrado en Fase 3 commit 5 (resolver) |
 | 4 | `hasFeature("export_csv")` lee de Map sin tocar BD | ✅ Verificado por implementación: `hasFeatureInMap` recibe el Map directamente |
-| 5 | `consumeQuota` atómico con 100 promises | ⏳ Atomicidad SQL implementada (UPDATE WHERE consumed+n<=max RETURNING). Test empírico TODO Fase 5.5 |
+| 5 | `consumeQuota` atómico con 100 promises | ✅ Test integration `quota-concurrency.integration.test.ts`: 50 ok + 50 limit_reached + consumed=50 exacto |
 | 6 | `consumeQuota` sin fila → `period_unavailable` → endpoint 429 | ✅ withQuota.ts + wrapper |
 | 7 | `GET /api/me/features` shape exacto §2.6 | ✅ Verificado empíricamente con `curl` post-fix ternario |
 | 8 | Cada boolean del catálogo cubierta + test:feature-coverage | ✅ 32/32 features en `FEATURE_COVERAGE`; el runner pasa con deferred markers |
@@ -95,35 +108,41 @@ Funcionalidad entregada:
 | 11 | `POST /api/empleados` con advisory lock | ✅ `pg_advisory_xact_lock(hashtextextended(...))` dentro de tx; `wrapHttpErrors` libera al ROLLBACK |
 | 12 | Panel super-admin manual_override (Fase 7 prereq) | ⏳ Diferido a Fase 7 según plan |
 
-## 4. Pendientes para Fase 5.5 / Fase 6+
+## 4. Pendientes para Fase 6+
 
-1. Test concurrency `consumeQuota` con Testcontainers (criterio #5).
-2. Implementar endpoints diferidos:
+Resueltos en bloque A (1 / 5 / 6 del listado original) y A.4 (#3):
+
+- ~~Test concurrency consumeQuota~~ ✅ A.1
+- ~~Generadores reales CSV/Excel/PDF~~ ✅ A.2
+- ~~UI gates fichaje_movil/fichaje_tablet~~ ✅ A.3
+- ~~withFeature(onboarding_offboarding) + limpiar whitelist~~ ✅ A.4
+
+Quedan para Fase 6+ (endpoints diferidos = bloque D del cierre):
+
+1. **Endpoints diferidos** (bloque D del cierre completo SaaS):
    - `/api/v1/**` (`api_access` + `api_calls_dia` quota).
    - `/api/firmas/**` (`firma_electronica`).
    - `/api/integraciones/nomina/**`.
    - `/api/analytics/**` (`people_analytics`).
    - `/api/webhooks-tenant/**` (`webhooks`).
    - `/api/configuracion/auditoria/route.ts` (`auditoria_avanzada`).
-3. Aplicar `withFeature("onboarding_offboarding")` a
-   `/api/onboarding/**` y limpiar el whitelist de `no-legacy-prisma`.
-4. `max_storage_mb` enforcement en `/api/documentos POST` (Fase 9 con
+2. `max_storage_mb` enforcement en `/api/documentos POST` (Fase 9 con
    vista materializada).
-5. Generadores reales CSV/Excel/PDF en `/api/informes/exportar`
-   (actualmente devuelve JSON con headers de descarga; Fase 9).
-6. UI gates `fichaje_movil` y `fichaje_tablet` (PWA detection +
-   FeatureGateClient).
-7. Panel super-admin completo (Fase 7).
+3. Panel super-admin completo (Fase 7, ADR-007 ya escrito como
+   propuesta).
 
 ## 5. Suite tests al cierre
 
+Suite unit:
 ```
-Test Files  20 passed (20)
-Tests       170 passed (170)
+Test Files  22 passed (22)
+Tests       185 passed (185)
 ```
 
-Sin tests integration ejecutados (`test:integration` no se corre por
-defecto, decisión Fase 4: requiere Testcontainers > 30s).
+Suite integration (`VITEST_INTEGRATION=1`): el nuevo
+`quota-concurrency.integration.test.ts` pasa en ~3s con
+Testcontainers PostgreSQL. Resto de integration (leak, provision,
+webhooks, super-admin, jobs) heredados de Fase 3-4.
 
 ## 6. Referencias
 
