@@ -76,6 +76,12 @@ model Tenant {
   email            String
   status           TenantStatus       @default(pending)
   stripeCustomerId String?            @unique @map("stripe_customer_id")
+  // Fase 6 §4.1: dominio personalizado.
+  // Resuelve a este tenant solo si verified=true Y la feature
+  // dominio_personalizado está activa (chequeada en proxy.ts).
+  customDomain         String?            @unique @map("custom_domain")
+  customDomainVerified Boolean            @default(false) @map("custom_domain_verified")
+  customDomainToken    String?            @map("custom_domain_token")
   createdAt        DateTime           @default(now()) @map("created_at")
   updatedAt        DateTime           @default(now()) @updatedAt @map("updated_at")
   tenantFeatures   TenantFeature[]
