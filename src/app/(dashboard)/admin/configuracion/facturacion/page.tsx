@@ -14,10 +14,11 @@ import { auth } from "@/lib/auth";
 import { prismaMaster } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe/client";
 import { currentTenant } from "@/lib/tenant/context";
+import { withTenantPage } from "@/lib/tenant/with-tenant-page";
 
 export const dynamic = "force-dynamic";
 
-export default async function Page() {
+async function FacturacionPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const rol = (session.user as { rol?: string }).rol;
@@ -60,3 +61,5 @@ export default async function Page() {
   });
   redirect(portal.url);
 }
+
+export default withTenantPage(FacturacionPage as never);

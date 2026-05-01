@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { withTenantPage } from "@/lib/tenant/with-tenant-page";
 
-export default async function DashboardLayout({
+async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -41,3 +42,5 @@ export default async function DashboardLayout({
     </DashboardShell>
   );
 }
+
+export default withTenantPage(DashboardLayout as never);

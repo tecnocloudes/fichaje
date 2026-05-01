@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth, signIn } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
 import { Building2, LogIn, AlertCircle } from "lucide-react";
+import { withTenantPage } from "@/lib/tenant/with-tenant-page";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ interface LoginPageProps {
   searchParams: Promise<{ error?: string }>;
 }
 
-export default async function LoginPage({ searchParams }: LoginPageProps) {
+async function LoginPage({ searchParams }: LoginPageProps) {
   // Fase 4: el flow de "primer admin con /setup" se eliminó. El primer
   // OWNER se crea automáticamente desde el webhook checkout.session.completed
   // (commit 7 Fase 4) tras un registro real con Stripe. Si llegas aquí
@@ -191,3 +192,5 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     </div>
   );
 }
+
+export default withTenantPage(LoginPage as never);

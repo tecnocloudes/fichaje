@@ -84,6 +84,37 @@ en `src/app/api/`. **Recomendación adicional Fase 4**: regla
 `fichaje/route-must-use-withTenant` que verifique que cada handler
 exporta vía `withTenant(...)`.
 
+## Pages y layouts del subdominio tenant: `withTenantPage`
+
+Pages (`page.tsx`) y layouts (`layout.tsx`) del subdominio tenant
+(`<slug>.host`) que usen `prismaApp` o `currentTenant()` **DEBEN**
+envolverse con `withTenantPage`:
+
+```ts
+import { withTenantPage } from "@/lib/tenant/with-tenant-page";
+import { prismaApp } from "@/lib/prisma";
+
+async function MyPage(props) {
+  // usa prismaApp libremente — runWithTenant ya está activo.
+  const data = await prismaApp.user.findMany();
+  return <div>{...}</div>;
+}
+
+export default withTenantPage(MyPage);
+```
+
+Razón (Bug 4 de Fase 4 — variante de §11.3 en server components): el
+HOF `withTenant` cubre solo route handlers (que exportan `GET`/`POST`).
+Server components son funciones `async` sin entry point que el HOF de
+handlers pueda envolver. `withTenantPage` es el equivalente:
+internamente lee `headers()`, resuelve tenant del host y envuelve con
+`runWithTenant`.
+
+**El root layout (`src/app/layout.tsx`) NO se envuelve** — sirve todos
+los hosts (apex, app, admin, tenant). Resuelve branding default
+hardcoded sin tocar BD; el branding por tenant lo aplica el layout
+del subdominio tenant (`(dashboard)/layout.tsx`) que SÍ está envuelto.
+
 ## Whitelist de endpoints exentos (no usan `withTenant`)
 
 - `/api/auth/[...nextauth]` — NextAuth maneja su propio handler.

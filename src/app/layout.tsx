@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/components/providers";
-import { prismaApp as prisma } from "@/lib/prisma";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -11,48 +10,46 @@ const inter = Inter({
   display: "swap",
 });
 
-async function getBranding() {
-  try {
-    const config = await prisma.configuracionEmpresa.findFirst({
-      select: {
-        appNombre: true,
-        colorPrimario: true,
-        colorSidebar: true,
-        favicon: true,
-      },
-    });
-    return {
-      appNombre: config?.appNombre ?? "TelecomFichaje",
-      colorPrimario: config?.colorPrimario ?? "#6366f1",
-      colorSidebar: config?.colorSidebar ?? "#1e1b4b",
-      favicon: config?.favicon ?? null,
-    };
-  } catch {
-    return {
-      appNombre: "TelecomFichaje",
-      colorPrimario: "#6366f1",
-      colorSidebar: "#1e1b4b",
-      favicon: null,
-    };
-  }
-}
+/**
+ * El root layout sirve TODOS los hosts (apex, app, admin, tenant). Hacer
+ * una query a `prismaApp.configuracionEmpresa` aquí significaría:
+ *  1. 1 query master por cada navegación, incluso para subdominios
+ *     `app.localhost/registro` que NO tienen tenant.
+ *  2. Imposible envolver con `withTenantPage` porque el layout sirve
+ *     hosts donde NO hay tenant.
+ *
+ * Solución (opción C parcial Bug 4 Fase 4): el root layout usa branding
+ * **default hardcoded**. El branding por tenant se aplica desde el
+ * layout/page del subdominio tenant que SÍ está envuelto con
+ * `withTenantPage` (e.g. `(dashboard)/layout.tsx`,
+ * `(auth)/login/page.tsx`).
+ *
+ * Trade-off aceptado: el "<title>" del navegador es siempre el default
+ * "Fichaje" hasta que el layout hijo del tenant pueda renderear su
+ * título. En la práctica los usuarios siempre llegan a páginas dentro
+ * del tenant donde el título correcto se computa antes de mostrarse.
+ */
+
+const DEFAULT_BRANDING = {
+  appNombre: "Fichaje",
+  colorPrimario: "#6366f1",
+  colorSidebar: "#1e1b4b",
+  favicon: null as string | null,
+};
 
 export async function generateMetadata(): Promise<Metadata> {
-  const branding = await getBranding();
   return {
     title: {
-      default: branding.appNombre,
-      template: `%s | ${branding.appNombre}`,
+      default: DEFAULT_BRANDING.appNombre,
+      template: `%s | ${DEFAULT_BRANDING.appNombre}`,
     },
     description: "Sistema de fichaje y gestión de RRHH",
     manifest: "/manifest.webmanifest",
-    icons: branding.favicon
-      ? { icon: "/api/branding/favicon", shortcut: "/api/branding/favicon" }
-      : { icon: "/favicon.ico" },
+    icons: { icon: "/favicon.ico" },
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",
-      title: branding.appNombre,
+      title: DEFAULT_BRANDING.appNombre,
     },
     formatDetection: { telephone: false },
   };
@@ -71,15 +68,16 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const branding = await getBranding();
-  const sidebarHighlight = lightenHex(branding.colorSidebar, 28);
+  // Branding default. El tenant override se hace en el layout del
+  // subdominio tenant via withTenantPage.
+  const sidebarHighlight = lightenHex(DEFAULT_BRANDING.colorSidebar, 28);
 
   const cssVars = `
     :root {
-      --primary: ${branding.colorPrimario};
-      --ring: ${branding.colorPrimario};
-      --accent-foreground: ${branding.colorPrimario};
-      --sidebar-bg: ${branding.colorSidebar};
+      --primary: ${DEFAULT_BRANDING.colorPrimario};
+      --ring: ${DEFAULT_BRANDING.colorPrimario};
+      --accent-foreground: ${DEFAULT_BRANDING.colorPrimario};
+      --sidebar-bg: ${DEFAULT_BRANDING.colorSidebar};
       --sidebar-highlight: ${sidebarHighlight};
     }
   `;
