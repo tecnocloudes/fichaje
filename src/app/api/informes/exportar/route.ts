@@ -1,8 +1,9 @@
 /**
  * GET /api/informes/exportar?formato={csv|xlsx|pdf}&...
- * Plan Fase 5 §5.1, coverage `informes/exportar/route.ts`.
+ * Plan Fase 5 §5.1 + cierre A.2.
  *
- * Feature-gated por formato + consume quota mensual de exports.
+ * Feature-gated por formato + consume quota mensual de exports + genera
+ * archivo real (CSV/Excel/PDF) desde el JSON de `/api/informes`.
  *
  * Por qué check inline en vez de `withFeature(KEY, handler)`:
  * el feature key (`export_csv` | `export_excel` | `export_pdf`) depende
@@ -12,15 +13,20 @@
  * subrutas separadas. El orden inviolable §15.6 se preserva:
  * withTenant → check feature → consume quota → handler.
  *
- * Generación real de CSV/Excel/PDF: TODO Fase 9. Por ahora devuelve
- * el mismo JSON que `/api/informes` con headers de descarga, para
- * desacoplar el feature gate del generador.
+ * Generación: `src/lib/informes/generators.ts` aplana el JSON, extrae
+ * columnas estables y produce el blob según formato.
  */
 
 import { auth } from "@/lib/auth";
 import { hasFeature, consumeQuota } from "@/lib/tenant/features";
 import { NextResponse, type NextRequest } from "next/server";
 import { withTenant } from "@/lib/tenant/with-tenant";
+import {
+  generarCSV,
+  generarExcel,
+  generarPDF,
+  type InformePayload,
+} from "@/lib/informes/generators";
 
 const FORMATO_TO_FEATURE: Record<string, string> = {
   csv: "export_csv",
@@ -30,6 +36,13 @@ const FORMATO_TO_FEATURE: Record<string, string> = {
 
 function secondsUntil(date: Date, now: Date = new Date()): number {
   return Math.max(1, Math.ceil((date.getTime() - now.getTime()) / 1000));
+}
+
+function mimeTypeFor(formato: string): string {
+  if (formato === "csv") return "text/csv; charset=utf-8";
+  if (formato === "xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if (formato === "pdf") return "application/pdf";
+  return "application/octet-stream";
 }
 
 export const GET = withTenant(async (req: NextRequest) => {
@@ -48,7 +61,6 @@ export const GET = withTenant(async (req: NextRequest) => {
     );
   }
 
-  // 1. Feature gate.
   if (!hasFeature(featureKey)) {
     return NextResponse.json(
       {
@@ -60,7 +72,6 @@ export const GET = withTenant(async (req: NextRequest) => {
     );
   }
 
-  // 2. Consumir quota de exports.
   const consumeResult = await consumeQuota("exports_mes", 1);
   if (!consumeResult.ok) {
     if (consumeResult.reason === "period_unavailable") {
@@ -85,37 +96,53 @@ export const GET = withTenant(async (req: NextRequest) => {
     );
   }
 
-  // 3. Delegar a /api/informes (mismo handler) para los datos.
-  // Reescribimos la URL preservando query params (sin formato) y
-  // hacemos un fetch interno. Sin redirect — el cliente espera blob.
-  // Limpio: el origen = mismo host del request original.
+  // Datos vía proxy interno a /api/informes. Cookies + host del request
+  // original se propagan; withTenant resuelve el tenant de nuevo allí.
   const proxiedUrl = new URL(req.url);
   proxiedUrl.pathname = "/api/informes";
   proxiedUrl.searchParams.delete("formato");
-  const proxied = await fetch(proxiedUrl, {
-    headers: req.headers,
-  });
+  const proxied = await fetch(proxiedUrl, { headers: req.headers });
   if (!proxied.ok) {
     return NextResponse.json(
       { error: "informes_failed", status: proxied.status },
       { status: 500 },
     );
   }
-  const data = await proxied.text();
+  const payload = (await proxied.json()) as InformePayload;
 
-  // TODO Fase 9: generar CSV/Excel/PDF real desde JSON.
-  return new NextResponse(data, {
+  const fechaSlug = new Date().toISOString().slice(0, 10);
+  const tipoSlug = String(payload.tipo ?? "informe").replace(/[^a-z0-9-]+/gi, "_");
+  const filename = `${tipoSlug}_${fechaSlug}.${formato}`;
+
+  if (formato === "csv") {
+    const csv = generarCSV(payload);
+    return new NextResponse(csv, {
+      status: 200,
+      headers: {
+        "Content-Type": mimeTypeFor("csv"),
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
+  }
+  if (formato === "xlsx") {
+    const buf = generarExcel(payload);
+    return new NextResponse(new Uint8Array(buf), {
+      status: 200,
+      headers: {
+        "Content-Type": mimeTypeFor("xlsx"),
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": String(buf.length),
+      },
+    });
+  }
+  // pdf
+  const buf = generarPDF(payload);
+  return new NextResponse(new Uint8Array(buf), {
     status: 200,
     headers: {
-      "Content-Type": mimeTypeFor(formato),
-      "Content-Disposition": `attachment; filename="informe.${formato}"`,
+      "Content-Type": mimeTypeFor("pdf"),
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Length": String(buf.length),
     },
   });
 });
-
-function mimeTypeFor(formato: string): string {
-  if (formato === "csv") return "text/csv; charset=utf-8";
-  if (formato === "xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  if (formato === "pdf") return "application/pdf";
-  return "application/octet-stream";
-}
