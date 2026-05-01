@@ -6,8 +6,7 @@ import type { NextRequest } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
-
-const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB per image
+import { validateImagePayload } from "@/lib/branding/validate";
 
 // GET sin withFeature: la app necesita SIEMPRE poder leer el branding
 // para renderizar el header/sidebar. Si el plan no tiene
@@ -42,12 +41,14 @@ export const PUT = withTenant(withFeature("branding_personalizado", async (reque
 
     const body = await request.json();
 
-    // Validate image sizes (base64 string length ≈ 4/3 * bytes)
-    if (body.logo && body.logo.length > MAX_IMAGE_BYTES * 1.4) {
-      return Response.json({ error: "El logo supera el tamaño máximo de 3 MB" }, { status: 413 });
+    // Validación formato + cap por imagen (plan Fase 6 §2.2).
+    if ("logo" in body) {
+      const v = validateImagePayload(body.logo, "logo");
+      if (!v.ok) return Response.json(v.body, { status: v.status });
     }
-    if (body.favicon && body.favicon.length > MAX_IMAGE_BYTES * 1.4) {
-      return Response.json({ error: "El favicon supera el tamaño máximo de 3 MB" }, { status: 413 });
+    if ("favicon" in body) {
+      const v = validateImagePayload(body.favicon, "favicon");
+      if (!v.ok) return Response.json(v.body, { status: v.status });
     }
 
     const data: Record<string, unknown> = {};
