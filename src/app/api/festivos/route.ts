@@ -29,8 +29,15 @@ export const POST = withTenant(async (req: NextRequest) => {
     const { nombre, fecha, ambito } = body;
     if (!nombre || !fecha) return NextResponse.json({ error: "Faltan campos" }, { status: 400 });
 
+    const fechaDate = new Date(fecha);
+    if (Number.isNaN(fechaDate.getTime())) {
+      return NextResponse.json(
+        { error: "fecha_invalid", reason: "no parseable" },
+        { status: 400 },
+      );
+    }
     const festivo = await prisma.festivo.create({
-      data: { nombre, fecha: new Date(fecha), ambito: ambito || "nacional" },
+      data: { nombre, fecha: fechaDate, ambito: ambito || "nacional" },
     });
 
     return NextResponse.json({ festivo }, { status: 201 });
