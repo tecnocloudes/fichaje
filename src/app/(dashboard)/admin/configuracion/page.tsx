@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { signOut } from "next-auth/react";
 import { PlanUsageCard } from "@/components/plan-usage-card";
+import { FeatureGateClient } from "@/components/feature-gate-client";
+import { UpsellCTA } from "@/components/upsell-cta";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -613,6 +615,19 @@ export default function ConfiguracionPage() {
 
       {/* ── TAB: Branding ────────────────────────────────────────────────────── */}
       {tab === "branding" && (
+        <FeatureGateClient
+          feature="branding_personalizado"
+          fallback={
+            <div className="space-y-4">
+              <UpsellCTA feature="branding_personalizado" />
+              <p className="text-sm text-gray-500 text-center">
+                Tu plan actual no permite personalizar el branding (logo,
+                colores, nombre de la app). Actualiza tu plan para acceder a
+                esta función.
+              </p>
+            </div>
+          }
+        >
         <div className="space-y-6">
 
           {/* Identidad */}
@@ -849,6 +864,7 @@ export default function ConfiguracionPage() {
             </Button>
           </div>
         </div>
+        </FeatureGateClient>
       )}
 
       {/* ── Dialogs ───────────────────────────────────────────────────────────── */}
