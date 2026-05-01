@@ -51,10 +51,7 @@ export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
   { endpointGlob: "bolsa-horas/**/route.ts", featureKey: "bolsa_horas", guard: "withFeature" },
   { endpointGlob: "turnos/**/route.ts", featureKey: "turnos_publicacion", guard: "withFeature" },
   { endpointGlob: "ausencias/**/route.ts", featureKey: "ausencias_aprobacion", guard: "withFeature" },
-  // onboarding_offboarding: los endpoints existen sin withFeature aún
-  // (no-legacy-prisma exempt /api/onboarding/). Se feature-gateará en
-  // commit posterior junto con la limpieza del whitelist.
-  { endpointGlob: "onboarding/**/route.ts", featureKey: "onboarding_offboarding", guard: "withFeature", deferred: true },
+  { endpointGlob: "onboarding/**/route.ts", featureKey: "onboarding_offboarding", guard: "withFeature" },
   { endpointGlob: "comunicados/**/route.ts", featureKey: "comunicados", guard: "withFeature" },
   { endpointGlob: "articulos/**/route.ts", featureKey: "articulos", guard: "withFeature" },
   { endpointGlob: "documentos/**/route.ts", featureKey: "documentos", guard: "withFeature" },

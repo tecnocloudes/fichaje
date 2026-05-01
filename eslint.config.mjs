@@ -36,7 +36,10 @@ const fichajePlugin = {
         const EXEMPT_PATHS = [
           "/api/auth/",
           "/api/webhooks/",
-          "/api/onboarding/",
+          // /api/onboarding/status/* vive en subdominio app (lookup
+          // por session_id post-checkout). Resto de /api/onboarding/
+          // es tenant-scoped y ya migró a prismaApp + withFeature.
+          "/api/onboarding/status/",
         ];
         return {
           ImportDeclaration(node) {

@@ -3,7 +3,9 @@ import { prismaApp as prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
-export const GET = withTenant(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+import { withFeature } from "@/lib/feature-guard/with-feature";
+
+export const GET = withTenant(withFeature("onboarding_offboarding", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -18,9 +20,9 @@ export const GET = withTenant(async (_req: NextRequest, { params }: { params: Pr
   } catch {
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
-});
+}));
 
-export const POST = withTenant(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const POST = withTenant(withFeature("onboarding_offboarding", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -37,9 +39,9 @@ export const POST = withTenant(async (req: NextRequest, { params }: { params: Pr
   } catch {
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
-});
+}));
 
-export const PUT = withTenant(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const PUT = withTenant(withFeature("onboarding_offboarding", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -61,9 +63,9 @@ export const PUT = withTenant(async (req: NextRequest, { params }: { params: Pro
   } catch {
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
-});
+}));
 
-export const DELETE = withTenant(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const DELETE = withTenant(withFeature("onboarding_offboarding", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -78,4 +80,4 @@ export const DELETE = withTenant(async (req: NextRequest, { params }: { params: 
   } catch {
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
-});
+}));
