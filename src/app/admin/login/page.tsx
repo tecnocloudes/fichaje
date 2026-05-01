@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * /admin/login — login del panel super-admin.
+ * Form mínimo funcional: email + password → POST /api/admin/login.
+ */
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -10,7 +15,7 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function submit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -21,12 +26,18 @@ export default function AdminLoginPage() {
         body: JSON.stringify({ email, password }),
       });
       if (r.ok) {
-        router.push("/dashboard");
+        router.push("/admin/dashboard");
         router.refresh();
-      } else {
-        const body = await r.json();
-        setError(body.error === "invalid_credentials" ? "Credenciales inválidas" : "Error");
+        return;
       }
+      const body = await r.json().catch(() => ({}));
+      if (r.status === 401) {
+        setError("Credenciales incorrectas");
+      } else {
+        setError(body?.error ?? `Error ${r.status}`);
+      }
+    } catch {
+      setError("Error de red");
     } finally {
       setLoading(false);
     }
@@ -35,25 +46,35 @@ export default function AdminLoginPage() {
   return (
     <div className="max-w-md mx-auto mt-16 bg-white rounded-lg shadow p-6">
       <h1 className="text-xl font-bold mb-4">Acceso super-admin</h1>
-      <form onSubmit={submit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm text-slate-700 mb-1">Email</label>
+          <label htmlFor="email" className="block text-sm text-slate-700 mb-1">
+            Email
+          </label>
           <input
+            id="email"
+            name="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full border rounded px-3 py-2 text-sm"
             required
+            autoComplete="username"
           />
         </div>
         <div>
-          <label className="block text-sm text-slate-700 mb-1">Password</label>
+          <label htmlFor="password" className="block text-sm text-slate-700 mb-1">
+            Password
+          </label>
           <input
+            id="password"
+            name="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full border rounded px-3 py-2 text-sm"
             required
+            autoComplete="current-password"
           />
         </div>
         {error && <p className="text-red-600 text-sm">{error}</p>}

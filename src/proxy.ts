@@ -56,10 +56,18 @@ export default auth(async (req) => {
   }
 
   if (resolved.kind === "admin") {
-    return new NextResponse("Panel super-admin pendiente (Fase 7)", {
-      status: 503,
-      headers: { "retry-after": "300" },
-    });
+    // Fase 7: panel super-admin disponible. Las páginas viven en
+    // src/app/admin/* y los endpoints en src/app/api/admin/*.
+    // Ambos prefijos son válidos en el subdominio admin.<root>.
+    const adminUrl = new URL(req.url);
+    if (
+      !adminUrl.pathname.startsWith("/admin") &&
+      !adminUrl.pathname.startsWith("/api/admin")
+    ) {
+      // Redirigir cualquier otro path al login del panel.
+      return NextResponse.redirect(new URL("/admin/login", adminUrl));
+    }
+    return NextResponse.next();
   }
 
   if (resolved.kind === "invalid" || resolved.kind === "not_found") {

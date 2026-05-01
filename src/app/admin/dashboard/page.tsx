@@ -17,10 +17,10 @@ export default function DashboardPage() {
       try {
         const r = await fetch("/api/admin/metrics");
         if (r.status === 401) {
-          window.location.href = "/login";
+          window.location.href = "/admin/login";
           return;
         }
-        if (r.ok) setMetrics(await r.json());
+        if (r.ok) setMetrics((await r.json()) as Metrics);
       } finally {
         setLoading(false);
       }
