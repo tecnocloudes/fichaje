@@ -12,6 +12,12 @@
 import { prismaMaster, prismaQuotaWriter } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { currentTenant } from "@/lib/tenant/context";
+import { randomUUID } from "node:crypto";
+import {
+  computeCurrentPeriod,
+  isQuotaPeriod,
+} from "@/lib/feature-guard/period";
+import { loadTypedFeatureCatalog } from "@/lib/feature-guard/catalog";
 
 export type FeatureSource = "plan" | "addon" | "manual_override";
 
@@ -331,14 +337,23 @@ export type ConsumeQuotaResult =
  * Consume `amount` unidades de la quota `key` para el tenant actual de
  * forma atómica. ADR-004 §2.5.
  *
- * Implementación: UPDATE condicional con RETURNING. La condición
- * `consumed + amount <= max` evita la race entre SELECT y UPDATE — si
- * la suma sobrepasa el límite, la fila no se actualiza, RETURNING
- * devuelve 0 filas, y entendemos como `limit_reached`.
+ * Implementación: INSERT … ON CONFLICT DO UPDATE atómico.
+ * - Si no hay fila para el período actual, INSERT crea una con
+ *   consumed=amount → auto-rota cuando period_end pasa.
+ * - Si hay fila vigente, DO UPDATE incrementa consumed siempre que
+ *   `consumed + EXCLUDED.consumed <= max` (o max IS NULL). El WHERE
+ *   en el DO UPDATE preserva la atomicidad: si la suma excede el
+ *   límite la fila no se actualiza, RETURNING devuelve 0 filas →
+ *   `limit_reached`.
  *
- * Diferenciación de fallos:
- * - 0 filas afectadas + sin periodo activo encontrado → period_unavailable.
- * - 0 filas afectadas + periodo encontrado → limit_reached con detalles.
+ * Razones para no leer max desde tenant_quota_usage: el `max` puede
+ * estar stale si el tenant cambió de plan. La fuente de verdad es
+ * `currentTenant().features` (Map en memoria, hidratado en cada
+ * request). Pasamos ese max al INSERT y al DO UPDATE.
+ *
+ * `period_unavailable` se conserva para casos genuinos:
+ * feature desconocida en el catálogo o quota_period inválido. NO se
+ * devuelve por ausencia de fila vigente — eso lo resuelve el INSERT.
  *
  * Cliente: `prismaQuotaWriter` (rol `quota_writer_role`, ADR-004 §2.2).
  * Solo este módulo lo importa. La regla ESLint `no-quota-writer-leak`
@@ -351,47 +366,101 @@ export async function consumeQuota(
   if (!assertKnownFeature(key, "consumeQuota")) {
     return { ok: false, reason: "period_unavailable" };
   }
-  const { tenantId } = currentTenant();
+  const ctx = currentTenant();
+  const { tenantId } = ctx;
 
-  const updated = await prismaQuotaWriter.$queryRaw<
-    { consumed: bigint; max: bigint | null; period_end: Date }[]
-  >`
-    UPDATE master.tenant_quota_usage
-       SET consumed = consumed + ${amount}, updated_at = now()
-     WHERE tenant_id = ${tenantId}
-       AND feature_key = ${key}
-       AND period_start <= now() AND period_end > now()
-       AND (max IS NULL OR consumed + ${amount} <= max)
-     RETURNING consumed, max, period_end
-  `;
-
-  if (updated.length > 0) {
-    const r = updated[0]!;
-    const remaining =
-      r.max === null ? null : Number(r.max) - Number(r.consumed);
-    return { ok: true, remaining, resetAt: r.period_end };
-  }
-
-  // 0 filas afectadas: distinguir "sin periodo" de "limit alcanzado".
-  const current = await prismaQuotaWriter.$queryRaw<
-    { consumed: bigint; max: bigint | null; period_end: Date }[]
-  >`
-    SELECT consumed, max, period_end
-      FROM master.tenant_quota_usage
-     WHERE tenant_id = ${tenantId} AND feature_key = ${key}
-       AND period_start <= now() AND period_end > now()
-     LIMIT 1
-  `;
-
-  if (current.length === 0) {
+  // Lee max desde el catálogo de features del tenant (Map en memoria).
+  // null = unlimited; ausencia de feature = period_unavailable
+  // (catalogada pero sin valor para este tenant — caso plan que no
+  // incluye la quota).
+  const feature = ctx.features.get(key);
+  if (!feature) {
     return { ok: false, reason: "period_unavailable" };
   }
-  const c = current[0]!;
-  return {
-    ok: false,
-    reason: "limit_reached",
-    used: Number(c.consumed),
-    max: c.max === null ? Number.POSITIVE_INFINITY : Number(c.max),
-    resetAt: c.period_end,
-  };
+  const max: number | null =
+    typeof feature.value === "number" ? feature.value : null;
+  const maxBigInt: bigint | null = max === null ? null : BigInt(max);
+
+  // Lee quota_period del catálogo tipado (ya cargado por
+  // ensureFeatureCatalogLoaded() en withTenant).
+  const typedCatalog = await loadTypedFeatureCatalog();
+  const meta = typedCatalog.get(key);
+  if (!meta || meta.type !== "quota" || !isQuotaPeriod(meta.quotaPeriod)) {
+    return { ok: false, reason: "period_unavailable" };
+  }
+  const { start: periodStart, end: periodEnd } = computeCurrentPeriod(
+    meta.quotaPeriod,
+    new Date(),
+  );
+
+  const newId = randomUUID();
+  const amountBig = BigInt(amount);
+
+  // INSERT atómico. ON CONFLICT (tenant_id, feature_key, period_start)
+  // garantiza que dos requests del mismo período acaban en la misma
+  // fila. El WHERE del DO UPDATE preserva la garantía atómica del
+  // límite (mismo patrón que el UPDATE original).
+  //
+  // Cuando el INSERT crea la fila (caso "fila vencida o no existe"):
+  // RETURNING devuelve consumed=amount, OK siempre que amount<=max.
+  // Si amount>max el INSERT se rechazaría por... no, no hay CHECK
+  // en INSERT. El check vive solo en el DO UPDATE. Para cubrir el
+  // edge case "primer consumo > max" filtramos pre-INSERT.
+  if (max !== null && amount > max) {
+    return {
+      ok: false,
+      reason: "limit_reached",
+      used: 0,
+      max,
+      resetAt: periodEnd,
+    };
+  }
+
+  const result = await prismaQuotaWriter.$queryRaw<
+    { consumed: bigint; max: bigint | null; period_end: Date }[]
+  >`
+    INSERT INTO master.tenant_quota_usage
+      (id, tenant_id, feature_key, period_start, period_end, consumed, max, created_at, updated_at)
+    VALUES
+      (${newId}, ${tenantId}, ${key}, ${periodStart}, ${periodEnd}, ${amountBig}, ${maxBigInt}, now(), now())
+    ON CONFLICT (tenant_id, feature_key, period_start) DO UPDATE
+      SET consumed = master.tenant_quota_usage.consumed + EXCLUDED.consumed,
+          updated_at = now(),
+          max = EXCLUDED.max
+      WHERE master.tenant_quota_usage.max IS NULL
+         OR master.tenant_quota_usage.consumed + EXCLUDED.consumed <= master.tenant_quota_usage.max
+    RETURNING consumed, max, period_end
+  `;
+
+  if (result.length === 0) {
+    // El DO UPDATE no aplicó (consumed+amount > max). Buscar fila
+    // existente para devolver detalles (used + max + resetAt).
+    const current = await prismaQuotaWriter.$queryRaw<
+      { consumed: bigint; max: bigint | null; period_end: Date }[]
+    >`
+      SELECT consumed, max, period_end
+        FROM master.tenant_quota_usage
+       WHERE tenant_id = ${tenantId}
+         AND feature_key = ${key}
+         AND period_start = ${periodStart}
+       LIMIT 1
+    `;
+    if (current.length === 0) {
+      // Caso defensivo: ON CONFLICT no aplicó pero la fila desapareció
+      // (race extremo con DELETE concurrente). Reportar como unavailable.
+      return { ok: false, reason: "period_unavailable" };
+    }
+    const c = current[0]!;
+    return {
+      ok: false,
+      reason: "limit_reached",
+      used: Number(c.consumed),
+      max: c.max === null ? Number.POSITIVE_INFINITY : Number(c.max),
+      resetAt: c.period_end,
+    };
+  }
+
+  const r = result[0]!;
+  const remaining = r.max === null ? null : Number(r.max) - Number(r.consumed);
+  return { ok: true, remaining, resetAt: r.period_end };
 }

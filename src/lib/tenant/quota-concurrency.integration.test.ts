@@ -74,18 +74,11 @@ beforeAll(async () => {
     VALUES ('f_exports_mes', 'exports_mes', 'Exports/mes', 'quota', 'mes', true, now(), now())
     ON CONFLICT DO NOTHING
   `);
-  // Periodo actual (mes natural) — al menos cubre now() con margen amplio
-  // para que el test no caiga justo en cambio de mes.
-  await adminClient.query(`
-    INSERT INTO master.tenant_quota_usage
-      (id, tenant_id, feature_key, period_start, period_end, consumed, max, created_at, updated_at)
-    VALUES
-      ('tqu_qtest_exports', 'tnt_qtest', 'exports_mes',
-       date_trunc('month', now()),
-       date_trunc('month', now()) + interval '1 month',
-       0, 50, now(), now())
-    ON CONFLICT DO NOTHING
-  `);
+  // NO sembramos tenant_quota_usage: el nuevo consumeQuota con
+  // UPSERT crea la fila en la primera invocación (auto-rotación).
+  // Verificamos exactamente esa propiedad implícitamente: 50 ok +
+  // 50 limit_reached + consumed=50 → la fila inicial la creó la
+  // primera Promise concurrente.
   await adminClient.end();
 
   // Configurar prismaQuotaWriter para usar quota_writer_role.
@@ -106,11 +99,23 @@ afterAll(async () => {
 
 describe("consumeQuota — concurrencia 100 promesas con max=50", () => {
   it("exactamente 50 ok + 50 limit_reached, consumed final = 50", async () => {
+    // El nuevo consumeQuota lee max desde ctx.features.get(key), que
+    // refleja master.tenant_features en memoria. Sembramos manual.
     const ctx = {
       tenantId: "tnt_qtest",
       slug: "qtest",
       status: "active" as const,
-      features: new Map(),
+      features: new Map([
+        [
+          "exports_mes",
+          {
+            key: "exports_mes",
+            value: 50,
+            source: "plan" as const,
+            expiresAt: null,
+          },
+        ],
+      ]),
     };
 
     const results = await runWithTenant(ctx, async () => {
