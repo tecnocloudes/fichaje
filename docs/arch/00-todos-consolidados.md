@@ -20,7 +20,16 @@ Cada TODO tiene 4 campos:
 
 | # | TODO | Origen | Destino | Severidad | Estado |
 |---|------|--------|---------|-----------|--------|
-| P1 | Validar 9 puntos a confirmar de §15 plan Fase 5 | `00-fase-5-plan.md` §15 | Fase 5 | bloqueante | pendiente |
+| P1 | Validar 9 puntos a confirmar de §15 plan Fase 5 | `00-fase-5-plan.md` §15 | Fase 5 | bloqueante | cerrado |
+
+## Hallazgos del cierre nocturno (post-Fase 5)
+
+| # | TODO | Origen | Destino | Severidad | Estado |
+|---|------|--------|---------|-----------|--------|
+| N1 | Cambiar `dev:seed-tenant` a plan **enterprise** (decisión §15.7 NO aplicada al tenant_dev pre-existente, sigue Starter) | Diagnóstico FIX 1 + plan Fase 5 §15.7 | Fase 5 cierre | opcional | pendiente |
+| N2 | **Patrón obligatorio** para nuevos endpoints feature-gated: añadir test E2E sin mocks (patrón `src/tests/integration/feature-guarded-endpoint.e2e.test.ts`). Habría detectado los bugs de FIX 1 (catálogo) y FIX 2 (rotación) en Fase 5 | Bloque A cierre + bug catálogo + bug rotación | Fase 6+ | mejora | pendiente |
+| N3 | Audit completado: `hasFeature`/`getLimit`/`consumeQuota` SOLO se invocan dentro de handlers envueltos con `withTenant` o `withTenantPage` (que cargan catálogo). Worker (cron jobs) y scripts NO los llaman. Si en Fase 6+ se introduce uso fuera del runtime HTTP, llamar `ensureFeatureCatalogLoaded()` explícito | Audit FIX 1 | n/a (registro) | informativo | cerrado |
+| N4 | Discrepancia timezone entre `date_trunc('month', now())` (Postgres UTC) y `computeCurrentPeriod` (hora local proceso). Las dos filas `tenant_quota_usage` resultantes pueden solapar 1-2h. No causa bug (UNIQUE keys distintas), pero conviene unificar a UTC en Fase 9 si crece el riesgo de drift por DST | FIX 2 + test rotación | Fase 9 | mejora | pendiente |
 
 ## Fase 5 — Feature flags productivos
 
