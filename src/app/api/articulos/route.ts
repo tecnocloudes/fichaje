@@ -3,7 +3,9 @@ import { prismaApp as prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
-export const GET = withTenant(async (req: NextRequest) => {
+import { withFeature } from "@/lib/feature-guard/with-feature";
+
+export const GET = withTenant(withFeature("articulos", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -26,9 +28,9 @@ export const GET = withTenant(async (req: NextRequest) => {
   } catch (error) {
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
-});
+}));
 
-export const POST = withTenant(async (req: NextRequest) => {
+export const POST = withTenant(withFeature("articulos", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -55,4 +57,4 @@ export const POST = withTenant(async (req: NextRequest) => {
   } catch (error) {
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
-});
+}));

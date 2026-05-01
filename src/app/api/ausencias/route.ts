@@ -4,13 +4,14 @@ import { Rol, EstadoAusencia } from "@/generated/prisma-tenant/client";
 import type { NextRequest } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
+import { withFeature } from "@/lib/feature-guard/with-feature";
 function calcularDias(fechaInicio: Date, fechaFin: Date): number {
   const msPerDay = 1000 * 60 * 60 * 24;
   const diff = fechaFin.getTime() - fechaInicio.getTime();
   return Math.max(1, Math.round(diff / msPerDay) + 1);
 }
 
-export const GET = withTenant(async (request: NextRequest) => {
+export const GET = withTenant(withFeature("ausencias_aprobacion", async (request: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -64,9 +65,9 @@ export const GET = withTenant(async (request: NextRequest) => {
     console.error("GET /api/ausencias error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-});
+}));
 
-export const POST = withTenant(async (request: NextRequest) => {
+export const POST = withTenant(withFeature("ausencias_aprobacion", async (request: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -157,4 +158,4 @@ export const POST = withTenant(async (request: NextRequest) => {
     console.error("POST /api/ausencias error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-});
+}));

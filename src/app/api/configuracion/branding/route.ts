@@ -5,7 +5,14 @@ import { runMigrations } from "@/lib/migrate";
 import type { NextRequest } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
+import { withFeature } from "@/lib/feature-guard/with-feature";
+
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB per image
+
+// GET sin withFeature: la app necesita SIEMPRE poder leer el branding
+// para renderizar el header/sidebar. Si el plan no tiene
+// branding_personalizado, los valores devueltos son los defaults.
+// Solo PUT (modificación) requiere la feature.
 
 export const GET = withTenant(async () => {
   try {
@@ -23,7 +30,7 @@ export const GET = withTenant(async () => {
   }
 });
 
-export const PUT = withTenant(async (request: NextRequest) => {
+export const PUT = withTenant(withFeature("branding_personalizado", async (request: NextRequest) => {
   try {
     await runMigrations();
 
@@ -68,4 +75,4 @@ export const PUT = withTenant(async (request: NextRequest) => {
     console.error("PUT /api/configuracion/branding error:", error);
     return Response.json({ error: "Error interno del servidor" }, { status: 500 });
   }
-});
+}));
