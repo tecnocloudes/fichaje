@@ -270,8 +270,33 @@ model SuperAdmin {
   lastLogin DateTime?   @map("last_login")
   createdAt DateTime    @default(now()) @map("created_at")
   updatedAt DateTime    @default(now()) @updatedAt @map("updated_at")
+  auditLogs AuditLog[]
 
   @@map("super_admins")
+  @@schema("master")
+}
+
+// Audit log de operaciones del panel super-admin. ADR-007 §2.4.
+// Se conserva indefinidamente. Cron de archivado entries > 7 años Fase 9.
+model AuditLog {
+  id           String     @id @default(cuid())
+  superAdminId String     @map("super_admin_id")
+  superAdmin   SuperAdmin @relation(fields: [superAdminId], references: [id])
+  action       String
+  targetKind   String     @map("target_kind")
+  targetId     String     @map("target_id")
+  severity     String     @default("info") // 'info' | 'warning' | 'critical'
+  summary      Json       @default("{}")
+  dumpPath     String?    @map("dump_path")
+  ipAddress    String?    @map("ip_address")
+  userAgent    String?    @map("user_agent")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@index([superAdminId])
+  @@index([targetKind, targetId])
+  @@index([severity, createdAt])
+  @@index([createdAt])
+  @@map("audit_log")
   @@schema("master")
 }
 
