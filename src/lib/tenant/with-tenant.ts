@@ -30,6 +30,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { resolveTenant } from "@/lib/tenant/resolver";
 import { runWithTenant } from "@/lib/tenant/context";
+import { ensureFeatureCatalogLoaded } from "@/lib/feature-guard/catalog";
 
 type Handler<Args extends unknown[]> = (
   req: NextRequest,
@@ -86,6 +87,11 @@ export function withTenant<Args extends unknown[]>(
       // Si getToken lanza por cualquier razón, no rechazamos por eso
       // (el endpoint puede ser público o el token estar ausente).
     }
+
+    // Asegurar catálogo de features cargado en memoria de proceso
+    // antes de ejecutar el handler. hasFeature/getLimit/consumeQuota
+    // dependen de esto. Idempotente, no-op si ya está cacheado.
+    await ensureFeatureCatalogLoaded();
 
     return runWithTenant(ctx, () => handler(req, ...rest));
   };

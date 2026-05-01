@@ -16,6 +16,11 @@ vi.mock("./resolver", () => ({
 vi.mock("next-auth/jwt", () => ({
   getToken: vi.fn(),
 }));
+// Stub del catálogo: estos tests no quieren tocar BD ni cargar
+// features. ensureFeatureCatalogLoaded es no-op aquí.
+vi.mock("@/lib/feature-guard/catalog", () => ({
+  ensureFeatureCatalogLoaded: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { resolveTenant } from "./resolver";
 import { getToken } from "next-auth/jwt";

@@ -35,6 +35,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { resolveTenant } from "@/lib/tenant/resolver";
 import { runWithTenant } from "@/lib/tenant/context";
+import { ensureFeatureCatalogLoaded } from "@/lib/feature-guard/catalog";
 import type { ReactNode } from "react";
 
 export function withTenantPage<
@@ -59,6 +60,10 @@ export function withTenantPage<
       // el proxy: 404 sin revelar el status real.
       notFound();
     }
+
+    // Mismo invariante que `withTenant` (route handlers): cualquier
+    // hasFeature/getLimit dentro del page necesita el catálogo poblado.
+    await ensureFeatureCatalogLoaded();
 
     return runWithTenant(resolved.ctx, () => fn(props));
   };

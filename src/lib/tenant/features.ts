@@ -44,6 +44,15 @@ export async function loadFeatureCatalog(): Promise<Set<string>> {
 }
 
 /**
+ * Hidrata el catálogo en memoria de proceso con un set de keys.
+ * Lo usa `ensureFeatureCatalogLoaded()` (catalog.ts) en runtime y los
+ * helpers de tests. Idempotente — re-llamadas reemplazan el set.
+ */
+export function _hydrateFeatureCatalog(keys: string[]): void {
+  _featureCatalog = new Set(keys);
+}
+
+/**
  * Resetea el catálogo cacheado. Solo para tests.
  */
 export function _resetFeatureCatalogForTest(): void {
@@ -51,10 +60,11 @@ export function _resetFeatureCatalogForTest(): void {
 }
 
 /**
- * Inyecta un catálogo concreto. Solo para tests con Map sin tocar BD.
+ * Inyecta un catálogo concreto. Wrapper de _hydrateFeatureCatalog
+ * mantenido por compatibilidad con tests existentes.
  */
 export function _setFeatureCatalogForTest(keys: string[]): void {
-  _featureCatalog = new Set(keys);
+  _hydrateFeatureCatalog(keys);
 }
 
 function getCatalogOrThrow(): Set<string> {

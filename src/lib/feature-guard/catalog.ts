@@ -16,6 +16,7 @@
 
 import { prismaMaster } from "@/lib/prisma";
 import { isQuotaPeriod, type QuotaPeriod } from "@/lib/feature-guard/period";
+import { _hydrateFeatureCatalog } from "@/lib/tenant/features";
 
 export type FeatureMeta = {
   type: "boolean" | "limit" | "quota";
@@ -23,9 +24,9 @@ export type FeatureMeta = {
 };
 
 let _cache: Map<string, FeatureMeta> | null = null;
+let _loadingPromise: Promise<Map<string, FeatureMeta>> | null = null;
 
-export async function loadTypedFeatureCatalog(): Promise<Map<string, FeatureMeta>> {
-  if (_cache) return _cache;
+async function loadFromDb(): Promise<Map<string, FeatureMeta>> {
   const rows = await prismaMaster.feature.findMany({
     where: { active: true },
     select: { key: true, type: true, quotaPeriod: true },
@@ -38,10 +39,39 @@ export async function loadTypedFeatureCatalog(): Promise<Map<string, FeatureMeta
     });
   }
   _cache = map;
+  // Side effect explícito y documentado: poblar también el Set<string>
+  // que usa `assertKnownFeature` en `features.ts`. Sin esto,
+  // hasFeature/getLimit/consumeQuota lanzan en runtime.
+  _hydrateFeatureCatalog([...map.keys()]);
   return map;
+}
+
+export async function loadTypedFeatureCatalog(): Promise<Map<string, FeatureMeta>> {
+  if (_cache) return _cache;
+  if (_loadingPromise) return _loadingPromise;
+  _loadingPromise = loadFromDb().finally(() => {
+    _loadingPromise = null;
+  });
+  return _loadingPromise;
+}
+
+/**
+ * Asegura que el catálogo de features (FeatureMeta + Set<string> de
+ * keys conocidas) está cargado en memoria de proceso. Idempotente:
+ * concurrente-safe (de-duplica via _loadingPromise), no-op si ya hay
+ * caché.
+ *
+ * Llamado por `withTenant` y `withTenantPage` antes de ejecutar el
+ * handler. Cualquier `hasFeature/getLimit/consumeQuota` que se ejecute
+ * dentro encuentra el catálogo poblado.
+ */
+export async function ensureFeatureCatalogLoaded(): Promise<void> {
+  if (_cache) return;
+  await loadTypedFeatureCatalog();
 }
 
 /** Solo para tests — invalida la caché del proceso. */
 export function _resetTypedCatalogForTest(): void {
   _cache = null;
+  _loadingPromise = null;
 }
