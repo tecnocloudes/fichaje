@@ -3,12 +3,11 @@
 import React, { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, Shuffle, Copy, Check } from "lucide-react";
+import { EmpleaIALogo } from "@/components/brand/empleaia-logo";
 
 interface Branding {
   logo: string | null;
   appNombre: string;
-  colorPrimario: string;
-  colorSidebar: string;
 }
 
 function generatePassword(): string {
@@ -18,7 +17,6 @@ function generatePassword(): string {
   const symbols = "!@#$%^&*()-_=+[]{}|;:,.<>?";
   const all = upper + lower + digits + symbols;
 
-  // Garantizar al menos uno de cada tipo
   const required = [
     upper[Math.floor(Math.random() * upper.length)],
     lower[Math.floor(Math.random() * lower.length)],
@@ -29,7 +27,6 @@ function generatePassword(): string {
   const rest = Array.from({ length: 28 }, () => all[Math.floor(Math.random() * all.length)]);
   const combined = [...required, ...rest];
 
-  // Barajar
   for (let i = combined.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [combined[i], combined[j]] = [combined[j], combined[i]];
@@ -38,7 +35,10 @@ function generatePassword(): string {
   return combined.join("");
 }
 
-function SetPasswordForm({ branding }: { branding: Branding }) {
+const INPUT_CLASS =
+  "flex h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 transition-colors";
+
+function SetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
@@ -102,11 +102,9 @@ function SetPasswordForm({ branding }: { branding: Branding }) {
     }
   };
 
-  const inputClass = "w-full rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-indigo-400/60 shadow-sm backdrop-blur-sm transition-colors focus:border-indigo-400 focus:bg-white/15 focus:outline-none focus:ring-2 focus:ring-indigo-500/30";
-
   if (!token) {
     return (
-      <div className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+      <div className="flex items-start gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
         <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
         <span>Enlace no válido. Contacta con tu administrador.</span>
       </div>
@@ -116,12 +114,12 @@ function SetPasswordForm({ branding }: { branding: Branding }) {
   if (done) {
     return (
       <div className="flex flex-col items-center gap-4 py-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
-          <CheckCircle2 className="h-8 w-8 text-green-400" />
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+          <CheckCircle2 className="h-8 w-8 text-emerald-600" />
         </div>
         <div className="text-center">
-          <p className="text-white font-semibold text-lg">¡Contraseña creada!</p>
-          <p className="text-white/60 text-sm mt-1">Redirigiendo al inicio de sesión...</p>
+          <p className="text-slate-900 font-semibold text-lg">¡Contraseña creada!</p>
+          <p className="text-slate-500 text-sm mt-1">Redirigiendo al inicio de sesión...</p>
         </div>
       </div>
     );
@@ -130,15 +128,14 @@ function SetPasswordForm({ branding }: { branding: Branding }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="flex items-start gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Campo contraseña */}
       <div>
-        <label className="block text-sm font-medium text-indigo-200 mb-1.5">
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">
           Nueva contraseña
         </label>
         <div className="relative">
@@ -149,22 +146,21 @@ function SetPasswordForm({ branding }: { branding: Branding }) {
             required
             minLength={6}
             placeholder="Mínimo 6 caracteres"
-            className={`${inputClass} pr-10 font-mono`}
+            className={`${INPUT_CLASS} pr-10 font-mono`}
           />
           <button
             type="button"
             onClick={() => setShowPwd((v) => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
           >
             {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
       </div>
 
-      {/* Confirmar — solo si no es generada */}
       {!generated && (
         <div>
-          <label className="block text-sm font-medium text-indigo-200 mb-1.5">
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">
             Confirmar contraseña
           </label>
           <input
@@ -173,17 +169,16 @@ function SetPasswordForm({ branding }: { branding: Branding }) {
             onChange={(e) => setConfirm(e.target.value)}
             required
             placeholder="Repite la contraseña"
-            className={`${inputClass} font-mono`}
+            className={`${INPUT_CLASS} font-mono`}
           />
         </div>
       )}
 
-      {/* Acciones: generar + copiar */}
       <div className="flex gap-2">
         <button
           type="button"
           onClick={handleGenerate}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-indigo-200 transition-all hover:bg-white/10 hover:text-white"
+          className="flex flex-1 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
         >
           <Shuffle className="h-4 w-4" />
           Generar contraseña
@@ -193,10 +188,10 @@ function SetPasswordForm({ branding }: { branding: Branding }) {
           <button
             type="button"
             onClick={handleCopy}
-            className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
+            className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
               copied
-                ? "border-green-500/40 bg-green-500/10 text-green-300"
-                : "border-white/15 bg-white/5 text-indigo-200 hover:bg-white/10 hover:text-white"
+                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -206,7 +201,7 @@ function SetPasswordForm({ branding }: { branding: Branding }) {
       </div>
 
       {generated && (
-        <p className="text-xs text-indigo-300/70 text-center -mt-1">
+        <p className="text-xs text-slate-500 text-center -mt-1">
           Contraseña generada automáticamente — cópiala antes de continuar
         </p>
       )}
@@ -214,7 +209,7 @@ function SetPasswordForm({ branding }: { branding: Branding }) {
       <button
         type="submit"
         disabled={loading}
-        className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-indigo-500 focus:outline-none active:scale-[0.98] disabled:opacity-60"
+        className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-dark)] px-5 py-2.5 text-base font-medium text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 focus-visible:ring-offset-1 disabled:opacity-60"
       >
         <KeyRound className="h-4 w-4" />
         {loading ? "Guardando..." : "Establecer contraseña"}
@@ -226,49 +221,47 @@ function SetPasswordForm({ branding }: { branding: Branding }) {
 function SetPasswordPageInner() {
   const [branding, setBranding] = useState<Branding>({
     logo: null,
-    appNombre: "HR Suite",
-    colorPrimario: "#6366f1",
-    colorSidebar: "#1e1b4b",
+    appNombre: "empleaIA",
   });
 
   useEffect(() => {
     fetch("/api/configuracion/branding")
       .then((r) => r.json())
-      .then((d) => setBranding(d))
+      .then((d) => setBranding({ logo: d?.logo ?? null, appNombre: d?.appNombre ?? "empleaIA" }))
       .catch(() => {});
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4c1d95]">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-        <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-indigo-500/10 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="absolute -top-32 -right-32 h-72 w-72 rounded-full bg-[var(--primary-light)] blur-3xl opacity-60" />
+        <div className="absolute -bottom-32 -left-32 h-72 w-72 rounded-full bg-[var(--primary-light)] blur-3xl opacity-50" />
       </div>
 
-      <div className="relative w-full max-w-md">
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl">
-          <div className="h-1 w-full bg-gradient-to-r from-indigo-500 to-purple-500" />
+      <div className="relative w-full max-w-md animate-fade-in">
+        <div className="flex flex-col items-center mb-8">
+          {branding.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={branding.logo}
+              alt={branding.appNombre}
+              className="h-12 max-w-[200px] object-contain mb-4"
+            />
+          ) : (
+            <EmpleaIALogo appNombre={branding.appNombre} symbolSize={40} className="mb-4" />
+          )}
+          <p className="text-sm text-slate-500">Activa tu cuenta para acceder a la plataforma</p>
+        </div>
 
-          <div className="px-8 py-10">
-            <div className="flex flex-col items-center mb-8">
-              {branding.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={branding.logo}
-                  alt={branding.appNombre}
-                  className="h-16 max-w-[200px] object-contain mb-4"
-                />
-              ) : (
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 shadow-lg mb-4 text-white font-bold text-xl">
-                  {branding.appNombre.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <h1 className="text-2xl font-bold text-white tracking-tight">Crea tu contraseña</h1>
-              <p className="text-sm text-white/50 mt-1">Activa tu cuenta para acceder a la plataforma</p>
+        <div className="bg-white border border-slate-200 rounded-lg shadow-sm">
+          <div className="px-8 py-8">
+            <div className="mb-6 text-center">
+              <h1 className="text-xl font-semibold text-slate-900">Crea tu contraseña</h1>
+              <p className="text-sm text-slate-500 mt-1">Mínimo 6 caracteres</p>
             </div>
 
-            <Suspense fallback={<div className="text-white/50 text-sm text-center">Cargando...</div>}>
-              <SetPasswordForm branding={branding} />
+            <Suspense fallback={<div className="text-slate-500 text-sm text-center">Cargando...</div>}>
+              <SetPasswordForm />
             </Suspense>
           </div>
         </div>
@@ -279,7 +272,7 @@ function SetPasswordPageInner() {
 
 export default function SetPasswordPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4c1d95]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
       <SetPasswordPageInner />
     </Suspense>
   );

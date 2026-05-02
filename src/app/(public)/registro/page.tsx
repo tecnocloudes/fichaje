@@ -5,23 +5,41 @@
 
 import { prismaMaster } from "@/lib/prisma";
 import { RegistroForm } from "./registro-form";
+import { EmpleaIALogo } from "@/components/brand/empleaia-logo";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  // Cargamos los planes activos para mostrarlos en el formulario.
   const planes = await prismaMaster.plan.findMany({
     where: { active: true },
     orderBy: { sortOrder: "asc" },
     select: { key: true, name: true, description: true },
   });
   return (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: 32 }}>
-      <h1 style={{ fontSize: 32, marginBottom: 8 }}>Crea tu cuenta</h1>
-      <p style={{ color: "#6b7280", marginBottom: 32 }}>
-        Completa los datos y te llevamos a Stripe para confirmar el pago. 14 días de prueba.
-      </p>
-      <RegistroForm planes={planes} />
-    </main>
+    <div className="min-h-screen bg-slate-50">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+        <div className="absolute -top-32 -right-32 h-72 w-72 rounded-full bg-[var(--primary-light)] blur-3xl opacity-60" />
+        <div className="absolute -bottom-32 -left-32 h-72 w-72 rounded-full bg-[var(--primary-light)] blur-3xl opacity-50" />
+      </div>
+
+      <main className="relative max-w-xl mx-auto px-4 py-12">
+        <div className="flex flex-col items-center mb-8">
+          <EmpleaIALogo symbolSize={40} className="mb-4" />
+          <p className="text-sm text-slate-500">Gestión inteligente de personal</p>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-lg shadow-sm">
+          <div className="px-8 py-8">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-slate-900">Crea tu cuenta</h1>
+              <p className="text-sm text-slate-500 mt-1">
+                Completa los datos y te llevamos a Stripe para confirmar el pago. 14 días de prueba.
+              </p>
+            </div>
+            <RegistroForm planes={planes} />
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }

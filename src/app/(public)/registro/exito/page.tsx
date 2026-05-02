@@ -24,10 +24,12 @@ export default async function Page({
   const { session_id } = await searchParams;
   if (!session_id) {
     return (
-      <main style={{ maxWidth: 600, margin: "0 auto", padding: 32, textAlign: "center" }}>
-        <h1>Falta session_id</h1>
-        <p>Esta página solo se muestra tras un Checkout exitoso de Stripe.</p>
-      </main>
+      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+        <main className="text-center max-w-md bg-white border border-slate-200 rounded-lg shadow-sm px-8 py-10">
+          <h1 className="text-2xl font-bold text-slate-900">Falta session_id</h1>
+          <p className="text-sm text-slate-500 mt-2">Esta página solo se muestra tras un Checkout exitoso de Stripe.</p>
+        </main>
+      </div>
     );
   }
   return <ExitoCliente sessionId={session_id} />;

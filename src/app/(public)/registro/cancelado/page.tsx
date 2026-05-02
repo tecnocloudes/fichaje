@@ -1,37 +1,24 @@
-/**
- * Página tras cancelación voluntaria del Checkout.
- *
- * El tenant en master.tenants queda en status=PENDING. El job horario
- * lo borrará a las 24h (commit 19).
- */
+import Link from "next/link";
+import { EmpleaIALogo } from "@/components/brand/empleaia-logo";
 
 export default function Page() {
   return (
-    <main
-      style={{
-        maxWidth: 600,
-        margin: "0 auto",
-        padding: 32,
-        textAlign: "center",
-      }}
-    >
-      <h1 style={{ fontSize: 28 }}>Has cancelado el pago</h1>
-      <p>No se ha cargado nada a tu tarjeta.</p>
-      <p style={{ marginTop: 24 }}>
-        <a
-          href="/registro"
-          style={{
-            background: "#6366f1",
-            color: "white",
-            padding: "10px 20px",
-            textDecoration: "none",
-            borderRadius: 6,
-            display: "inline-block",
-          }}
-        >
-          Volver al registro
-        </a>
-      </p>
-    </main>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+      <main className="text-center max-w-md w-full">
+        <div className="flex justify-center mb-6">
+          <EmpleaIALogo symbolSize={40} />
+        </div>
+        <div className="bg-white border border-slate-200 rounded-lg shadow-sm px-8 py-10">
+          <h1 className="text-2xl font-bold text-slate-900">Has cancelado el pago</h1>
+          <p className="text-sm text-slate-500 mt-2">No se ha cargado nada a tu tarjeta.</p>
+          <Link
+            href="/registro"
+            className="mt-6 inline-flex items-center justify-center gap-2 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-dark)] px-5 py-2.5 text-base font-medium text-white transition-colors"
+          >
+            Volver al registro
+          </Link>
+        </div>
+      </main>
+    </div>
   );
 }

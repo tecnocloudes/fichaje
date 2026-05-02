@@ -83,50 +83,43 @@ export function ExitoCliente({ sessionId }: { sessionId: string }) {
   }, [sessionId]);
 
   return (
-    <main
-      style={{
-        maxWidth: 600,
-        margin: "0 auto",
-        padding: 32,
-        textAlign: "center",
-      }}
-    >
-      <h1 style={{ fontSize: 28 }}>Estamos preparando tu cuenta</h1>
-      {visual === "waiting" || visual === "slow" ? (
-        <>
-          <div
-            style={{
-              margin: "32px auto",
-              width: 40,
-              height: 40,
-              border: "4px solid #e5e7eb",
-              borderTopColor: "#6366f1",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
-            }}
-          />
-          {visual === "waiting" ? (
-            <p>
-              Esto suele tardar entre 5 y 15 segundos. No cierres esta página.
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+      <main className="text-center max-w-md w-full">
+        <div className="bg-white border border-slate-200 rounded-lg shadow-sm px-8 py-10">
+          <h1 className="text-2xl font-bold text-slate-900">Estamos preparando tu cuenta</h1>
+          {visual === "waiting" || visual === "slow" ? (
+            <>
+              <div
+                className="my-8 mx-auto w-10 h-10 rounded-full border-4 border-slate-200"
+                style={{
+                  borderTopColor: "var(--primary)",
+                  animation: "spin 1s linear infinite",
+                }}
+              />
+              {visual === "waiting" ? (
+                <p className="text-sm text-slate-600">
+                  Esto suele tardar entre 5 y 15 segundos. No cierres esta página.
+                </p>
+              ) : (
+                <p className="text-sm text-amber-700">
+                  Esto está tardando más de lo esperado. Seguimos intentándolo. Si
+                  llevas más de 5 minutos aquí, contacta con soporte.
+                </p>
+              )}
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </>
+          ) : visual === "active" ? (
+            <p className="mt-4 text-sm text-slate-600">
+              Cuenta lista. Redirigiendo a <strong className="text-slate-900">{tenantSlug}</strong>…
             </p>
           ) : (
-            <p style={{ color: "#b45309" }}>
-              Esto está tardando más de lo esperado. Seguimos intentándolo. Si
-              llevas más de 5 minutos aquí, contacta con soporte.
+            <p className="mt-4 text-sm text-red-700">
+              Hubo un problema preparando tu cuenta. Recibirás un email cuando esté
+              lista, o contacta con soporte si no te llega en 1 hora.
             </p>
           )}
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </>
-      ) : visual === "active" ? (
-        <p>
-          Cuenta lista. Redirigiendo a <strong>{tenantSlug}</strong>…
-        </p>
-      ) : (
-        <p style={{ color: "#dc2626" }}>
-          Hubo un problema preparando tu cuenta. Recibirás un email cuando esté
-          lista, o contacta con soporte si no te llega en 1 hora.
-        </p>
-      )}
-    </main>
+        </div>
+      </main>
+    </div>
   );
 }
