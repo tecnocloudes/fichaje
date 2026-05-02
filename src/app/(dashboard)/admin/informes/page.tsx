@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { subDays, format } from "date-fns";
+import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import { ProgressBar } from "@/components/ui/progress-bar";
 
 interface Tienda { id: string; nombre: string; }
 interface ResumenEmpleado {
@@ -97,12 +99,15 @@ export default function AdminInformesPage() {
     }
   };
 
+  // Para barras de progreso, normalizamos sobre el máximo del set.
+  const maxHoras = Math.max(...datos.map((d) => d.horasTotales), 0);
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Informes</h1>
-          <p className="text-gray-500 text-sm mt-1">Análisis de asistencia de todas las sedes</p>
+          <h1 className="text-2xl font-bold text-slate-900">Informes</h1>
+          <p className="text-slate-500 text-sm mt-1">Análisis de asistencia de todas las sedes</p>
         </div>
         <div className="flex gap-2">
           <FeatureGateClient feature="export_excel">
@@ -147,14 +152,14 @@ export default function AdminInformesPage() {
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: "Total horas", value: `${stats.totalHoras.toFixed(0)}h`, color: "text-indigo-600" },
-            { label: "Media horas/día", value: `${stats.mediaHorasDia.toFixed(1)}h`, color: "text-gray-700" },
+            { label: "Total horas", value: `${stats.totalHoras.toFixed(0)}h`, color: "text-[var(--primary)]" },
+            { label: "Media horas/día", value: `${stats.mediaHorasDia.toFixed(1)}h`, color: "text-slate-900" },
             { label: "Horas extra", value: `${stats.horasExtra.toFixed(0)}h`, color: "text-amber-600" },
             { label: "Ausencias", value: stats.totalAusencias.toString(), color: "text-red-500" },
           ].map(s => (
             <Card key={s.label}>
               <CardContent className="pt-4 pb-4">
-                <p className="text-sm text-gray-500">{s.label}</p>
+                <p className="text-sm text-slate-500">{s.label}</p>
                 <p className={`text-3xl font-bold mt-1 ${s.color}`}>{s.value}</p>
               </CardContent>
             </Card>
@@ -166,18 +171,18 @@ export default function AdminInformesPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <BarChart2 className="h-4 w-4 text-indigo-600" /> Horas trabajadas por empleado
+              <BarChart2 className="h-4 w-4 text-[var(--primary)]" /> Horas trabajadas por empleado
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={chartData} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="nombre" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="nombre" tick={{ fontSize: 12, fill: "#475569" }} />
+                <YAxis tick={{ fontSize: 12, fill: "#475569" }} />
                 <Tooltip formatter={v => [`${v}h`]} />
-                <Bar dataKey="horas" name="Horas" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="extra" name="Extra" fill="#fbbf24" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="horas" name="Horas" fill="#5B5FE9" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="extra" name="Extra" fill="#F59E0B" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -188,31 +193,46 @@ export default function AdminInformesPage() {
         <CardHeader><CardTitle className="text-base">Detalle por empleado</CardTitle></CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-4 space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
+            <div className="p-4 space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}</div>
           ) : datos.length === 0 ? (
-            <p className="text-center py-8 text-gray-400">No hay datos para el período seleccionado</p>
+            <p className="text-center py-8 text-slate-400">No hay datos para el período seleccionado</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>{["Empleado", "Días trab.", "Horas totales", "Horas extra", "Ausencias"].map(h => (
-                    <th key={h} className="text-left text-xs font-semibold text-gray-500 px-4 py-3">{h}</th>
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>{["Empleado", "Días trab.", "Horas trabajadas", "Horas extra", "Ausencias"].map(h => (
+                    <th key={h} className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 px-4 py-3">{h}</th>
                   ))}</tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {datos.map(e => (
-                    <tr key={e.userId} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-sm text-gray-900">{e.nombre} {e.apellidos}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{e.diasTrabajados}</td>
-                      <td className="px-4 py-3 text-sm font-semibold text-gray-900">{e.horasTotales.toFixed(1)}h</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={e.horasExtra > 0 ? "text-amber-600 font-medium" : "text-gray-400"}>
-                          {e.horasExtra > 0 ? `+${e.horasExtra.toFixed(1)}h` : "0h"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{e.diasAusencia} días</td>
-                    </tr>
-                  ))}
+                <tbody className="divide-y divide-slate-100">
+                  {datos.map(e => {
+                    const pct = maxHoras > 0 ? (e.horasTotales / maxHoras) * 100 : 0;
+                    return (
+                      <tr key={e.userId} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <EmployeeAvatar nombre={e.nombre} apellidos={e.apellidos} seed={e.userId} size="sm" />
+                            <span className="font-medium text-sm text-slate-900">{e.nombre} {e.apellidos}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{e.diasTrabajados}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex items-center gap-3 min-w-[140px]">
+                            <ProgressBar value={pct} className="flex-1 max-w-[140px]" />
+                            <span className="font-semibold text-slate-900 tabular-nums shrink-0">
+                              {e.horasTotales.toFixed(1)}h
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={e.horasExtra > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>
+                            {e.horasExtra > 0 ? `+${e.horasExtra.toFixed(1)}h` : "0h"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{e.diasAusencia} días</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
