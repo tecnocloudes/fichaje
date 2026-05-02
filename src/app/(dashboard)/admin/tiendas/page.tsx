@@ -124,8 +124,8 @@ export default function TiendasPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sedes</h1>
-          <p className="text-gray-500 text-sm mt-1">{tiendas.length} sedes configuradas</p>
+          <h1 className="text-2xl font-bold text-slate-900">Sedes</h1>
+          <p className="text-slate-500 text-sm mt-1">{tiendas.length} sedes configuradas</p>
         </div>
         <Button onClick={abrirCrear}>
           <Plus className="h-4 w-4 mr-2" /> Nueva Sede
@@ -135,7 +135,7 @@ export default function TiendasPage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-48 bg-gray-100 rounded-xl animate-pulse" />
+            <div key={i} className="h-48 bg-slate-100 rounded-xl animate-pulse" />
           ))}
         </div>
       ) : (
@@ -146,13 +146,13 @@ export default function TiendasPage() {
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full" style={{ backgroundColor: t.color }} />
-                    <h3 className="font-semibold text-gray-900 text-sm">{t.nombre}</h3>
+                    <h3 className="font-semibold text-slate-900 text-sm">{t.nombre}</h3>
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEditar(t)}>
                       <Edit2 className="h-3.5 w-3.5" />
                     </Button>
-                    <button onClick={() => handleToggleActiva(t)} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={() => handleToggleActiva(t)} className="text-slate-400 hover:text-slate-600">
                       {t.activa
                         ? <ToggleRight className="h-5 w-5 text-green-500" />
                         : <ToggleLeft className="h-5 w-5" />
@@ -161,26 +161,26 @@ export default function TiendasPage() {
                   </div>
                 </div>
 
-                <div className="space-y-1.5 text-sm text-gray-600">
+                <div className="space-y-1.5 text-sm text-slate-600">
                   <div className="flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                    <MapPin className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                     <span className="truncate">{t.direccion}, {t.ciudad}</span>
                   </div>
                   {t.telefono && (
                     <div className="flex items-center gap-1.5">
-                      <Phone className="h-3.5 w-3.5 text-gray-400" />
+                      <Phone className="h-3.5 w-3.5 text-slate-400" />
                       <span>{t.telefono}</span>
                     </div>
                   )}
                   {t.email && (
                     <div className="flex items-center gap-1.5">
-                      <Mail className="h-3.5 w-3.5 text-gray-400" />
+                      <Mail className="h-3.5 w-3.5 text-slate-400" />
                       <span className="truncate">{t.email}</span>
                     </div>
                   )}
                 </div>
 
-                <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs text-gray-500">
+                <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs text-slate-500">
                   <span className="flex items-center gap-1">
                     <Users className="h-3.5 w-3.5" />
                     {t._count?.empleados || 0} empleados
@@ -244,7 +244,7 @@ export default function TiendasPage() {
                     <button
                       key={c}
                       type="button"
-                      className={cn("w-7 h-7 rounded-full border-2 transition-all", form.color === c ? "border-gray-800 scale-110" : "border-transparent")}
+                      className={cn("w-7 h-7 rounded-full border-2 transition-all", form.color === c ? "border-slate-800 scale-110" : "border-transparent")}
                       style={{ backgroundColor: c }}
                       onClick={() => setForm((f) => ({ ...f, color: c }))}
                     />

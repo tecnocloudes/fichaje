@@ -97,8 +97,8 @@ export default function ManagerInformesPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Informes</h1>
-          <p className="text-gray-500 text-sm mt-1">Análisis de asistencia de tu sede</p>
+          <h1 className="text-2xl font-bold text-slate-900">Informes</h1>
+          <p className="text-slate-500 text-sm mt-1">Análisis de asistencia de tu sede</p>
         </div>
         <div className="flex gap-2">
           <FeatureGateClient feature="export_excel">
@@ -150,14 +150,14 @@ export default function ManagerInformesPage() {
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: "Total horas", value: `${stats.totalHoras.toFixed(0)}h`, color: "text-indigo-600" },
-            { label: "Media horas/día", value: `${stats.mediaHorasDia.toFixed(1)}h`, color: "text-gray-700" },
+            { label: "Total horas", value: `${stats.totalHoras.toFixed(0)}h`, color: "text-[var(--primary)]" },
+            { label: "Media horas/día", value: `${stats.mediaHorasDia.toFixed(1)}h`, color: "text-slate-700" },
             { label: "Horas extra", value: `${stats.horasExtra.toFixed(0)}h`, color: "text-amber-600" },
             { label: "Ausencias", value: stats.totalAusencias.toString(), color: "text-red-500" },
           ].map((s) => (
             <Card key={s.label}>
               <CardContent className="pt-4 pb-4">
-                <p className="text-sm text-gray-500">{s.label}</p>
+                <p className="text-sm text-slate-500">{s.label}</p>
                 <p className={`text-3xl font-bold mt-1 ${s.color}`}>{s.value}</p>
               </CardContent>
             </Card>
@@ -170,7 +170,7 @@ export default function ManagerInformesPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <BarChart2 className="h-4 w-4 text-indigo-600" />
+              <BarChart2 className="h-4 w-4 text-[var(--primary)]" />
               Horas trabajadas por empleado
             </CardTitle>
           </CardHeader>
@@ -197,34 +197,34 @@ export default function ManagerInformesPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="p-4 space-y-2">
-              {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}
+              {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}
             </div>
           ) : datos.length === 0 ? (
-            <p className="text-center py-8 text-gray-400">No hay datos para el período seleccionado</p>
+            <p className="text-center py-8 text-slate-400">No hay datos para el período seleccionado</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-slate-50 border-b">
                   <tr>
                     {["Empleado", "Días trab.", "Horas totales", "Horas extra", "Ausencias"].map((h) => (
-                      <th key={h} className="text-left text-xs font-semibold text-gray-500 px-4 py-3">{h}</th>
+                      <th key={h} className="text-left text-xs font-semibold text-slate-500 px-4 py-3">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-slate-100">
                   {datos.map((e) => (
-                    <tr key={e.userId} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-sm text-gray-900">
+                    <tr key={e.userId} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 font-medium text-sm text-slate-900">
                         {e.nombre} {e.apellidos}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{e.diasTrabajados}</td>
-                      <td className="px-4 py-3 text-sm font-semibold text-gray-900">{e.horasTotales.toFixed(1)}h</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{e.diasTrabajados}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-slate-900">{e.horasTotales.toFixed(1)}h</td>
                       <td className="px-4 py-3 text-sm">
-                        <span className={e.horasExtra > 0 ? "text-amber-600 font-medium" : "text-gray-400"}>
+                        <span className={e.horasExtra > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>
                           {e.horasExtra > 0 ? `+${e.horasExtra.toFixed(1)}h` : "0h"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{e.diasAusencia} días</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{e.diasAusencia} días</td>
                     </tr>
                   ))}
                 </tbody>

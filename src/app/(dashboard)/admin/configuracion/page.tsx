@@ -83,12 +83,12 @@ const EVENTOS_NOTIF = [
 
 function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
-      <span className="text-sm text-gray-700">{label}</span>
+    <div className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+      <span className="text-sm text-slate-700">{label}</span>
       <button
         type="button"
         onClick={() => onChange(!value)}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${value ? "bg-indigo-600" : "bg-gray-200"}`}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${value ? "bg-[var(--primary)]" : "bg-slate-200"}`}
       >
         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${value ? "translate-x-6" : "translate-x-1"}`} />
       </button>
@@ -333,21 +333,21 @@ export default function ConfiguracionPage() {
 
   // handleReset eliminado en Fase 4 (legacy mono-tenant).
 
-  if (!config) return <div className="p-6 animate-pulse"><div className="h-40 bg-gray-100 rounded-xl" /></div>;
+  if (!config) return <div className="p-6 animate-pulse"><div className="h-40 bg-slate-100 rounded-xl" /></div>;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
-        <p className="text-gray-500 text-sm mt-1">Parámetros generales de la empresa</p>
+        <h1 className="text-2xl font-bold text-slate-900">Configuración</h1>
+        <p className="text-slate-500 text-sm mt-1">Parámetros generales de la empresa</p>
       </div>
 
       <PlanUsageCard />
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-slate-200">
         {(["general", "ausencias", "notificaciones", "branding", "calendario", "dominio"] as Tab[]).map((t) => {
           const labels: Record<Tab, string> = {
             general: "General",
@@ -364,7 +364,7 @@ export default function ConfiguracionPage() {
               className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 tab === t
                   ? "border-[var(--primary)] text-[var(--primary)]"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
               {labels[t]}
@@ -379,7 +379,7 @@ export default function ConfiguracionPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Settings className="h-4 w-4 text-indigo-600" /> General
+                <Settings className="h-4 w-4 text-[var(--primary)]" /> General
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -438,7 +438,7 @@ export default function ConfiguracionPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-indigo-600" /> Tipos de Ausencia
+                <Calendar className="h-4 w-4 text-[var(--primary)]" /> Tipos de Ausencia
               </CardTitle>
               <Button size="sm" onClick={abrirCrearTipo}>
                 <Plus className="h-4 w-4 mr-1" /> Añadir
@@ -447,15 +447,15 @@ export default function ConfiguracionPage() {
           </CardHeader>
           <CardContent className="p-0">
             {tipos.length === 0 ? (
-              <p className="text-center py-8 text-gray-400">No hay tipos de ausencia</p>
+              <p className="text-center py-8 text-slate-400">No hay tipos de ausencia</p>
             ) : (
               <div className="divide-y">
                 {tipos.map((t) => (
-                  <div key={t.id} className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50">
+                  <div key={t.id} className="flex items-center gap-3 px-6 py-3 hover:bg-slate-50">
                     <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">{t.nombre}</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-sm font-medium text-slate-900">{t.nombre}</p>
+                      <p className="text-xs text-slate-400">
                         {t.pagada ? "Pagada" : "No pagada"} ·{" "}
                         {t.requiereAprobacion ? "Requiere aprobación" : "Aprobación automática"}{" "}
                         {t.diasMaximos ? `· Máx. ${t.diasMaximos} días` : ""}
@@ -480,7 +480,7 @@ export default function ConfiguracionPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Bell className="h-4 w-4 text-indigo-600" /> Eventos que generan notificaciones
+                <Bell className="h-4 w-4 text-[var(--primary)]" /> Eventos que generan notificaciones
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -489,15 +489,15 @@ export default function ConfiguracionPage() {
                   const field = `notif${key}` as keyof Configuracion;
                   const value = config[field] as boolean;
                   return (
-                    <div key={key} className="flex items-center justify-between px-6 py-3 hover:bg-gray-50">
+                    <div key={key} className="flex items-center justify-between px-6 py-3 hover:bg-slate-50">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{label}</p>
-                        <p className="text-xs text-gray-400">{desc}</p>
+                        <p className="text-sm font-medium text-slate-900">{label}</p>
+                        <p className="text-xs text-slate-400">{desc}</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setConfig((c) => c && { ...c, [field]: !value })}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${value ? "bg-indigo-600" : "bg-gray-200"}`}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${value ? "bg-[var(--primary)]" : "bg-slate-200"}`}
                       >
                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${value ? "translate-x-6" : "translate-x-1"}`} />
                       </button>
@@ -512,7 +512,7 @@ export default function ConfiguracionPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Mail className="h-4 w-4 text-indigo-600" /> Correo electrónico (Resend)
+                <Mail className="h-4 w-4 text-[var(--primary)]" /> Correo electrónico (Resend)
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -533,19 +533,19 @@ export default function ConfiguracionPage() {
                         onChange={(e) => setConfig((c) => c && ({ ...c, emailPassword: e.target.value }))}
                         className="pr-9 font-mono text-sm"
                       />
-                      <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                         onClick={() => setShowPassword((s) => !s)}>
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">Obtén tu API Key en resend.com → API Keys</p>
+                    <p className="text-xs text-slate-400 mt-1">Obtén tu API Key en resend.com → API Keys</p>
                   </div>
                   <div>
                     <Label>Remitente (From)</Label>
                     <Input className="mt-1" placeholder="Empresa &lt;noreply@tudominio.com&gt;"
                       value={config.emailFrom}
                       onChange={(e) => setConfig((c) => c && ({ ...c, emailFrom: e.target.value }))} />
-                    <p className="text-xs text-gray-400 mt-1">El dominio debe estar verificado en Resend</p>
+                    <p className="text-xs text-slate-400 mt-1">El dominio debe estar verificado en Resend</p>
                   </div>
                   <div className="flex justify-end">
                     <Button variant="outline" size="sm" onClick={handleTestEmail} disabled={testingEmail}>
@@ -562,7 +562,7 @@ export default function ConfiguracionPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Smartphone className="h-4 w-4 text-indigo-600" /> Notificaciones push
+                <Smartphone className="h-4 w-4 text-[var(--primary)]" /> Notificaciones push
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -576,14 +576,14 @@ export default function ConfiguracionPage() {
                   <Label>Clave pública VAPID</Label>
                   {config.pushVapidPublicKey ? (
                     <div className="mt-1 flex items-center gap-2">
-                      <code className="flex-1 text-xs bg-gray-50 border rounded px-3 py-2 text-gray-600 break-all">
+                      <code className="flex-1 text-xs bg-slate-50 border rounded px-3 py-2 text-slate-600 break-all">
                         {config.pushVapidPublicKey}
                       </code>
                       <span className="flex-shrink-0 text-green-500"><Check className="h-4 w-4" /></span>
                     </div>
                   ) : (
                     <div className="mt-1 flex items-center gap-2">
-                      <div className="flex-1 text-xs bg-gray-50 border border-dashed rounded px-3 py-2 text-gray-400 flex items-center gap-2">
+                      <div className="flex-1 text-xs bg-slate-50 border border-dashed rounded px-3 py-2 text-slate-400 flex items-center gap-2">
                         <X className="h-3 w-3" /> Sin claves VAPID configuradas
                       </div>
                     </div>
@@ -628,7 +628,7 @@ export default function ConfiguracionPage() {
           fallback={
             <div className="space-y-4">
               <UpsellCTA feature="branding_personalizado" />
-              <p className="text-sm text-gray-500 text-center">
+              <p className="text-sm text-slate-500 text-center">
                 Tu plan actual no permite personalizar el branding (logo,
                 colores, nombre de la app). Actualiza tu plan para acceder a
                 esta función.
@@ -642,7 +642,7 @@ export default function ConfiguracionPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Palette className="h-4 w-4 text-indigo-600" /> Identidad de la app
+                <Palette className="h-4 w-4 text-[var(--primary)]" /> Identidad de la app
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -652,14 +652,14 @@ export default function ConfiguracionPage() {
                   <Input className="mt-1" placeholder="TelecomFichaje"
                     value={config.appNombre}
                     onChange={(e) => setConfig((c) => c && ({ ...c, appNombre: e.target.value }))} />
-                  <p className="text-xs text-gray-400 mt-1">Aparece en el título del navegador y emails</p>
+                  <p className="text-xs text-slate-400 mt-1">Aparece en el título del navegador y emails</p>
                 </div>
                 <div>
                   <Label>Nombre de la empresa</Label>
                   <Input className="mt-1" placeholder="Mi Empresa"
                     value={config.nombre}
                     onChange={(e) => setConfig((c) => c && ({ ...c, nombre: e.target.value }))} />
-                  <p className="text-xs text-gray-400 mt-1">Aparece en emails y cabeceras</p>
+                  <p className="text-xs text-slate-400 mt-1">Aparece en emails y cabeceras</p>
                 </div>
               </div>
             </CardContent>
@@ -669,17 +669,17 @@ export default function ConfiguracionPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Palette className="h-4 w-4 text-indigo-600" /> Colores
+                <Palette className="h-4 w-4 text-[var(--primary)]" /> Colores
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <Label>Color primario</Label>
-                  <p className="text-xs text-gray-400 mb-2">Botones, elementos activos, focus</p>
+                  <p className="text-xs text-slate-400 mb-2">Botones, elementos activos, focus</p>
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-10 h-10 rounded-lg border-2 border-gray-200 shadow-sm flex-shrink-0 cursor-pointer overflow-hidden relative"
+                      className="w-10 h-10 rounded-lg border-2 border-slate-200 shadow-sm flex-shrink-0 cursor-pointer overflow-hidden relative"
                       style={{ backgroundColor: config.colorPrimario }}
                     >
                       <input
@@ -714,10 +714,10 @@ export default function ConfiguracionPage() {
 
                 <div>
                   <Label>Color del sidebar</Label>
-                  <p className="text-xs text-gray-400 mb-2">Fondo de la barra lateral de navegación</p>
+                  <p className="text-xs text-slate-400 mb-2">Fondo de la barra lateral de navegación</p>
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-10 h-10 rounded-lg border-2 border-gray-200 shadow-sm flex-shrink-0 cursor-pointer overflow-hidden relative"
+                      className="w-10 h-10 rounded-lg border-2 border-slate-200 shadow-sm flex-shrink-0 cursor-pointer overflow-hidden relative"
                       style={{ backgroundColor: config.colorSidebar }}
                     >
                       <input
@@ -752,7 +752,7 @@ export default function ConfiguracionPage() {
               </div>
 
               {/* Preview */}
-              <div className="mt-2 rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+              <div className="mt-2 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
                 <div className="flex" style={{ height: "80px" }}>
                   <div className="w-28 flex flex-col" style={{ backgroundColor: config.colorSidebar }}>
                     <div className="flex items-center gap-1.5 px-2 py-2">
@@ -768,9 +768,9 @@ export default function ConfiguracionPage() {
                       <div className="h-1.5 w-8 bg-white/25 rounded" />
                     </div>
                   </div>
-                  <div className="flex-1 bg-gray-50 flex flex-col">
-                    <div className="h-8 border-b border-gray-200 bg-white flex items-center px-3 gap-2">
-                      <div className="h-2 w-16 bg-gray-200 rounded" />
+                  <div className="flex-1 bg-slate-50 flex flex-col">
+                    <div className="h-8 border-b border-slate-200 bg-white flex items-center px-3 gap-2">
+                      <div className="h-2 w-16 bg-slate-200 rounded" />
                       <div className="ml-auto h-5 w-5 rounded-full" style={{ backgroundColor: config.colorPrimario + "40" }} />
                     </div>
                     <div className="flex-1 flex items-center justify-center">
@@ -778,8 +778,8 @@ export default function ConfiguracionPage() {
                     </div>
                   </div>
                 </div>
-                <div className="bg-gray-50 border-t border-gray-200 px-3 py-1.5 text-center">
-                  <span className="text-xs text-gray-400">Vista previa</span>
+                <div className="bg-slate-50 border-t border-slate-200 px-3 py-1.5 text-center">
+                  <span className="text-xs text-slate-400">Vista previa</span>
                 </div>
               </div>
             </CardContent>
@@ -789,27 +789,27 @@ export default function ConfiguracionPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Image className="h-4 w-4 text-indigo-600" /> Logo de la empresa
+                <Image className="h-4 w-4 text-[var(--primary)]" /> Logo de la empresa
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-gray-500">El logo aparece en los emails y en la cabecera del sidebar. Formatos: PNG, JPG, SVG. Máx. 2 MB.</p>
+              <p className="text-sm text-slate-500">El logo aparece en los emails y en la cabecera del sidebar. Formatos: PNG, JPG, SVG. Máx. 2 MB.</p>
               <div className="flex items-start gap-4">
                 {/* Preview */}
-                <div className="w-32 h-20 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 flex-shrink-0 overflow-hidden">
+                <div className="w-32 h-20 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50 flex-shrink-0 overflow-hidden">
                   {config.logo ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={config.logo} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
                   ) : (
                     <div className="text-center">
-                      <Image className="h-6 w-6 text-gray-300 mx-auto mb-1" />
-                      <span className="text-xs text-gray-400">Sin logo</span>
+                      <Image className="h-6 w-6 text-slate-300 mx-auto mb-1" />
+                      <span className="text-xs text-slate-400">Sin logo</span>
                     </div>
                   )}
                 </div>
                 <div className="space-y-2">
                   <label className="cursor-pointer">
-                    <div className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700">
+                    <div className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium text-slate-700">
                       <Upload className="h-4 w-4" />
                       Subir logo
                     </div>
@@ -831,23 +831,23 @@ export default function ConfiguracionPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Image className="h-4 w-4 text-indigo-600" /> Favicon
+                <Image className="h-4 w-4 text-[var(--primary)]" /> Favicon
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-gray-500">Icono que aparece en la pestaña del navegador. Usa un PNG cuadrado de 32×32 o 64×64 px. Máx. 2 MB.</p>
+              <p className="text-sm text-slate-500">Icono que aparece en la pestaña del navegador. Usa un PNG cuadrado de 32×32 o 64×64 px. Máx. 2 MB.</p>
               <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 flex-shrink-0 overflow-hidden">
+                <div className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50 flex-shrink-0 overflow-hidden">
                   {config.favicon ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={config.favicon} alt="Favicon" className="w-8 h-8 object-contain" />
                   ) : (
-                    <Image className="h-5 w-5 text-gray-300" />
+                    <Image className="h-5 w-5 text-slate-300" />
                   )}
                 </div>
                 <div className="space-y-2">
                   <label className="cursor-pointer">
-                    <div className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700">
+                    <div className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium text-slate-700">
                       <Upload className="h-4 w-4" />
                       Subir favicon
                     </div>
@@ -907,7 +907,7 @@ export default function ConfiguracionPage() {
               <div className="mt-1 flex gap-2 flex-wrap">
                 {COLORES.map((c) => (
                   <button key={c} type="button"
-                    className={`w-7 h-7 rounded-full border-2 transition-all ${tipoForm.color === c ? "border-gray-800 scale-110" : "border-transparent"}`}
+                    className={`w-7 h-7 rounded-full border-2 transition-all ${tipoForm.color === c ? "border-slate-800 scale-110" : "border-transparent"}`}
                     style={{ backgroundColor: c }}
                     onClick={() => setTipoForm((f) => ({ ...f, color: c }))}
                   />
@@ -922,11 +922,11 @@ export default function ConfiguracionPage() {
             <div className="space-y-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={tipoForm.pagada} onChange={(e) => setTipoForm((f) => ({ ...f, pagada: e.target.checked }))} className="rounded" />
-                <span className="text-sm text-gray-700">Ausencia pagada</span>
+                <span className="text-sm text-slate-700">Ausencia pagada</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={tipoForm.requiereAprobacion} onChange={(e) => setTipoForm((f) => ({ ...f, requiereAprobacion: e.target.checked }))} className="rounded" />
-                <span className="text-sm text-gray-700">Requiere aprobación del manager</span>
+                <span className="text-sm text-slate-700">Requiere aprobación del manager</span>
               </label>
             </div>
           </div>

@@ -72,8 +72,8 @@ export default function MisTurnosPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mis Turnos</h1>
-          <p className="text-gray-500 text-sm mt-1">Consulta tus turnos asignados</p>
+          <h1 className="text-2xl font-bold text-slate-900">Mis Turnos</h1>
+          <p className="text-slate-500 text-sm mt-1">Consulta tus turnos asignados</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -101,11 +101,11 @@ export default function MisTurnosPage() {
                 <ChevronLeft className="h-5 w-5" />
               </Button>
               <div className="text-center">
-                <p className="font-semibold text-gray-900">
+                <p className="font-semibold text-slate-900">
                   {format(inicioSemana, "d MMM", { locale: es })} — {format(finSemana, "d MMM yyyy", { locale: es })}
                 </p>
                 <button
-                  className="text-xs text-indigo-600 hover:underline"
+                  className="text-xs text-[var(--primary)] hover:underline"
                   onClick={() => setSemanaActual(new Date())}
                 >
                   Semana actual
@@ -120,7 +120,7 @@ export default function MisTurnosPage() {
             {loading ? (
               <div className="grid grid-cols-7 gap-2">
                 {Array.from({ length: 7 }).map((_, i) => (
-                  <div key={i} className="h-32 bg-gray-100 rounded-xl animate-pulse" />
+                  <div key={i} className="h-32 bg-slate-100 rounded-xl animate-pulse" />
                 ))}
               </div>
             ) : (
@@ -134,18 +134,18 @@ export default function MisTurnosPage() {
                       key={i}
                       className={cn(
                         "rounded-xl p-2 min-h-[130px] border",
-                        eHoy ? "border-indigo-400 bg-indigo-50" : "border-gray-100 bg-gray-50",
+                        eHoy ? "border-[var(--primary)] bg-[var(--primary-light)]" : "border-slate-100 bg-slate-50",
                         esPasado && !eHoy && "opacity-60"
                       )}
                     >
-                      <p className={cn("text-xs font-medium text-center mb-1", eHoy ? "text-indigo-700" : "text-gray-500")}>
+                      <p className={cn("text-xs font-medium text-center mb-1", eHoy ? "text-[var(--primary)]" : "text-slate-500")}>
                         {DIAS[i]}
                       </p>
-                      <p className={cn("text-lg font-bold text-center mb-2", eHoy ? "text-indigo-700" : "text-gray-800")}>
+                      <p className={cn("text-lg font-bold text-center mb-2", eHoy ? "text-[var(--primary)]" : "text-slate-800")}>
                         {format(dia, "d")}
                       </p>
                       {turnDia.length === 0 ? (
-                        <p className="text-xs text-gray-400 text-center">Libre</p>
+                        <p className="text-xs text-slate-400 text-center">Libre</p>
                       ) : (
                         turnDia.map((t) => (
                           <div
@@ -171,20 +171,20 @@ export default function MisTurnosPage() {
         <div className="space-y-3">
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+              <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse" />
             ))
           ) : turnosFuturos.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
-                <Calendar className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No tienes turnos asignados en los próximos 30 días</p>
+                <Calendar className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500">No tienes turnos asignados en los próximos 30 días</p>
               </CardContent>
             </Card>
           ) : (
             turnosFuturos.map((t) => {
               const eHoy = isSameDay(new Date(t.fecha), hoy);
               return (
-                <Card key={t.id} className={cn("border", eHoy && "border-indigo-400")}>
+                <Card key={t.id} className={cn("border", eHoy && "border-[var(--primary)]")}>
                   <CardContent className="py-4 flex items-center gap-4">
                     <div
                       className="w-1 h-12 rounded-full flex-shrink-0"
@@ -192,12 +192,12 @@ export default function MisTurnosPage() {
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold text-gray-900 capitalize">
+                        <p className="font-semibold text-slate-900 capitalize">
                           {format(new Date(t.fecha), "EEEE, d 'de' MMMM", { locale: es })}
                         </p>
                         {eHoy && <Badge variant="default" className="text-xs">Hoy</Badge>}
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+                      <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
                         <span className="flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" />
                           {t.horaInicio} – {t.horaFin}
@@ -207,7 +207,7 @@ export default function MisTurnosPage() {
                           {t.tienda.nombre}
                         </span>
                       </div>
-                      {t.nota && <p className="text-xs text-gray-400 mt-1">{t.nota}</p>}
+                      {t.nota && <p className="text-xs text-slate-400 mt-1">{t.nota}</p>}
                     </div>
                   </CardContent>
                 </Card>

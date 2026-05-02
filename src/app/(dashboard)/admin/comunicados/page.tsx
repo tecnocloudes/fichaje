@@ -95,8 +95,8 @@ export default function AdminComunicadosPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Comunicados</h1>
-          <p className="text-gray-500 text-sm mt-1">Mensajes internos para toda la empresa</p>
+          <h1 className="text-2xl font-bold text-slate-900">Comunicados</h1>
+          <p className="text-slate-500 text-sm mt-1">Mensajes internos para toda la empresa</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" /> Nuevo comunicado
@@ -105,13 +105,13 @@ export default function AdminComunicadosPage() {
 
       {loading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => <div key={i} className="h-28 bg-gray-100 rounded-xl animate-pulse" />)}
+          {[1, 2, 3].map((i) => <div key={i} className="h-28 bg-slate-100 rounded-xl animate-pulse" />)}
         </div>
       ) : comunicados.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <Megaphone className="h-10 w-10 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400">No hay comunicados todavía</p>
+            <Megaphone className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+            <p className="text-slate-400">No hay comunicados todavía</p>
           </CardContent>
         </Card>
       ) : (
@@ -122,19 +122,19 @@ export default function AdminComunicadosPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <h3 className="font-semibold text-gray-900">{c.titulo}</h3>
+                      <h3 className="font-semibold text-slate-900">{c.titulo}</h3>
                       {c.publicado
                         ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Publicado</span>
-                        : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">Borrador</span>}
+                        : <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">Borrador</span>}
                     </div>
-                    <p className="text-sm text-gray-600 line-clamp-2">{c.contenido}</p>
-                    <p className="text-xs text-gray-400 mt-2">
+                    <p className="text-sm text-slate-600 line-clamp-2">{c.contenido}</p>
+                    <p className="text-xs text-slate-400 mt-2">
                       {c.autor.nombre} {c.autor.apellidos} · {format(new Date(c.createdAt), "d MMM yyyy", { locale: es })}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => togglePublicado(c)} title={c.publicado ? "Despublicar" : "Publicar"}>
-                      {c.publicado ? <EyeOff className="h-4 w-4" /> : <Send className="h-4 w-4 text-indigo-600" />}
+                      {c.publicado ? <EyeOff className="h-4 w-4" /> : <Send className="h-4 w-4 text-[var(--primary)]" />}
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600" onClick={() => handleDelete(c.id)}>
                       <Trash2 className="h-4 w-4" />
@@ -173,7 +173,7 @@ export default function AdminComunicadosPage() {
                 onChange={(e) => setForm((f) => ({ ...f, publicado: e.target.checked }))}
                 className="rounded"
               />
-              <span className="text-sm text-gray-700">Publicar inmediatamente</span>
+              <span className="text-sm text-slate-700">Publicar inmediatamente</span>
             </label>
           </div>
           <DialogFooter>

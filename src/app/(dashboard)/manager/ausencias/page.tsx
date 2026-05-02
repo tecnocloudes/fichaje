@@ -29,7 +29,7 @@ const ESTADO = {
   PENDIENTE: { label: "Pendiente", color: "bg-amber-100 text-amber-700" },
   APROBADA: { label: "Aprobada", color: "bg-green-100 text-green-700" },
   RECHAZADA: { label: "Rechazada", color: "bg-red-100 text-red-700" },
-  CANCELADA: { label: "Cancelada", color: "bg-gray-100 text-gray-600" },
+  CANCELADA: { label: "Cancelada", color: "bg-slate-100 text-slate-600" },
 };
 
 export default function ManagerAusenciasPage() {
@@ -86,19 +86,19 @@ export default function ManagerAusenciasPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Ausencias</h1>
-        <p className="text-gray-500 text-sm mt-1">Gestiona las solicitudes de ausencia de tu equipo</p>
+        <h1 className="text-2xl font-bold text-slate-900">Ausencias</h1>
+        <p className="text-slate-500 text-sm mt-1">Gestiona las solicitudes de ausencia de tu equipo</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit flex-wrap">
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit flex-wrap">
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={cn(
               "px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5",
-              tab === t ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              tab === t ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
             )}
           >
             {t === "PENDIENTE" ? "Pendientes" : t === "APROBADA" ? "Aprobadas" : t === "RECHAZADA" ? "Rechazadas" : "Todas"}
@@ -114,14 +114,14 @@ export default function ManagerAusenciasPage() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-28 bg-gray-100 rounded-xl animate-pulse" />
+            <div key={i} className="h-28 bg-slate-100 rounded-xl animate-pulse" />
           ))}
         </div>
       ) : filtradas.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <Calendar className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No hay ausencias en esta categoría</p>
+            <Calendar className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+            <p className="text-slate-500">No hay ausencias en esta categoría</p>
           </CardContent>
         </Card>
       ) : (
@@ -134,20 +134,20 @@ export default function ManagerAusenciasPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
                       <div>
-                        <p className="font-semibold text-gray-900">
+                        <p className="font-semibold text-slate-900">
                           {a.user.nombre} {a.user.apellidos}
                         </p>
-                        <p className="text-sm text-gray-500 mt-0.5">{a.tipoAusencia.nombre}</p>
+                        <p className="text-sm text-slate-500 mt-0.5">{a.tipoAusencia.nombre}</p>
                       </div>
                       <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", ESTADO[a.estado].color)}>
                         {ESTADO[a.estado].label}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-slate-600 mt-1">
                       {formatFecha(a.fechaInicio)} — {formatFecha(a.fechaFin)}
-                      <span className="text-gray-400 ml-2">({a.dias} días)</span>
+                      <span className="text-slate-400 ml-2">({a.dias} días)</span>
                     </p>
-                    {a.motivo && <p className="text-xs text-gray-400 mt-1">{a.motivo}</p>}
+                    {a.motivo && <p className="text-xs text-slate-400 mt-1">{a.motivo}</p>}
                     {a.comentarioAdmin && (
                       <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />{a.comentarioAdmin}
@@ -192,7 +192,7 @@ export default function ManagerAusenciasPage() {
           <div className="py-2">
             <Label>Motivo del rechazo (opcional)</Label>
             <textarea
-              className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="mt-1 w-full rounded-lg border border-slate-200 p-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               rows={3}
               placeholder="Indica el motivo del rechazo..."
               value={comentario}

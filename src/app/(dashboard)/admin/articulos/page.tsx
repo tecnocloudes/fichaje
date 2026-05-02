@@ -104,8 +104,8 @@ export default function AdminArticulosPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Artículos</h1>
-          <p className="text-gray-500 text-sm mt-1">Base de conocimiento y recursos</p>
+          <h1 className="text-2xl font-bold text-slate-900">Artículos</h1>
+          <p className="text-slate-500 text-sm mt-1">Base de conocimiento y recursos</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" /> Nuevo artículo
@@ -121,8 +121,8 @@ export default function AdminArticulosPage() {
             className={cn(
               "px-3 py-1.5 rounded-full text-sm font-medium border transition-all capitalize",
               categoriaFiltro === cat
-                ? "bg-indigo-600 text-white border-indigo-600"
-                : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"
+                ? "bg-[var(--primary)] text-white border-[var(--primary)]"
+                : "bg-white text-slate-600 border-slate-200 hover:border-[var(--primary)]"
             )}
           >
             {cat}
@@ -132,13 +132,13 @@ export default function AdminArticulosPage() {
 
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map((i) => <div key={i} className="h-40 bg-gray-100 rounded-xl animate-pulse" />)}
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-40 bg-slate-100 rounded-xl animate-pulse" />)}
         </div>
       ) : articulosFiltrados.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <BookOpen className="h-10 w-10 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400">No hay artículos en esta categoría</p>
+            <BookOpen className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+            <p className="text-slate-400">No hay artículos en esta categoría</p>
           </CardContent>
         </Card>
       ) : (
@@ -149,24 +149,24 @@ export default function AdminArticulosPage() {
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-medium capitalize">{a.categoria}</span>
+                      <span className="text-xs bg-[var(--primary-light)] text-[var(--primary)] px-2 py-0.5 rounded-full font-medium capitalize">{a.categoria}</span>
                       {a.publicado
                         ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Publicado</span>
-                        : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Borrador</span>}
+                        : <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Borrador</span>}
                     </div>
-                    <h3 className="font-semibold text-gray-900 truncate">{a.titulo}</h3>
-                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">{a.contenido}</p>
+                    <h3 className="font-semibold text-slate-900 truncate">{a.titulo}</h3>
+                    <p className="text-sm text-slate-500 mt-1 line-clamp-2">{a.contenido}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <button className="p-1 text-gray-400 hover:text-indigo-600 transition-colors" onClick={() => togglePublicado(a)}>
+                    <button className="p-1 text-slate-400 hover:text-[var(--primary)] transition-colors" onClick={() => togglePublicado(a)}>
                       {a.publicado ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
-                    <button className="p-1 text-gray-400 hover:text-red-500 transition-colors" onClick={() => handleDelete(a.id)}>
+                    <button className="p-1 text-slate-400 hover:text-red-500 transition-colors" onClick={() => handleDelete(a.id)}>
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-slate-400">
                   {a.autor.nombre} {a.autor.apellidos} · {format(new Date(a.createdAt), "d MMM yyyy", { locale: es })}
                 </p>
               </CardContent>
@@ -205,7 +205,7 @@ export default function AdminArticulosPage() {
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={form.publicado} onChange={(e) => setForm((f) => ({ ...f, publicado: e.target.checked }))} className="rounded" />
-              <span className="text-sm text-gray-700">Publicar inmediatamente</span>
+              <span className="text-sm text-slate-700">Publicar inmediatamente</span>
             </label>
           </div>
           <DialogFooter>

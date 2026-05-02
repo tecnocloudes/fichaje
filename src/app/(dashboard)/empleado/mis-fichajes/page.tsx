@@ -225,8 +225,8 @@ export default function MisFichajesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100">
-            <FileText className="h-5 w-5 text-indigo-600" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary-light)]">
+            <FileText className="h-5 w-5 text-[var(--primary)]" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-foreground">Mis Fichajes</h1>
@@ -266,7 +266,7 @@ export default function MisFichajesPage() {
                     className={cn(
                       "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
                       quickRange === r
-                        ? "bg-indigo-600 text-white"
+                        ? "bg-[var(--primary)] text-white"
                         : "bg-muted text-muted-foreground hover:bg-muted/80"
                     )}
                   >
@@ -302,10 +302,10 @@ export default function MisFichajesPage() {
       <div className="grid grid-cols-3 gap-4">
         {[
           {
-            icon: <Clock className="h-5 w-5 text-indigo-500" />,
+            icon: <Clock className="h-5 w-5 text-[var(--primary)]" />,
             label: "Total horas",
             value: minutosAHoras(totalMinutos),
-            bg: "bg-indigo-50",
+            bg: "bg-[var(--primary-light)]",
           },
           {
             icon: <CalendarDays className="h-5 w-5 text-emerald-500" />,
@@ -340,7 +340,7 @@ export default function MisFichajesPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground">
-              <Loader2 className="h-7 w-7 animate-spin text-indigo-500 mr-3" />
+              <Loader2 className="h-7 w-7 animate-spin text-[var(--primary)] mr-3" />
               Cargando registros…
             </div>
           ) : error ? (

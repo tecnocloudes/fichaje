@@ -43,7 +43,7 @@ const ESTADO_CONFIG = {
   PENDIENTE: { label: "Pendiente", color: "bg-yellow-100 text-yellow-700", icon: Clock },
   APROBADA: { label: "Aprobada", color: "bg-green-100 text-green-700", icon: CheckCircle },
   RECHAZADA: { label: "Rechazada", color: "bg-red-100 text-red-700", icon: XCircle },
-  CANCELADA: { label: "Cancelada", color: "bg-gray-100 text-gray-600", icon: X },
+  CANCELADA: { label: "Cancelada", color: "bg-slate-100 text-slate-600", icon: X },
 };
 
 const TABS = ["Todas", "Pendiente", "Aprobada", "Rechazada"] as const;
@@ -138,8 +138,8 @@ export default function MisAusenciasPage() {
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mis Ausencias</h1>
-          <p className="text-gray-500 text-sm mt-1">Gestiona tus solicitudes de ausencia</p>
+          <h1 className="text-2xl font-bold text-slate-900">Mis Ausencias</h1>
+          <p className="text-slate-500 text-sm mt-1">Gestiona tus solicitudes de ausencia</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" /> Nueva Solicitud
@@ -147,7 +147,7 @@ export default function MisAusenciasPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
         {TABS.map((tab) => (
           <button
             key={tab}
@@ -155,8 +155,8 @@ export default function MisAusenciasPage() {
             className={cn(
               "px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
               tabActiva === tab
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
             )}
           >
             {tab}
@@ -173,14 +173,14 @@ export default function MisAusenciasPage() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
+            <div key={i} className="h-24 bg-slate-100 rounded-xl animate-pulse" />
           ))}
         </div>
       ) : ausenciasFiltradas.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <Calendar className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No tienes ausencias en esta categoría</p>
+            <Calendar className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+            <p className="text-slate-500">No tienes ausencias en esta categoría</p>
           </CardContent>
         </Card>
       ) : (
@@ -198,17 +198,17 @@ export default function MisAusenciasPage() {
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-gray-900">{a.tipoAusencia.nombre}</span>
+                        <span className="font-semibold text-slate-900">{a.tipoAusencia.nombre}</span>
                         <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium", config.color)}>
                           <Icon className="h-3 w-3" />
                           {config.label}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-slate-600 mt-1">
                         {formatFecha(a.fechaInicio)} — {formatFecha(a.fechaFin)}
-                        <span className="text-gray-400 ml-2">({a.dias} {a.dias === 1 ? "día" : "días"})</span>
+                        <span className="text-slate-400 ml-2">({a.dias} {a.dias === 1 ? "día" : "días"})</span>
                       </p>
-                      {a.motivo && <p className="text-xs text-gray-400 mt-1">{a.motivo}</p>}
+                      {a.motivo && <p className="text-xs text-slate-400 mt-1">{a.motivo}</p>}
                       {a.comentarioAdmin && (
                         <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
                           <AlertCircle className="h-3 w-3" />
@@ -220,7 +220,7 @@ export default function MisAusenciasPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-gray-400 hover:text-red-500"
+                        className="text-slate-400 hover:text-red-500"
                         onClick={() => handleCancelar(a.id)}
                       >
                         <X className="h-4 w-4" />
@@ -282,14 +282,14 @@ export default function MisAusenciasPage() {
               </div>
             </div>
             {diasCalc > 0 && (
-              <p className="text-sm text-indigo-600 font-medium">
+              <p className="text-sm text-[var(--primary)] font-medium">
                 Total: {diasCalc} {diasCalc === 1 ? "día" : "días"}
               </p>
             )}
             <div>
               <Label>Motivo (opcional)</Label>
               <textarea
-                className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="mt-1 w-full rounded-lg border border-slate-200 p-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 rows={3}
                 placeholder="Describe el motivo de la ausencia..."
                 value={form.motivo}

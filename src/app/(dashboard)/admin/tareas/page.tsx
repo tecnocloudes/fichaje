@@ -35,7 +35,7 @@ const PRIORIDAD = ["ALTA", "MEDIA", "BAJA"];
 const PRIORIDAD_COLOR: Record<string, string> = {
   ALTA: "bg-red-100 text-red-700 border-red-200",
   MEDIA: "bg-amber-100 text-amber-700 border-amber-200",
-  BAJA: "bg-gray-100 text-gray-600 border-gray-200",
+  BAJA: "bg-slate-100 text-slate-600 border-slate-200",
 };
 
 export default function AdminTareasPage() {
@@ -122,8 +122,8 @@ export default function AdminTareasPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tareas</h1>
-          <p className="text-gray-500 text-sm mt-1">{pendientes} pendientes · {completadas} completadas</p>
+          <h1 className="text-2xl font-bold text-slate-900">Tareas</h1>
+          <p className="text-slate-500 text-sm mt-1">{pendientes} pendientes · {completadas} completadas</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" /> Nueva tarea
@@ -131,14 +131,14 @@ export default function AdminTareasPage() {
       </div>
 
       {/* Filtro tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
         {(["pendientes", "completadas", "todas"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFiltro(f)}
             className={cn(
               "px-4 py-1.5 rounded-lg text-sm font-medium transition-all capitalize",
-              filtro === f ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              filtro === f ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
             )}
           >
             {f}
@@ -149,13 +149,13 @@ export default function AdminTareasPage() {
       {/* Lista */}
       {loading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)}
+          {[1, 2, 3].map((i) => <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse" />)}
         </div>
       ) : tareasFiltradas.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <CheckSquare className="h-10 w-10 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400">No hay tareas {filtro !== "todas" ? filtro : ""}</p>
+            <CheckSquare className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+            <p className="text-slate-400">No hay tareas {filtro !== "todas" ? filtro : ""}</p>
           </CardContent>
         </Card>
       ) : (
@@ -170,12 +170,12 @@ export default function AdminTareasPage() {
             >
               <button onClick={() => toggleCompletada(tarea)} className="mt-0.5 shrink-0">
                 {tarea.completada
-                  ? <CheckSquare className="h-5 w-5 text-indigo-600" />
-                  : <Square className="h-5 w-5 text-gray-300 hover:text-indigo-400 transition-colors" />}
+                  ? <CheckSquare className="h-5 w-5 text-[var(--primary)]" />
+                  : <Square className="h-5 w-5 text-slate-300 hover:text-[var(--primary-lighter)] transition-colors" />}
               </button>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className={cn("font-medium text-gray-900", tarea.completada && "line-through text-gray-400")}>
+                  <p className={cn("font-medium text-slate-900", tarea.completada && "line-through text-slate-400")}>
                     {tarea.titulo}
                   </p>
                   <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", PRIORIDAD_COLOR[tarea.prioridad])}>
@@ -183,29 +183,29 @@ export default function AdminTareasPage() {
                   </span>
                 </div>
                 {tarea.descripcion && (
-                  <p className="text-sm text-gray-500 mt-0.5 truncate">{tarea.descripcion}</p>
+                  <p className="text-sm text-slate-500 mt-0.5 truncate">{tarea.descripcion}</p>
                 )}
                 <div className="flex items-center gap-4 mt-1.5 flex-wrap">
                   {tarea.asignadoA && (
-                    <span className="flex items-center gap-1 text-xs text-gray-400">
+                    <span className="flex items-center gap-1 text-xs text-slate-400">
                       <User className="h-3 w-3" />
                       {tarea.asignadoA.nombre} {tarea.asignadoA.apellidos}
                     </span>
                   )}
                   {tarea.fechaLimite && (
-                    <span className="flex items-center gap-1 text-xs text-gray-400">
+                    <span className="flex items-center gap-1 text-xs text-slate-400">
                       <Calendar className="h-3 w-3" />
                       {format(new Date(tarea.fechaLimite), "d MMM yyyy", { locale: es })}
                     </span>
                   )}
-                  <span className="text-xs text-gray-300">
+                  <span className="text-xs text-slate-300">
                     por {tarea.creadoPor.nombre} {tarea.creadoPor.apellidos}
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => handleDelete(tarea.id)}
-                className="shrink-0 text-gray-300 hover:text-red-500 transition-colors p-1"
+                className="shrink-0 text-slate-300 hover:text-red-500 transition-colors p-1"
               >
                 <Trash2 className="h-4 w-4" />
               </button>

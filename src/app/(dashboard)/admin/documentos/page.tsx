@@ -36,7 +36,7 @@ const TIPO_COLOR: Record<string, string> = {
   nomina: "bg-green-100 text-green-700",
   certificado: "bg-purple-100 text-purple-700",
   formacion: "bg-amber-100 text-amber-700",
-  otro: "bg-gray-100 text-gray-600",
+  otro: "bg-slate-100 text-slate-600",
 };
 
 export default function AdminDocumentosPage() {
@@ -103,8 +103,8 @@ export default function AdminDocumentosPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Documentos</h1>
-          <p className="text-gray-500 text-sm mt-1">{documentos.length} documentos en total</p>
+          <h1 className="text-2xl font-bold text-slate-900">Documentos</h1>
+          <p className="text-slate-500 text-sm mt-1">{documentos.length} documentos en total</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" /> Añadir documento
@@ -119,7 +119,7 @@ export default function AdminDocumentosPage() {
             onClick={() => setTipoFiltro(t)}
             className={cn(
               "px-3 py-1.5 rounded-full text-sm font-medium border transition-all capitalize",
-              tipoFiltro === t ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"
+              tipoFiltro === t ? "bg-[var(--primary)] text-white border-[var(--primary)]" : "bg-white text-slate-600 border-slate-200 hover:border-[var(--primary)]"
             )}
           >
             {t}
@@ -129,42 +129,42 @@ export default function AdminDocumentosPage() {
 
       {loading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)}
+          {[1, 2, 3].map((i) => <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse" />)}
         </div>
       ) : docsFiltrados.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <FolderOpen className="h-10 w-10 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400">No hay documentos</p>
+            <FolderOpen className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+            <p className="text-slate-400">No hay documentos</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-2">
           {docsFiltrados.map((doc) => (
             <div key={doc.id} className="flex items-center gap-4 p-4 bg-white rounded-xl border hover:shadow-sm transition-all">
-              <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center shrink-0">
-                <FileText className="h-5 w-5 text-indigo-600" />
+              <div className="w-10 h-10 bg-[var(--primary-light)] rounded-lg flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-[var(--primary)]" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-medium text-gray-900 truncate">{doc.nombre}</p>
-                  <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium capitalize", TIPO_COLOR[doc.tipo] ?? "bg-gray-100 text-gray-600")}>
+                  <p className="font-medium text-slate-900 truncate">{doc.nombre}</p>
+                  <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium capitalize", TIPO_COLOR[doc.tipo] ?? "bg-slate-100 text-slate-600")}>
                     {doc.tipo}
                   </span>
                 </div>
-                {doc.descripcion && <p className="text-sm text-gray-500 truncate">{doc.descripcion}</p>}
-                <p className="text-xs text-gray-400 mt-0.5">
+                {doc.descripcion && <p className="text-sm text-slate-500 truncate">{doc.descripcion}</p>}
+                <p className="text-xs text-slate-400 mt-0.5">
                   {doc.user ? `${doc.user.nombre} ${doc.user.apellidos} · ` : "General · "}
                   {format(new Date(doc.createdAt), "d MMM yyyy", { locale: es })}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {doc.url && (
-                  <a href={doc.url} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-indigo-600 transition-colors">
+                  <a href={doc.url} target="_blank" rel="noopener noreferrer" className="p-2 text-slate-400 hover:text-[var(--primary)] transition-colors">
                     <Download className="h-4 w-4" />
                   </a>
                 )}
-                <button className="p-2 text-gray-400 hover:text-red-500 transition-colors" onClick={() => handleDelete(doc.id)}>
+                <button className="p-2 text-slate-400 hover:text-red-500 transition-colors" onClick={() => handleDelete(doc.id)}>
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
