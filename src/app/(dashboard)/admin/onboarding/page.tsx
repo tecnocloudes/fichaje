@@ -42,8 +42,8 @@ interface Plantilla { id: string; tipo: string; titulo: string; descripcion?: st
 const ESTADOS = ["PENDIENTE", "EN_PROCESO", "COMPLETADO", "CANCELADO"];
 const ESTADO_CONFIG: Record<string, { label: string; icon: typeof CheckCircle; color: string }> = {
   PENDIENTE: { label: "Pendiente", icon: Clock, color: "bg-amber-100 text-amber-700" },
-  EN_PROCESO: { label: "En proceso", icon: Clock, color: "bg-blue-100 text-blue-700" },
-  COMPLETADO: { label: "Completado", icon: CheckCircle, color: "bg-green-100 text-green-700" },
+  EN_PROCESO: { label: "En proceso", icon: Clock, color: "bg-sky-100 text-sky-700" },
+  COMPLETADO: { label: "Completado", icon: CheckCircle, color: "bg-emerald-100 text-emerald-700" },
   CANCELADO: { label: "Cancelado", icon: XCircle, color: "bg-red-100 text-red-700" },
 };
 
@@ -331,16 +331,16 @@ export default function AdminOnboardingPage() {
                     {/* Cabecera del proceso */}
                     <div className="flex items-center gap-4 p-4">
                       <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-                        p.tipo === "ONBOARDING" ? "bg-green-50" : "bg-red-50")}>
+                        p.tipo === "ONBOARDING" ? "bg-emerald-50" : "bg-red-50")}>
                         {p.tipo === "ONBOARDING"
-                          ? <ArrowUpCircle className="h-5 w-5 text-green-600" />
+                          ? <ArrowUpCircle className="h-5 w-5 text-emerald-600" />
                           : <ArrowDownCircle className="h-5 w-5 text-red-600" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-0.5">
                           <p className="font-medium text-slate-900">{p.user.nombre} {p.user.apellidos}</p>
                           <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium",
-                            p.tipo === "ONBOARDING" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
+                            p.tipo === "ONBOARDING" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>
                             {p.tipo === "ONBOARDING" ? "Incorporación" : "Baja"}
                           </span>
                           <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1", estadoConf.color)}>
@@ -382,7 +382,7 @@ export default function AdminOnboardingPage() {
                             <button
                               onClick={() => toggleTarea(p.id, tarea)}
                               className={cn("w-5 h-5 rounded flex items-center justify-center border-2 shrink-0 transition-all",
-                                tarea.completada ? "bg-green-500 border-green-500" : "border-slate-300 hover:border-green-400"
+                                tarea.completada ? "bg-emerald-500 border-green-500" : "border-slate-300 hover:border-green-400"
                               )}
                             >
                               {tarea.completada && <Check className="h-3 w-3 text-white" />}
@@ -431,7 +431,7 @@ export default function AdminOnboardingPage() {
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm flex items-center gap-2">
                       {tipo === "ONBOARDING"
-                        ? <ArrowUpCircle className="h-4 w-4 text-green-600" />
+                        ? <ArrowUpCircle className="h-4 w-4 text-emerald-600" />
                         : <ArrowDownCircle className="h-4 w-4 text-red-600" />}
                       Plantilla de {tipo === "ONBOARDING" ? "Incorporación" : "Baja"}
                     </CardTitle>
@@ -453,7 +453,7 @@ export default function AdminOnboardingPage() {
                         <button
                           onClick={() => togglePlantillaActiva(p)}
                           className={cn("text-xs px-2 py-0.5 rounded-full border transition-all shrink-0",
-                            p.activa ? "bg-green-50 text-green-700 border-green-200" : "bg-slate-50 text-slate-400 border-slate-200"
+                            p.activa ? "bg-emerald-50 text-emerald-700 border-green-200" : "bg-slate-50 text-slate-400 border-slate-200"
                           )}
                         >
                           {p.activa ? "Activa" : "Inactiva"}

@@ -27,7 +27,7 @@ type Tab = (typeof TABS)[number];
 
 const ESTADO = {
   PENDIENTE: { label: "Pendiente", color: "bg-amber-100 text-amber-700" },
-  APROBADA: { label: "Aprobada", color: "bg-green-100 text-green-700" },
+  APROBADA: { label: "Aprobada", color: "bg-emerald-100 text-emerald-700" },
   RECHAZADA: { label: "Rechazada", color: "bg-red-100 text-red-700" },
   CANCELADA: { label: "Cancelada", color: "bg-slate-100 text-slate-600" },
 };
@@ -159,7 +159,7 @@ export default function ManagerAusenciasPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="border-green-300 text-green-600 hover:bg-green-50"
+                        className="border-green-300 text-emerald-600 hover:bg-emerald-50"
                         disabled={procesando === a.id}
                         onClick={() => handleAccion(a.id, "APROBADA")}
                       >

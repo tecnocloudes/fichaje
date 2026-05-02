@@ -154,7 +154,7 @@ export default function TiendasPage() {
                     </Button>
                     <button onClick={() => handleToggleActiva(t)} className="text-slate-400 hover:text-slate-600">
                       {t.activa
-                        ? <ToggleRight className="h-5 w-5 text-green-500" />
+                        ? <ToggleRight className="h-5 w-5 text-emerald-500" />
                         : <ToggleLeft className="h-5 w-5" />
                       }
                     </button>

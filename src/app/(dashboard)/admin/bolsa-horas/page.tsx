@@ -134,12 +134,12 @@ export default function BolsaHorasPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
-              <TrendingUp className="h-5 w-5 text-green-600" />
+            <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+              <TrendingUp className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
               <p className="text-xs text-slate-500">Total acumulado</p>
-              <p className="text-xl font-bold text-green-600">{formatHoras(totalAcumulado)}</p>
+              <p className="text-xl font-bold text-emerald-600">{formatHoras(totalAcumulado)}</p>
             </div>
           </CardContent>
         </Card>
@@ -216,7 +216,7 @@ export default function BolsaHorasPage() {
                   <div className="flex items-center gap-4 shrink-0">
                     <div className="text-right">
                       <p className="text-xs text-slate-400">Saldo</p>
-                      <p className={cn("font-bold text-sm", emp.saldo >= 0 ? "text-green-600" : "text-red-500")}>
+                      <p className={cn("font-bold text-sm", emp.saldo >= 0 ? "text-emerald-600" : "text-red-500")}>
                         {emp.saldo >= 0 ? "+" : ""}{formatHoras(emp.saldo)}
                       </p>
                     </div>
@@ -247,7 +247,7 @@ export default function BolsaHorasPage() {
                             </td>
                             <td className="px-4 py-2">
                               <span className={cn("inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium",
-                                entrada.tipo === "ACUMULACION" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-500")}>
+                                entrada.tipo === "ACUMULACION" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-500")}>
                                 {entrada.tipo === "ACUMULACION"
                                   ? <TrendingUp className="h-3 w-3" />
                                   : <TrendingDown className="h-3 w-3" />}
@@ -256,7 +256,7 @@ export default function BolsaHorasPage() {
                             </td>
                             <td className="px-4 py-2 text-slate-700">{entrada.concepto}</td>
                             <td className={cn("px-4 py-2 text-right font-semibold",
-                              entrada.tipo === "ACUMULACION" ? "text-green-600" : "text-red-500")}>
+                              entrada.tipo === "ACUMULACION" ? "text-emerald-600" : "text-red-500")}>
                               {entrada.tipo === "ACUMULACION" ? "+" : "-"}{formatHoras(entrada.horas)}
                             </td>
                             <td className="px-4 py-2">
@@ -298,7 +298,7 @@ export default function BolsaHorasPage() {
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ACUMULACION">
-                      <span className="flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5 text-green-600" /> Acumulación</span>
+                      <span className="flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5 text-emerald-600" /> Acumulación</span>
                     </SelectItem>
                     <SelectItem value="CONSUMO">
                       <span className="flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5 text-red-500" /> Consumo</span>
@@ -325,7 +325,7 @@ export default function BolsaHorasPage() {
                 onChange={(e) => setForm((f) => ({ ...f, fecha: e.target.value }))} />
             </div>
             <div className={cn("rounded-lg p-3 text-sm flex items-center gap-2",
-              form.tipo === "ACUMULACION" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600")}>
+              form.tipo === "ACUMULACION" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600")}>
               {form.tipo === "ACUMULACION"
                 ? <TrendingUp className="h-4 w-4 shrink-0" />
                 : <TrendingDown className="h-4 w-4 shrink-0" />}

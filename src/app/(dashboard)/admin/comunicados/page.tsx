@@ -124,7 +124,7 @@ export default function AdminComunicadosPage() {
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <h3 className="font-semibold text-slate-900">{c.titulo}</h3>
                       {c.publicado
-                        ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Publicado</span>
+                        ? <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Publicado</span>
                         : <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">Borrador</span>}
                     </div>
                     <p className="text-sm text-slate-600 line-clamp-2">{c.contenido}</p>

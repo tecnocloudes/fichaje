@@ -69,7 +69,7 @@ interface TipoAusencia {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const COLORES = ["#6366f1", "#ef4444", "#f59e0b", "#10b981", "#ec4899", "#06b6d4", "#8b5cf6", "#f97316", "#84cc16", "#6b7280"];
+const COLORES = ["#5B5FE9", "#ef4444", "#f59e0b", "#10b981", "#ec4899", "#06b6d4", "#8b5cf6", "#f97316", "#84cc16", "#6b7280"];
 
 const EVENTOS_NOTIF = [
   { key: "Ausencias", label: "Ausencias", desc: "Solicitudes y cambios de estado de ausencias" },
@@ -116,7 +116,7 @@ export default function ConfiguracionPage() {
   const [generatingVapid, setGeneratingVapid] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
   const [tipoForm, setTipoForm] = useState({
-    nombre: "", color: "#6366f1", pagada: true,
+    nombre: "", color: "#5B5FE9", pagada: true,
     requiereAprobacion: true, diasMaximos: "",
   });
 
@@ -579,7 +579,7 @@ export default function ConfiguracionPage() {
                       <code className="flex-1 text-xs bg-slate-50 border rounded px-3 py-2 text-slate-600 break-all">
                         {config.pushVapidPublicKey}
                       </code>
-                      <span className="flex-shrink-0 text-green-500"><Check className="h-4 w-4" /></span>
+                      <span className="flex-shrink-0 text-emerald-500"><Check className="h-4 w-4" /></span>
                     </div>
                   ) : (
                     <div className="mt-1 flex items-center gap-2">

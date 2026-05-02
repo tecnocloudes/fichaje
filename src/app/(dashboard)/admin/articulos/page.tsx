@@ -151,7 +151,7 @@ export default function AdminArticulosPage() {
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="text-xs bg-[var(--primary-light)] text-[var(--primary)] px-2 py-0.5 rounded-full font-medium capitalize">{a.categoria}</span>
                       {a.publicado
-                        ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Publicado</span>
+                        ? <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Publicado</span>
                         : <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Borrador</span>}
                     </div>
                     <h3 className="font-semibold text-slate-900 truncate">{a.titulo}</h3>

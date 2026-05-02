@@ -40,8 +40,8 @@ interface Ausencia {
 }
 
 const ESTADO_CONFIG = {
-  PENDIENTE: { label: "Pendiente", color: "bg-yellow-100 text-yellow-700", icon: Clock },
-  APROBADA: { label: "Aprobada", color: "bg-green-100 text-green-700", icon: CheckCircle },
+  PENDIENTE: { label: "Pendiente", color: "bg-amber-100 text-amber-700", icon: Clock },
+  APROBADA: { label: "Aprobada", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle },
   RECHAZADA: { label: "Rechazada", color: "bg-red-100 text-red-700", icon: XCircle },
   CANCELADA: { label: "Cancelada", color: "bg-slate-100 text-slate-600", icon: X },
 };

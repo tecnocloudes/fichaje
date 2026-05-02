@@ -9,7 +9,7 @@ import { es } from "date-fns/locale";
 
 interface Documento { id: string; nombre: string; descripcion?: string; url?: string; tipo: string; createdAt: string; }
 const TIPO_COLOR: Record<string, string> = {
-  contrato: "bg-blue-100 text-blue-700", nomina: "bg-green-100 text-green-700",
+  contrato: "bg-sky-100 text-sky-700", nomina: "bg-emerald-100 text-emerald-700",
   certificado: "bg-purple-100 text-purple-700", formacion: "bg-amber-100 text-amber-700", otro: "bg-slate-100 text-slate-600",
 };
 
