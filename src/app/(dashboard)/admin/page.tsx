@@ -55,25 +55,12 @@ interface Stats {
   ausenciasPendientes: number;
 }
 
-function Avatar({ nombre, apellidos, size = "sm" }: { nombre: string; apellidos: string; size?: "sm" | "md" }) {
-  const initials = `${nombre[0] ?? ""}${apellidos[0] ?? ""}`.toUpperCase();
-  const colors = ["bg-indigo-500", "bg-purple-500", "bg-blue-500", "bg-emerald-500", "bg-rose-500", "bg-amber-500"];
-  const color = colors[(nombre.charCodeAt(0) + apellidos.charCodeAt(0)) % colors.length];
-  return (
-    <div className={cn(
-      "rounded-full flex items-center justify-center text-white font-semibold shrink-0",
-      size === "sm" ? "w-8 h-8 text-xs" : "w-10 h-10 text-sm",
-      color
-    )}>
-      {initials}
-    </div>
-  );
-}
+import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 
 const PRIORIDAD_COLOR: Record<string, string> = {
-  ALTA: "bg-red-100 text-red-700",
-  MEDIA: "bg-amber-100 text-amber-700",
-  BAJA: "bg-gray-100 text-gray-600",
+  ALTA: "bg-red-50 text-red-800",
+  MEDIA: "bg-amber-50 text-amber-800",
+  BAJA: "bg-slate-100 text-slate-600",
 };
 
 export default function AdminDashboardPage() {
@@ -114,11 +101,11 @@ export default function AdminDashboardPage() {
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
 
       {/* Welcome banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-800 p-6 text-white">
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--primary-dark)] p-6 text-white">
         <div className="relative z-10">
-          <p className="text-indigo-200 text-sm capitalize">{fechaFormateada}</p>
+          <p className="text-white/80 text-sm capitalize">{fechaFormateada}</p>
           <h1 className="text-2xl font-bold mt-1">{greeting} 👋</h1>
-          <p className="text-indigo-200 text-sm mt-2">
+          <p className="text-white/80 text-sm mt-2">
             {stats
               ? `${stats.trabajando} empleados trabajando ahora · ${stats.ausenciasPendientes} ausencias pendientes`
               : "Cargando datos..."}
@@ -140,19 +127,19 @@ export default function AdminDashboardPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Empleados", value: stats?.totalEmpleados ?? "—", icon: Users, color: "text-indigo-600", bg: "bg-indigo-50" },
-          { label: "Trabajando", value: stats?.trabajando ?? "—", icon: UserCheck, color: "text-green-600", bg: "bg-green-50" },
+          { label: "Empleados", value: stats?.totalEmpleados ?? "—", icon: Users, color: "text-[var(--primary)]", bg: "bg-[var(--primary-light)]" },
+          { label: "Trabajando", value: stats?.trabajando ?? "—", icon: UserCheck, color: "text-emerald-600", bg: "bg-emerald-50" },
           { label: "En pausa", value: stats?.enPausa ?? "—", icon: Coffee, color: "text-amber-600", bg: "bg-amber-50" },
           { label: "Ausentes", value: stats?.ausentes ?? "—", icon: UserX, color: "text-red-500", bg: "bg-red-50" },
         ].map((s) => (
           <Card key={s.label}>
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center gap-3">
-                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", s.bg)}>
+                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", s.bg)}>
                   <s.icon className={cn("h-5 w-5", s.color)} />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">{s.label}</p>
+                  <p className="text-xs text-slate-500">{s.label}</p>
                   <p className={cn("text-2xl font-bold", s.color)}>{s.value}</p>
                 </div>
               </div>
@@ -168,25 +155,25 @@ export default function AdminDashboardPage() {
         <Card className="lg:col-span-2">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
               Who&apos;s in
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {loading ? (
               <div className="space-y-3">
-                {[1, 2, 3].map((i) => <div key={i} className="h-8 bg-gray-100 rounded animate-pulse" />)}
+                {[1, 2, 3].map((i) => <div key={i} className="h-8 bg-slate-100 rounded animate-pulse" />)}
               </div>
             ) : !whosIn ? null : (
               <>
                 {whosIn.trabajando.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Trabajando</p>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Trabajando</p>
                     <div className="flex flex-wrap gap-2">
                       {whosIn.trabajando.map((p) => (
-                        <div key={p.id} className="flex items-center gap-1.5 bg-green-50 border border-green-100 rounded-full pl-1 pr-3 py-1">
-                          <Avatar nombre={p.nombre} apellidos={p.apellidos} />
-                          <span className="text-sm font-medium text-gray-800">{p.nombre} {p.apellidos}</span>
+                        <div key={p.id} className="flex items-center gap-1.5 bg-emerald-50 rounded-full pl-1 pr-3 py-1">
+                          <EmployeeAvatar nombre={p.nombre} apellidos={p.apellidos} seed={p.id} />
+                          <span className="text-sm font-medium text-slate-800">{p.nombre} {p.apellidos}</span>
                         </div>
                       ))}
                     </div>
@@ -194,12 +181,12 @@ export default function AdminDashboardPage() {
                 )}
                 {whosIn.enPausa.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">En pausa</p>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">En pausa</p>
                     <div className="flex flex-wrap gap-2">
                       {whosIn.enPausa.map((p) => (
-                        <div key={p.id} className="flex items-center gap-1.5 bg-amber-50 border border-amber-100 rounded-full pl-1 pr-3 py-1">
-                          <Avatar nombre={p.nombre} apellidos={p.apellidos} />
-                          <span className="text-sm font-medium text-gray-800">{p.nombre} {p.apellidos}</span>
+                        <div key={p.id} className="flex items-center gap-1.5 bg-amber-50 rounded-full pl-1 pr-3 py-1">
+                          <EmployeeAvatar nombre={p.nombre} apellidos={p.apellidos} seed={p.id} />
+                          <span className="text-sm font-medium text-slate-800">{p.nombre} {p.apellidos}</span>
                         </div>
                       ))}
                     </div>
@@ -207,12 +194,12 @@ export default function AdminDashboardPage() {
                 )}
                 {whosIn.ausente.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ausentes</p>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Ausentes</p>
                     <div className="flex flex-wrap gap-2">
                       {whosIn.ausente.map((p) => (
-                        <div key={p.id} className="flex items-center gap-1.5 bg-red-50 border border-red-100 rounded-full pl-1 pr-3 py-1">
-                          <Avatar nombre={p.nombre} apellidos={p.apellidos} />
-                          <span className="text-sm font-medium text-gray-800">{p.nombre} {p.apellidos}</span>
+                        <div key={p.id} className="flex items-center gap-1.5 bg-red-50 rounded-full pl-1 pr-3 py-1">
+                          <EmployeeAvatar nombre={p.nombre} apellidos={p.apellidos} seed={p.id} />
+                          <span className="text-sm font-medium text-slate-800">{p.nombre} {p.apellidos}</span>
                         </div>
                       ))}
                     </div>
@@ -220,19 +207,19 @@ export default function AdminDashboardPage() {
                 )}
                 {whosIn.sinFichar.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Sin fichar</p>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Sin fichar</p>
                     <div className="flex flex-wrap gap-2">
                       {whosIn.sinFichar.map((p) => (
-                        <div key={p.id} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-3 py-1">
-                          <Avatar nombre={p.nombre} apellidos={p.apellidos} />
-                          <span className="text-sm text-gray-500">{p.nombre} {p.apellidos}</span>
+                        <div key={p.id} className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-full pl-1 pr-3 py-1">
+                          <EmployeeAvatar nombre={p.nombre} apellidos={p.apellidos} seed={p.id} />
+                          <span className="text-sm text-slate-500">{p.nombre} {p.apellidos}</span>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
                 {!whosIn.trabajando.length && !whosIn.enPausa.length && !whosIn.ausente.length && !whosIn.sinFichar.length && (
-                  <p className="text-gray-400 text-sm text-center py-6">No hay empleados registrados todavía</p>
+                  <p className="text-slate-400 text-sm text-center py-6">No hay empleados registrados todavía</p>
                 )}
               </>
             )}
@@ -245,12 +232,12 @@ export default function AdminDashboardPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
-                <Gift className="h-4 w-4 text-pink-500" /> Próximos cumpleaños
+                <Gift className="h-4 w-4 text-rose-500" /> Próximos cumpleaños
               </CardTitle>
             </CardHeader>
             <CardContent>
               {!data?.proximosCumpleanos.length ? (
-                <p className="text-sm text-gray-400 py-2">Sin cumpleaños próximos</p>
+                <p className="text-sm text-slate-400 py-2">Sin cumpleaños próximos</p>
               ) : (
                 <div className="space-y-3">
                   {data.proximosCumpleanos.map((c) => {
@@ -258,10 +245,10 @@ export default function AdminDashboardPage() {
                     const label = c.diasRestantes === 0 ? "¡Hoy!" : c.diasRestantes === 1 ? "Mañana" : format(fecha, "d MMM", { locale: es });
                     return (
                       <div key={c.id} className="flex items-center gap-3">
-                        <Avatar nombre={c.nombre} apellidos={c.apellidos} />
+                        <EmployeeAvatar nombre={c.nombre} apellidos={c.apellidos} seed={c.id} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{c.nombre} {c.apellidos}</p>
-                          <p className="text-xs text-gray-500">{label}</p>
+                          <p className="text-sm font-medium text-slate-900 truncate">{c.nombre} {c.apellidos}</p>
+                          <p className="text-xs text-slate-500">{label}</p>
                         </div>
                         {c.diasRestantes === 0 && <span className="text-lg">🎂</span>}
                       </div>
@@ -276,14 +263,14 @@ export default function AdminDashboardPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
-                <Flag className="h-4 w-4 text-indigo-500" /> Próximos festivos
+                <Flag className="h-4 w-4 text-[var(--primary)]" /> Próximos festivos
               </CardTitle>
             </CardHeader>
             <CardContent>
               {!data?.proximosFestivos.length ? (
                 <div className="space-y-1">
-                  <p className="text-sm text-gray-400">Sin festivos configurados</p>
-                  <Link href="/admin/configuracion" className="text-xs text-indigo-600 hover:underline">Añadir festivos →</Link>
+                  <p className="text-sm text-slate-400">Sin festivos configurados</p>
+                  <Link href="/admin/configuracion" className="text-xs text-[var(--primary)] hover:underline">Añadir festivos →</Link>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -292,12 +279,12 @@ export default function AdminDashboardPage() {
                     return (
                       <div key={f.id} className="flex items-center gap-3">
                         <div className="text-center w-10 shrink-0">
-                          <p className="text-xs text-gray-400 uppercase">{format(fecha, "MMM", { locale: es })}</p>
-                          <p className="text-lg font-bold text-indigo-700 leading-tight">{format(fecha, "d")}</p>
+                          <p className="text-xs text-slate-400 uppercase">{format(fecha, "MMM", { locale: es })}</p>
+                          <p className="text-lg font-bold text-[var(--primary)] leading-tight">{format(fecha, "d")}</p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{f.nombre}</p>
-                          <p className="text-xs text-gray-400 capitalize">{f.ambito}</p>
+                          <p className="text-sm font-medium text-slate-900">{f.nombre}</p>
+                          <p className="text-xs text-slate-400 capitalize">{f.ambito}</p>
                         </div>
                       </div>
                     );
@@ -317,34 +304,34 @@ export default function AdminDashboardPage() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
-                <CheckSquare className="h-4 w-4 text-indigo-600" /> Tareas activas
+                <CheckSquare className="h-4 w-4 text-[var(--primary)]" /> Tareas activas
               </CardTitle>
-              <Link href="/admin/tareas" className="text-xs text-indigo-600 hover:underline">Ver todas →</Link>
+              <Link href="/admin/tareas" className="text-xs text-[var(--primary)] hover:underline">Ver todas →</Link>
             </div>
           </CardHeader>
           <CardContent>
             {!data?.tareasActivas.length ? (
               <div className="text-center py-6">
-                <CheckSquare className="h-8 w-8 text-gray-200 mx-auto mb-2" />
-                <p className="text-sm text-gray-400">No hay tareas activas</p>
-                <Link href="/admin/tareas" className="text-xs text-indigo-600 hover:underline mt-1 block">Crear tarea →</Link>
+                <CheckSquare className="h-8 w-8 text-slate-200 mx-auto mb-2" />
+                <p className="text-sm text-slate-400">No hay tareas activas</p>
+                <Link href="/admin/tareas" className="text-xs text-[var(--primary)] hover:underline mt-1 block">Crear tarea →</Link>
               </div>
             ) : (
               <div className="space-y-2">
                 {data.tareasActivas.map((t) => (
-                  <div key={t.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50">
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
+                  <div key={t.id} className="flex items-start gap-3 p-2 rounded-md hover:bg-slate-50">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] mt-1.5 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{t.titulo}</p>
+                      <p className="text-sm font-medium text-slate-900 truncate">{t.titulo}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-medium", PRIORIDAD_COLOR[t.prioridad] ?? "bg-gray-100 text-gray-600")}>
+                        <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-medium", PRIORIDAD_COLOR[t.prioridad] ?? "bg-slate-100 text-slate-600")}>
                           {t.prioridad}
                         </span>
                         {t.asignadoA && (
-                          <span className="text-xs text-gray-400">{t.asignadoA.nombre} {t.asignadoA.apellidos}</span>
+                          <span className="text-xs text-slate-400">{t.asignadoA.nombre} {t.asignadoA.apellidos}</span>
                         )}
                         {t.fechaLimite && (
-                          <span className="text-xs text-gray-400">{format(new Date(t.fechaLimite), "d MMM", { locale: es })}</span>
+                          <span className="text-xs text-slate-400">{format(new Date(t.fechaLimite), "d MMM", { locale: es })}</span>
                         )}
                       </div>
                     </div>
@@ -363,20 +350,20 @@ export default function AdminDashboardPage() {
           <CardContent>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "Empleados", href: "/admin/empleados", icon: Users, color: "bg-blue-50 text-blue-700" },
+                { label: "Empleados", href: "/admin/empleados", icon: Users, color: "bg-sky-50 text-sky-700" },
                 { label: "Ausencias", href: "/admin/ausencias", icon: Calendar, color: "bg-amber-50 text-amber-700", badge: stats?.ausenciasPendientes },
-                { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone, color: "bg-purple-50 text-purple-700" },
-                { label: "Informes", href: "/admin/informes", icon: CheckSquare, color: "bg-green-50 text-green-700" },
+                { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone, color: "bg-violet-50 text-violet-700" },
+                { label: "Informes", href: "/admin/informes", icon: CheckSquare, color: "bg-emerald-50 text-emerald-700" },
               ].map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="relative flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all group"
+                  className="relative flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/40 transition-colors group"
                 >
-                  <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", item.color)}>
+                  <div className={cn("w-9 h-9 rounded-md flex items-center justify-center", item.color)}>
                     <item.icon className="h-4 w-4" />
                   </div>
-                  <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-700">{item.label}</span>
+                  <span className="text-sm font-medium text-slate-700 group-hover:text-[var(--primary)]">{item.label}</span>
                   {item.badge !== undefined && item.badge > 0 && (
                     <span className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
                       {item.badge}

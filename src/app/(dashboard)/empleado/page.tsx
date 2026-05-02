@@ -108,10 +108,10 @@ function tipoLabel(tipo: TipoFichaje): string {
 
 function tipoColor(tipo: TipoFichaje): string {
   const colors: Record<TipoFichaje, string> = {
-    ENTRADA: "bg-emerald-100 text-emerald-700",
-    PAUSA: "bg-amber-100 text-amber-700",
-    VUELTA_PAUSA: "bg-sky-100 text-sky-700",
-    SALIDA: "bg-rose-100 text-rose-700",
+    ENTRADA: "bg-emerald-50 text-emerald-800",
+    PAUSA: "bg-amber-50 text-amber-800",
+    VUELTA_PAUSA: "bg-sky-50 text-sky-800",
+    SALIDA: "bg-red-50 text-red-800",
   };
   return colors[tipo];
 }
@@ -483,8 +483,8 @@ export default function EmpleadoPage() {
   if (loadingEstado) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-4 text-muted-foreground">
-          <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
+        <div className="flex flex-col items-center gap-4 text-slate-500">
+          <Loader2 className="h-10 w-10 animate-spin text-[var(--primary)]" />
           <p className="text-sm">Cargando estado de fichaje…</p>
         </div>
       </div>
@@ -499,7 +499,7 @@ export default function EmpleadoPage() {
           "overflow-hidden border-2 transition-colors duration-500",
           estado === "trabajando" && "border-emerald-200",
           estado === "en_pausa" && "border-amber-200",
-          estado === "sin_fichar" && "border-border"
+          estado === "sin_fichar" && "border-slate-200"
         )}
       >
         {/* Gradient accent bar */}
@@ -508,14 +508,14 @@ export default function EmpleadoPage() {
             "h-2 w-full transition-colors duration-500",
             estado === "trabajando" && "bg-emerald-500",
             estado === "en_pausa" && "bg-amber-500",
-            estado === "sin_fichar" && "bg-indigo-500"
+            estado === "sin_fichar" && "bg-[var(--primary)]"
           )}
         />
 
         <CardContent className="p-8 space-y-6">
           {/* Date */}
           <div className="text-center">
-            <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
+            <p className="text-slate-500 text-sm font-medium tracking-wide uppercase">
               {formatFechaLarga(now)}
             </p>
           </div>
@@ -523,9 +523,9 @@ export default function EmpleadoPage() {
           {/* Clock */}
           <div className="text-center">
             <div className="inline-flex items-center justify-center gap-2 mb-1">
-              <Clock className="h-6 w-6 text-indigo-400" />
+              <Clock className="h-6 w-6 text-[var(--primary)]" />
             </div>
-            <p className="text-7xl font-mono font-bold tracking-tight text-foreground tabular-nums">
+            <p className="text-7xl font-mono font-bold tracking-tight text-slate-900 tabular-nums">
               {formatHora(now)}
             </p>
           </div>
@@ -534,7 +534,7 @@ export default function EmpleadoPage() {
           <div className="flex items-center justify-between px-2">
             <EstadoBadge />
             {minutosHoy > 0 && (
-              <span className="text-sm text-muted-foreground font-medium">
+              <span className="text-sm text-slate-500 font-medium">
                 {minutosATexto(minutosHoy)}
               </span>
             )}
@@ -542,14 +542,14 @@ export default function EmpleadoPage() {
 
           {/* Tienda */}
           {tiendaNombre && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
-              <Store className="h-4 w-4 text-indigo-400 shrink-0" />
+            <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 rounded-md px-3 py-2">
+              <Store className="h-4 w-4 text-[var(--primary)] shrink-0" />
               <span>{tiendaNombre}</span>
             </div>
           )}
 
           {/* Divider */}
-          <div className="border-t border-border" />
+          <div className="border-t border-slate-200" />
 
           {/* Action buttons (con gate por device) */}
           <DeviceGatedFichaje>
@@ -567,25 +567,25 @@ export default function EmpleadoPage() {
       {fichajesHoy.length > 0 && (
         <Card>
           <CardContent className="p-0">
-            <div className="px-6 py-4 border-b border-border">
-              <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h2 className="font-semibold text-sm text-slate-500 uppercase tracking-wide">
                 Registros de hoy
               </h2>
             </div>
-            <ul className="divide-y divide-border">
+            <ul className="divide-y divide-slate-100">
               {fichajesHoy.map((f) => (
                 <li key={f.id} className="flex items-center justify-between px-6 py-3">
                   <div className="flex items-center gap-3">
                     <span
                       className={cn(
-                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
                         tipoColor(f.tipo)
                       )}
                     >
                       {tipoLabel(f.tipo)}
                     </span>
                   </div>
-                  <span className="font-mono text-sm font-medium text-foreground">
+                  <span className="font-mono text-sm font-medium text-slate-900">
                     {formatHoraCorta(f.timestamp)}
                   </span>
                 </li>
