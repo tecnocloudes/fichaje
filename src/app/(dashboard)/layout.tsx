@@ -34,7 +34,7 @@ async function DashboardLayout({
       user={sessionUser}
       branding={{
         logo: branding?.logo ?? null,
-        appNombre: branding?.appNombre ?? "HR Suite",
+        appNombre: branding?.appNombre ?? "empleaIA",
         nombre: branding?.nombre ?? null,
       }}
     >

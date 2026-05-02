@@ -2,13 +2,13 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "TelecomFichaje",
-    short_name: "Fichaje",
-    description: "Sistema de fichaje para tiendas de telecomunicaciones",
+    name: "empleaIA",
+    short_name: "empleaIA",
+    description: "empleaIA — gestión inteligente de personal con IA",
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",
-    theme_color: "#6366f1",
+    theme_color: "#5B5FE9",
     orientation: "portrait-primary",
     categories: ["business", "productivity"],
     icons: [

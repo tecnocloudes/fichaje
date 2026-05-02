@@ -32,7 +32,7 @@ export async function runMigrations() {
         ADD COLUMN IF NOT EXISTS "favicon"       TEXT,
         ADD COLUMN IF NOT EXISTS "colorPrimario" TEXT NOT NULL DEFAULT '#6366f1',
         ADD COLUMN IF NOT EXISTS "colorSidebar"  TEXT NOT NULL DEFAULT '#1e1b4b',
-        ADD COLUMN IF NOT EXISTS "appNombre"     TEXT NOT NULL DEFAULT 'TelecomFichaje';
+        ADD COLUMN IF NOT EXISTS "appNombre"     TEXT NOT NULL DEFAULT 'empleaIA';
     `);
 
     // ── PreferenciasNotificacion table ─────────────────────────────────────

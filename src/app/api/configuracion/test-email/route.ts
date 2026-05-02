@@ -19,11 +19,11 @@ export const POST = withTenant(async () => {
 
     await sendEmail(
       user.email ?? "",
-      "Email de prueba – TelecomFichaje",
-      `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
-        <h2 style="color:#6366f1">Prueba de configuración SMTP</h2>
+      "Email de prueba – empleaIA",
+      `<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto">
+        <h2 style="color:#5B5FE9">Prueba de configuración SMTP</h2>
         <p>La configuración de correo electrónico funciona correctamente.</p>
-        <p style="color:#6b7280;font-size:14px">Servidor: ${config.emailHost}:${config.emailPort}</p>
+        <p style="color:#475569;font-size:14px">Servidor: ${config.emailHost}:${config.emailPort}</p>
       </div>`
     );
 

@@ -20,12 +20,12 @@ export const GET = withTenant(async () => {
     });
     return Response.json({
       logo: config?.logo ?? null,
-      appNombre: config?.appNombre ?? "HR Suite",
+      appNombre: config?.appNombre ?? "empleaIA",
       colorPrimario: config?.colorPrimario ?? "#6366f1",
       colorSidebar: config?.colorSidebar ?? "#1e1b4b",
     });
   } catch {
-    return Response.json({ logo: null, appNombre: "HR Suite", colorPrimario: "#6366f1", colorSidebar: "#1e1b4b" });
+    return Response.json({ logo: null, appNombre: "empleaIA", colorPrimario: "#6366f1", colorSidebar: "#1e1b4b" });
   }
 });
 

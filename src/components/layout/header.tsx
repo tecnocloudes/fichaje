@@ -74,7 +74,7 @@ function getPageTitle(pathname: string): string {
     const key = parts.slice(0, i).join("/");
     if (PAGE_TITLES[key]) return PAGE_TITLES[key];
   }
-  return "TelecomFichaje";
+  return "empleaIA";
 }
 
 function getInitials(name?: string | null): string {

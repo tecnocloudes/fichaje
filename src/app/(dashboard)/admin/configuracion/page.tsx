@@ -129,8 +129,8 @@ export default function ConfiguracionPage() {
     emailActivo: false, emailHost: "", emailPort: 587, emailSecure: true,
     emailUser: "", emailPassword: "", emailFrom: "",
     pushActivo: false, pushVapidPublicKey: null,
-    appNombre: "TelecomFichaje", logo: null, favicon: null,
-    colorPrimario: "#6366f1", colorSidebar: "#1e1b4b",
+    appNombre: "empleaIA", logo: null, favicon: null,
+    colorPrimario: "#5B5FE9", colorSidebar: "#1e1b4b",
     zonaHoraria: "Europe/Madrid", diasLaborables: [1, 2, 3, 4, 5],
   };
 
@@ -649,7 +649,7 @@ export default function ConfiguracionPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Nombre de la app</Label>
-                  <Input className="mt-1" placeholder="TelecomFichaje"
+                  <Input className="mt-1" placeholder="empleaIA"
                     value={config.appNombre}
                     onChange={(e) => setConfig((c) => c && ({ ...c, appNombre: e.target.value }))} />
                   <p className="text-xs text-slate-400 mt-1">Aparece en el título del navegador y emails</p>

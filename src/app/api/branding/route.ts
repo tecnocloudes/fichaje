@@ -17,7 +17,7 @@ export const GET = withTenant(async () => {
 
     return Response.json(
       {
-        appNombre: config?.appNombre ?? "TelecomFichaje",
+        appNombre: config?.appNombre ?? "empleaIA",
         nombre: config?.nombre ?? "Mi Empresa",
         colorPrimario: config?.colorPrimario ?? "#6366f1",
         colorSidebar: config?.colorSidebar ?? "#1e1b4b",
@@ -32,7 +32,7 @@ export const GET = withTenant(async () => {
     );
   } catch {
     return Response.json({
-      appNombre: "TelecomFichaje",
+      appNombre: "empleaIA",
       nombre: "Mi Empresa",
       colorPrimario: "#6366f1",
       colorSidebar: "#1e1b4b",
