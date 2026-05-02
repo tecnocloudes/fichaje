@@ -1,14 +1,28 @@
 @import "tailwindcss";
 
 @theme inline {
+  /* Identidad empleaIA — paleta primary (índigo vibrante) */
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-light: var(--primary-light);
+  --color-primary-lighter: var(--primary-lighter);
+
+  /* Texto */
+  --color-text-dark: var(--text-dark);
+  --color-text-body: var(--text-body);
+  --color-text-muted: var(--text-muted);
+
+  /* Backgrounds */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-bg-subtle: var(--bg-subtle);
+
+  /* shadcn aliases (mantener compat) */
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -18,9 +32,38 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* Estados semánticos empleaIA */
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-success-text: var(--success-text);
+
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-text: var(--warning-text);
+
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-text: var(--danger-text);
+
+  --color-neutral: var(--neutral);
+  --color-neutral-bg: var(--neutral-bg);
+  --color-neutral-text: var(--neutral-text);
+
+  /* Sidebar tokens (claro empleaIA) */
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-active-bg: var(--sidebar-active-bg);
+  --color-sidebar-active-text: var(--sidebar-active-text);
+  --color-sidebar-active-border: var(--sidebar-active-border);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-text-muted: var(--sidebar-text-muted);
+  --color-sidebar-hover-bg: var(--sidebar-hover-bg);
+
   --font-sans: var(--font-inter);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -29,50 +72,67 @@
 
 :root {
   --radius: 0.5rem;
-  /* Sidebar – overridden at runtime by layout.tsx */
-  --sidebar-bg: #1e1b4b;
-  --sidebar-highlight: #312e81;
-  --background: #ffffff;
-  --foreground: #0f0f11;
-  --card: #ffffff;
-  --card-foreground: #0f0f11;
-  --popover: #ffffff;
-  --popover-foreground: #0f0f11;
-  --primary: #6366f1;
+
+  /* Primary — índigo vibrante empleaIA */
+  --primary: #5b5fe9;
+  --primary-dark: #4a4ecc;
+  --primary-light: #eef0fe;
+  --primary-lighter: #7b7ff0;
   --primary-foreground: #ffffff;
+
+  /* Texto */
+  --text-dark: #0f172a;
+  --text-body: #475569;
+  --text-muted: #94a3b8;
+
+  /* Backgrounds */
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --bg-subtle: #f8fafc;
+
+  /* shadcn aliases */
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
   --secondary: #f1f5f9;
-  --secondary-foreground: #1e293b;
+  --secondary-foreground: #0f172a;
   --muted: #f8fafc;
-  --muted-foreground: #64748b;
-  --accent: #ede9fe;
-  --accent-foreground: #4f46e5;
+  --muted-foreground: #475569;
+  --accent: #eef0fe;
+  --accent-foreground: #5b5fe9;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #6366f1;
-}
+  --border-strong: #cbd5e1;
+  --input: #cbd5e1;
+  --ring: #5b5fe9;
 
-.dark {
-  --background: #09090b;
-  --foreground: #fafafa;
-  --card: #18181b;
-  --card-foreground: #fafafa;
-  --popover: #18181b;
-  --popover-foreground: #fafafa;
-  --primary: #818cf8;
-  --primary-foreground: #1e1b4b;
-  --secondary: #27272a;
-  --secondary-foreground: #fafafa;
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
-  --accent: #27272a;
-  --accent-foreground: #fafafa;
-  --destructive: #dc2626;
-  --destructive-foreground: #fafafa;
-  --border: #27272a;
-  --input: #27272a;
-  --ring: #818cf8;
+  /* Estados semánticos */
+  --success: #10b981;
+  --success-bg: #ecfdf5;
+  --success-text: #065f46;
+
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+  --warning-text: #92400e;
+
+  --danger: #ef4444;
+  --danger-bg: #fef2f2;
+  --danger-text: #991b1b;
+
+  --neutral: #94a3b8;
+  --neutral-bg: #f1f5f9;
+  --neutral-text: #475569;
+
+  /* Sidebar (claro empleaIA) — overridable en runtime */
+  --sidebar-bg: #ffffff;
+  --sidebar-active-bg: #eef0fe;
+  --sidebar-active-text: #5b5fe9;
+  --sidebar-active-border: #5b5fe9;
+  --sidebar-text: #475569;
+  --sidebar-text-muted: #94a3b8;
+  --sidebar-hover-bg: #f8fafc;
 }
 
 *,
@@ -89,13 +149,13 @@ body {
   height: 100%;
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont,
+  font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar */
+/* Scrollbar — sutil empleaIA */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -104,11 +164,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #c7d2fe;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #a5b4fc;
+  background: #94a3b8;
 }
 
 /* Animations */
