@@ -151,5 +151,14 @@ function tenantSubdomainHandler(req: AuthedRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons|.*\\.png$).*)"],
+  // Excluimos del proxy:
+  // - assets de Next (_next/static, _next/image)
+  // - favicon estático en public/ (legacy)
+  // - directorio /icons
+  // - cualquier .png
+  // - /icon y /apple-icon — generados por Next desde
+  //   src/app/icon.tsx y src/app/apple-icon.tsx (convención
+  //   App Router metadata). Sin esta exclusión, el proxy
+  //   redirige a /login al no haber sesión y rompe el favicon.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons|icon|apple-icon|.*\\.png$).*)"],
 };
