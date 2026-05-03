@@ -10,12 +10,15 @@
  *   7 productos addon × 1 price (monthly) = 7 prices de addons.
  *   Total: 10 productos + 13 prices.
  *
- * Importes (placeholder, configurables — se podrán ajustar manualmente
- * en Stripe dashboard tras el bootstrap):
- *   starter: 19€/mes, 190€/año
- *   pro:     49€/mes, 490€/año
- *   enterprise: 149€/mes, 1490€/año
- *   addons: variables por producto.
+ * Modelo de planes Fase 8 — pricing per-seat con mínimo mensual:
+ *   starter:    4 €/empleado/mes,  mínimo 39 €/mes
+ *   pro:        5 €/empleado/mes,  mínimo 49 €/mes
+ *   enterprise: 6 €/empleado/mes,  mínimo 99 €/mes
+ *
+ * IMPORTANTE: este script crea precios `flat` placeholder que dejan
+ * la configuración inicial en Stripe; el operador ajusta luego en
+ * dashboard.stripe.com a `unit_amount + transform_quantity` para
+ * facturar per-employee con mínimo. Ver docs/arch/billing.md (TODO).
  *
  * Al finalizar, emite a stdout las env vars STRIPE_PRICE_* listas para
  * copiar al .env.
@@ -38,19 +41,24 @@ type ProductDef = {
 };
 
 const PRODUCTS: ProductDef[] = [
+  // Planes — los `amountCents` son los **mínimos mensuales**
+  // (placeholder en Stripe). En dashboard.stripe.com el operador
+  // ajusta a per-seat con `unit_amount = pricePerEmployeeCents` y
+  // `transform_quantity` o `tiers` para honrar el mínimo.
+  // Anualidad: 10 meses (descuento implícito de 2 meses).
   {
     fichajeKey: "plan_starter",
     name: "Plan Starter",
-    description: "Hasta 10 empleados, 1 tienda. Funciones esenciales.",
+    description: "Para equipos pequeños — 4 €/empleado/mes (mín. 39 €/mes). Hasta 10 empleados, 1 sede.",
     prices: [
-      { lookupKey: "plan_starter_monthly", amountCents: 1900, interval: "month" },
-      { lookupKey: "plan_starter_yearly", amountCents: 19000, interval: "year" },
+      { lookupKey: "plan_starter_monthly", amountCents: 3900, interval: "month" },
+      { lookupKey: "plan_starter_yearly", amountCents: 39000, interval: "year" },
     ],
   },
   {
     fichajeKey: "plan_pro",
     name: "Plan Pro",
-    description: "Hasta 50 empleados, multi-tienda, turnos, exportaciones.",
+    description: "Para empresas en crecimiento — 5 €/empleado/mes (mín. 49 €/mes). Hasta 50 empleados, 5 sedes, turnos, geofencing.",
     prices: [
       { lookupKey: "plan_pro_monthly", amountCents: 4900, interval: "month" },
       { lookupKey: "plan_pro_yearly", amountCents: 49000, interval: "year" },
@@ -59,10 +67,10 @@ const PRODUCTS: ProductDef[] = [
   {
     fichajeKey: "plan_enterprise",
     name: "Plan Enterprise",
-    description: "Empleados ilimitados, integraciones, SLA, dedicado.",
+    description: "Para empresas grandes — 6 €/empleado/mes (mín. 99 €/mes). Empleados ilimitados, branding, dominio, API, SSO, SLA.",
     prices: [
-      { lookupKey: "plan_enterprise_monthly", amountCents: 14900, interval: "month" },
-      { lookupKey: "plan_enterprise_yearly", amountCents: 149000, interval: "year" },
+      { lookupKey: "plan_enterprise_monthly", amountCents: 9900, interval: "month" },
+      { lookupKey: "plan_enterprise_yearly", amountCents: 99000, interval: "year" },
     ],
   },
   {
