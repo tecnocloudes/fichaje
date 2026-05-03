@@ -40,6 +40,13 @@ function getRootDomain(): string {
 }
 
 export default auth(async (req) => {
+  // Healthcheck: bypass total. Lo invocan Dokploy/Docker/k8s con el
+  // host del balanceador interno o por IP — no debe pasar por la
+  // resolución de tenant (que daría 301 a app.<root>).
+  if (req.nextUrl.pathname === "/api/healthz") {
+    return NextResponse.next();
+  }
+
   const host = req.headers.get("host");
   const resolved = await resolveTenant(host);
 
