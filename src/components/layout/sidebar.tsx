@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
-  Building2, LayoutDashboard, Store, Users, Calendar, FileText,
+  LayoutDashboard, Store, Users, Calendar, FileText,
   Settings, LogOut, Clock, ClipboardList, CalendarCheck, BarChart3,
   Bell, ChevronLeft, ChevronRight, UserCheck, CheckSquare, Megaphone,
   BookOpen, FolderOpen, Rocket, GraduationCap, Target, CreditCard,
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { EmpleaIALogo } from "@/components/brand/empleaia-logo";
+import { EmpleaIALogo, EmpleaIASymbol } from "@/components/brand/empleaia-logo";
 
 interface SessionUser {
   id: string;
@@ -341,17 +341,17 @@ export function Sidebar({
                   className="h-9 max-w-[180px] object-contain"
                 />
               ) : (
-                <EmpleaIALogo appNombre={branding?.appNombre} />
+                <EmpleaIALogo appNombre={branding?.appNombre} symbolSize={32} wordmarkFontSize={20} />
               )}
             </div>
           )}
           {collapsed && (
-            <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--primary)] overflow-hidden">
+            <div className="mx-auto flex items-center justify-center overflow-hidden">
               {branding?.logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={branding.logo} alt="" className="h-9 w-9 object-contain" />
+                <img src={branding.logo} alt="" className="h-9 w-9 object-contain rounded-lg" />
               ) : (
-                <Building2 className="h-4 w-4 text-white" />
+                <EmpleaIASymbol size={32} />
               )}
             </div>
           )}

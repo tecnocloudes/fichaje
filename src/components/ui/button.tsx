@@ -2,41 +2,40 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+// Variants alineadas 1:1 con la landing (.btn-primary, .btn-secondary,
+// .btn-ghost): rounded-lg, font-semibold, padding 5x3 (=20px x 12px),
+// hover primary-dark / bg-subtle. La landing usa shadow-sm en primary.
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        // Primary empleaIA — bg primary, hover primary-dark.
+        // .btn-primary
         default:
-          "bg-[var(--primary)] text-white hover:bg-[var(--primary-dark)] active:bg-[var(--primary-dark)]",
-        // Destructive: rojo, sin sombra agresiva.
+          "bg-[var(--primary)] text-white shadow-sm hover:bg-[var(--primary-dark)] active:bg-[var(--primary-dark)]",
         destructive:
-          "bg-red-500 text-white hover:bg-red-600 active:bg-red-700",
-        // Secondary "outline": white + border slate-300, hover slate-50.
+          "bg-red-500 text-white shadow-sm hover:bg-red-600 active:bg-red-700",
+        // .btn-secondary
         outline:
-          "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900",
-        // Secondary "fill": slate-100.
+          "border border-[var(--color-border,#E2E8F0)] bg-white text-[var(--color-text-dark,#0F172A)] hover:bg-[var(--bg-subtle,#F8FAFC)]",
         secondary:
-          "bg-slate-100 text-slate-700 hover:bg-slate-200",
-        // Ghost: text primary, hover primary-light.
+          "bg-[var(--bg-subtle,#F8FAFC)] text-[var(--color-text-dark,#0F172A)] hover:bg-slate-100",
+        // .btn-ghost
         ghost:
-          "text-slate-700 hover:bg-slate-100",
-        // Ghost-primary: para CTAs ligeras.
+          "font-medium text-[var(--color-text-dark,#0F172A)] hover:bg-[var(--bg-subtle,#F8FAFC)]",
         "ghost-primary":
-          "text-[var(--primary)] hover:bg-[var(--primary-light)]",
-        // Link
+          "font-medium text-[var(--primary)] hover:bg-[var(--primary-light)]",
         link:
-          "text-[var(--primary)] underline-offset-4 hover:underline",
+          "font-medium text-[var(--primary)] underline-offset-4 hover:underline",
       },
       size: {
-        // sm = px-3 py-1.5 text-sm (h-8)
-        sm: "h-8 px-3 text-sm",
-        // md = px-4 py-2 text-sm (h-9) — alineado con default
-        default: "h-9 px-4 text-sm",
-        md: "h-9 px-4 text-sm",
-        // lg = px-5 py-2.5 text-base (h-11)
-        lg: "h-11 px-5 text-base",
+        // sm = h-9 px-4 (densidad media)
+        sm: "h-9 px-4 text-sm",
+        // default = .btn-primary de landing: py-3 px-5 text-sm => h-11
+        default: "h-11 px-5 text-sm",
+        md: "h-11 px-5 text-sm",
+        // lg = más grande para CTAs hero (px-8 py-4)
+        lg: "h-12 px-8 text-base",
         icon: "h-9 w-9",
       },
     },

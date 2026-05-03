@@ -1,22 +1,23 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Identidad empleaIA — paleta primary (índigo vibrante) */
+  /* Identidad empleaIA — paleta primary (1:1 con landing) */
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-dark: var(--primary-dark);
   --color-primary-light: var(--primary-light);
   --color-primary-lighter: var(--primary-lighter);
 
-  /* Texto */
+  /* Texto (nombres de la landing) */
   --color-text-dark: var(--text-dark);
   --color-text-body: var(--text-body);
   --color-text-muted: var(--text-muted);
 
-  /* Backgrounds */
+  /* Backgrounds (nombres de la landing) */
+  --color-bg-primary: var(--background);
+  --color-bg-subtle: var(--bg-subtle);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-bg-subtle: var(--bg-subtle);
 
   /* shadcn aliases (mantener compat) */
   --color-card: var(--card);

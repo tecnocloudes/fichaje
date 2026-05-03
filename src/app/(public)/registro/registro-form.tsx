@@ -5,6 +5,9 @@ import { registrarTenantAction, type RegistroResult } from "./actions";
 
 type Plan = { key: string; name: string; description: string | null };
 
+const INPUT_CLASS =
+  "flex h-10 w-full rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white px-3.5 py-2 text-sm text-[var(--color-text-dark,#0F172A)] placeholder:text-[var(--color-text-muted,#94A3B8)] focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 transition-colors";
+
 export function RegistroForm({ planes }: { planes: Plan[] }) {
   const [state, formAction, pending] = useActionState<
     RegistroResult | null,
@@ -12,40 +15,44 @@ export function RegistroForm({ planes }: { planes: Plan[] }) {
   >(async (_prev, fd) => registrarTenantAction(_prev, fd), null);
 
   return (
-    <form action={formAction} style={{ display: "grid", gap: 16 }}>
-      <label style={{ display: "grid", gap: 4 }}>
-        <span>Nombre de la empresa</span>
+    <form action={formAction} className="grid gap-4">
+      <label className="grid gap-1.5">
+        <span className="text-sm font-medium text-[var(--color-text-dark,#0F172A)]">Nombre de la empresa</span>
         <input
           name="nombre"
           required
           minLength={2}
           maxLength={80}
-          style={inputStyle}
+          className={INPUT_CLASS}
         />
       </label>
 
-      <label style={{ display: "grid", gap: 4 }}>
-        <span>Email del administrador</span>
-        <input name="email" type="email" required style={inputStyle} />
+      <label className="grid gap-1.5">
+        <span className="text-sm font-medium text-[var(--color-text-dark,#0F172A)]">Email del administrador</span>
+        <input name="email" type="email" required className={INPUT_CLASS} />
       </label>
 
-      <label style={{ display: "grid", gap: 4 }}>
-        <span>Subdominio (3-31 chars, minúsculas, dígitos, _)</span>
-        <div style={{ display: "flex", alignItems: "center" }}>
+      <label className="grid gap-1.5">
+        <span className="text-sm font-medium text-[var(--color-text-dark,#0F172A)]">
+          Subdominio <span className="text-[var(--color-text-muted,#94A3B8)] font-normal">(3-31 chars, minúsculas, dígitos, _)</span>
+        </span>
+        <div className="flex items-stretch gap-1.5">
           <input
             name="slug"
             required
             pattern="^[a-z][a-z0-9_]{2,30}$"
             placeholder="acme"
-            style={{ ...inputStyle, flex: 1 }}
+            className={`${INPUT_CLASS} flex-1`}
           />
-          <span style={{ marginLeft: 8, color: "#6b7280" }}>.ficha.tecnocloud.es</span>
+          <span className="inline-flex items-center text-sm text-[var(--color-text-muted,#94A3B8)] px-2 whitespace-nowrap">
+            .empleaia.es
+          </span>
         </div>
       </label>
 
-      <label style={{ display: "grid", gap: 4 }}>
-        <span>Plan</span>
-        <select name="planKey" required style={inputStyle}>
+      <label className="grid gap-1.5">
+        <span className="text-sm font-medium text-[var(--color-text-dark,#0F172A)]">Plan</span>
+        <select name="planKey" required className={INPUT_CLASS}>
           {planes.map((p) => (
             <option key={p.key} value={p.key}>
               {p.name}
@@ -55,26 +62,19 @@ export function RegistroForm({ planes }: { planes: Plan[] }) {
         </select>
       </label>
 
-      <label style={{ display: "grid", gap: 4 }}>
-        <span>Periodo de facturación</span>
-        <select name="billingPeriod" required style={inputStyle}>
+      <label className="grid gap-1.5">
+        <span className="text-sm font-medium text-[var(--color-text-dark,#0F172A)]">Periodo de facturación</span>
+        <select name="billingPeriod" required className={INPUT_CLASS}>
           <option value="monthly">Mensual</option>
           <option value="yearly">Anual (2 meses gratis)</option>
         </select>
       </label>
 
       {state?.kind === "error" && (
-        <div
-          style={{
-            background: "#fef2f2",
-            color: "#991b1b",
-            padding: 12,
-            borderRadius: 6,
-          }}
-        >
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-800">
           {state.message}
           {state.suggestions && state.suggestions.length > 0 && (
-            <div style={{ marginTop: 8 }}>
+            <div className="mt-2">
               Prueba con: {state.suggestions.join(", ")}
             </div>
           )}
@@ -84,26 +84,10 @@ export function RegistroForm({ planes }: { planes: Plan[] }) {
       <button
         type="submit"
         disabled={pending}
-        style={{
-          background: "#6366f1",
-          color: "white",
-          padding: "12px 24px",
-          borderRadius: 6,
-          border: "none",
-          fontSize: 16,
-          cursor: pending ? "not-allowed" : "pointer",
-          opacity: pending ? 0.6 : 1,
-        }}
+        className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {pending ? "Procesando…" : "Continuar al pago"}
       </button>
     </form>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  padding: "8px 12px",
-  border: "1px solid #d1d5db",
-  borderRadius: 6,
-  fontSize: 16,
-};

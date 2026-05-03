@@ -13,7 +13,7 @@ export default function Page() {
           <p className="text-sm text-slate-500 mt-2">No se ha cargado nada a tu tarjeta.</p>
           <Link
             href="/registro"
-            className="mt-6 inline-flex items-center justify-center gap-2 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-dark)] px-5 py-2.5 text-base font-medium text-white transition-colors"
+            className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors"
           >
             Volver al registro
           </Link>

@@ -36,7 +36,7 @@ function generatePassword(): string {
 }
 
 const INPUT_CLASS =
-  "flex h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 transition-colors";
+  "flex h-10 w-full rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white px-3.5 py-2 text-sm text-[var(--color-text-dark,#0F172A)] placeholder:text-[var(--color-text-muted,#94A3B8)] focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 transition-colors";
 
 function SetPasswordForm() {
   const router = useRouter();
@@ -178,7 +178,7 @@ function SetPasswordForm() {
         <button
           type="button"
           onClick={handleGenerate}
-          className="flex flex-1 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white px-3.5 py-2 text-sm font-medium text-[var(--color-text-dark,#0F172A)] transition-colors hover:bg-[var(--bg-subtle,#F8FAFC)]"
         >
           <Shuffle className="h-4 w-4" />
           Generar contraseña
@@ -188,10 +188,10 @@ function SetPasswordForm() {
           <button
             type="button"
             onClick={handleCopy}
-            className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+            className={`flex items-center justify-center gap-2 rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors ${
               copied
                 ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                : "border-[var(--color-border,#E2E8F0)] bg-white text-[var(--color-text-dark,#0F172A)] hover:bg-[var(--bg-subtle,#F8FAFC)]"
             }`}
           >
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -209,7 +209,7 @@ function SetPasswordForm() {
       <button
         type="submit"
         disabled={loading}
-        className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--primary)] hover:bg-[var(--primary-dark)] px-5 py-2.5 text-base font-medium text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 focus-visible:ring-offset-1 disabled:opacity-60"
+        className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30 focus-visible:ring-offset-1 disabled:opacity-60"
       >
         <KeyRound className="h-4 w-4" />
         {loading ? "Guardando..." : "Establecer contraseña"}
