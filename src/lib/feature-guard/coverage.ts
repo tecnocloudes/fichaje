@@ -43,9 +43,15 @@ export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
   // ya implica plan sin multi-tienda. Marker para el coverage check.
   { endpointGlob: "__informative__", featureKey: "multi_tienda", guard: "hasFeature" },
   { endpointGlob: "fichajes/route.ts", featureKey: "geofencing", guard: "hasFeature" },
-  // fichaje_movil / fichaje_tablet: gates de UI (desactivar botón
-  // según dispositivo). Plan §5.1. No hay endpoint dedicado — el
-  // POST /api/fichajes es CORE (RD 8/2019, no se puede gatear).
+  // geo_clock_in: añade lat/lon a cada fichaje (informativo, sin
+  // validación contra rango). Lo lee POST /api/fichajes para decidir
+  // si grabar coordenadas. Distinto de geofencing (validación radio).
+  { endpointGlob: "fichajes/route.ts", featureKey: "geo_clock_in", guard: "hasFeature" },
+  // web_clock_in / fichaje_movil / fichaje_tablet: gates de UI
+  // (desactivar botón según dispositivo). Plan §5.1. No hay endpoint
+  // dedicado — el POST /api/fichajes es CORE (RD 8/2019, no se puede
+  // gatear). El front mira hasFeature y decide qué botón mostrar.
+  { endpointGlob: "__ui_gate__", featureKey: "web_clock_in", guard: "hasFeature" },
   { endpointGlob: "__ui_gate__", featureKey: "fichaje_movil", guard: "hasFeature" },
   { endpointGlob: "__ui_gate__", featureKey: "fichaje_tablet", guard: "hasFeature" },
   { endpointGlob: "bolsa-horas/**/route.ts", featureKey: "bolsa_horas", guard: "withFeature" },
@@ -64,6 +70,10 @@ export const FEATURE_COVERAGE: readonly CoverageEntry[] = [
   // endpoints planeados Fase 6+. Cobertura declarativa hasta entonces.
   { endpointGlob: "v1/**/route.ts", featureKey: "api_access", guard: "withFeature" },
   { endpointGlob: "webhooks-tenant/route.ts", featureKey: "webhooks", guard: "withFeature" },
+  // sso_saml: gestión SSO/SAML — endpoint planeado Fase 9. Cobertura
+  // declarativa. El front muestra "Iniciar con SSO" si feature activa;
+  // los IdP se configuran en /admin/configuracion/sso.
+  { endpointGlob: "auth/sso/**/route.ts", featureKey: "sso_saml", guard: "withFeature", deferred: true },
   { endpointGlob: "integraciones/nomina/route.ts", featureKey: "integraciones_nomina", guard: "withFeature" },
   { endpointGlob: "firmas/route.ts", featureKey: "firma_electronica", guard: "withFeature" },
 

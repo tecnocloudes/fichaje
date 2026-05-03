@@ -3,13 +3,13 @@
  *
  * Idempotente: cada upsert por `key`/`slug`. Re-ejecutable sin duplicar.
  *
- * Catálogo según §11.3 + §11.4 de docs/arch/00-auditoria.md:
- *   - 3 planes (starter, pro, enterprise).
- *   - 32 features (4 limits + 24 booleans + 4 quotas).
- *   - 96 plan_features (3 × 32, todos los planes con todas las features
- *     explícitamente; las que "no aplican" llevan valor 0/false para que
- *     getLimit/hasFeature sean predecibles).
+ * Catálogo Fase 8 (estructura definitiva 3 planes empleaIA):
+ *   - 3 planes (starter, pro, enterprise) con tagline + sortOrder.
+ *   - 35 features (4 limits + 27 booleans + 4 quotas).
+ *   - 105 plan_features (3 × 35) con valores explícitos por plan.
  *   - 45 reserved_slugs.
+ *
+ * Precios y posicionamiento UI: ver src/lib/billing/plan-pricing.ts.
  *
  * super_admins: tabla queda vacía. Se crea con `npm run super-admin:create`.
  */
@@ -30,19 +30,19 @@ const PLANS = [
   {
     key: "starter",
     name: "Plan Starter",
-    description: "Empresa pequeña, 1 local, hasta 10 empleados.",
+    description: "Para equipos pequeños — hasta 10 empleados, 1 sede.",
     sortOrder: 10,
   },
   {
     key: "pro",
     name: "Plan Pro",
-    description: "Multi-tienda, turnos, bolsa de horas, exportaciones.",
+    description: "Para empresas en crecimiento — multi-sede, turnos, geofencing.",
     sortOrder: 20,
   },
   {
     key: "enterprise",
     name: "Plan Enterprise",
-    description: "Sin límites, integraciones, dominio propio, API.",
+    description: "Para empresas grandes — branding, dominio propio, API, SSO, SLA.",
     sortOrder: 30,
   },
 ] as const;
@@ -50,15 +50,19 @@ const PLANS = [
 const FEATURES: FeatureDef[] = [
   // ─── Limits (4) ────────────────────────────────────────────────────────────
   { key: "max_employees", name: "Máximo de empleados activos", type: "limit" },
-  { key: "max_tiendas", name: "Máximo de tiendas activas", type: "limit" },
+  { key: "max_tiendas", name: "Máximo de sedes activas", type: "limit" },
   { key: "historial_meses", name: "Meses de histórico accesibles", type: "limit" },
   { key: "max_storage_mb", name: "Almacenamiento (MB)", type: "limit" },
 
-  // ─── Booleans — funcionalidad (13) ─────────────────────────────────────────
-  { key: "multi_tienda", name: "Multi-tienda (>1 ubicación)", type: "boolean" },
-  { key: "geofencing", name: "Geofencing por GPS", type: "boolean" },
+  // ─── Booleans — fichaje (3) ────────────────────────────────────────────────
+  { key: "web_clock_in", name: "Fichaje desde web", type: "boolean" },
   { key: "fichaje_movil", name: "Fichaje desde móvil/PWA", type: "boolean" },
   { key: "fichaje_tablet", name: "Fichaje desde tablet compartida", type: "boolean" },
+
+  // ─── Booleans — funcionalidad (12) ─────────────────────────────────────────
+  { key: "multi_tienda", name: "Multi-sede (>1 ubicación)", type: "boolean" },
+  { key: "geofencing", name: "Geofencing por GPS", type: "boolean" },
+  { key: "geo_clock_in", name: "Geolocalización en cada fichaje", type: "boolean" },
   { key: "bolsa_horas", name: "Bolsa de horas", type: "boolean" },
   { key: "turnos_publicacion", name: "Planificación y publicación de turnos", type: "boolean" },
   { key: "ausencias_aprobacion", name: "Flujo de aprobación de ausencias", type: "boolean" },
@@ -69,12 +73,13 @@ const FEATURES: FeatureDef[] = [
   { key: "notificaciones_email", name: "Notificaciones por email", type: "boolean" },
   { key: "notificaciones_push", name: "Notificaciones push", type: "boolean" },
 
-  // ─── Booleans — exportación e integración (7) ──────────────────────────────
+  // ─── Booleans — exportación e integración (8) ──────────────────────────────
   { key: "export_csv", name: "Exportar a CSV", type: "boolean" },
   { key: "export_excel", name: "Exportar a Excel (XLSX)", type: "boolean" },
   { key: "export_pdf", name: "Exportar a PDF", type: "boolean" },
   { key: "api_access", name: "API REST pública", type: "boolean" },
   { key: "webhooks", name: "Webhooks salientes", type: "boolean" },
+  { key: "sso_saml", name: "SSO / SAML", type: "boolean" },
   { key: "integraciones_nomina", name: "Integraciones con software de nómina", type: "boolean" },
   { key: "firma_electronica", name: "Firma electrónica de documentos", type: "boolean" },
 
@@ -91,21 +96,27 @@ const FEATURES: FeatureDef[] = [
   { key: "api_calls_dia", name: "Llamadas API por día", type: "quota", quotaPeriod: "dia" },
 ];
 
-// Cuadro §11.4 de la auditoría. Valores explícitos por plan; null = unlimited.
-// Un valor 0 en quota api_calls_dia cuando api_access=false significa "no
-// aplica": la quota nunca se consume porque el endpoint está cerrado.
+// Estructura definitiva (Fase 8):
+//   STARTER  10 emps · 1 sede  · web/móvil/tablet · ausencias · PDF/Excel
+//   PRO      50 emps · 5 sedes · turnos · geo · bolsa horas · push · más exports
+//   ENTERPR. ∞       · ∞       · branding · dominio · API · webhooks · SSO · firma
 type PlanFeatureValue = boolean | number | null;
 
 const PLAN_FEATURE_VALUES: Record<string, Record<string, PlanFeatureValue>> = {
   starter: {
+    // Limits
     max_employees: 10,
     max_tiendas: 1,
     historial_meses: 6,
     max_storage_mb: 500,
-    multi_tienda: false,
-    geofencing: true,
+    // Fichaje
+    web_clock_in: true,
     fichaje_movil: true,
-    fichaje_tablet: false,
+    fichaje_tablet: true,
+    // Funcionalidad
+    multi_tienda: false,
+    geofencing: false,
+    geo_clock_in: false,
     bolsa_horas: false,
     turnos_publicacion: false,
     ausencias_aprobacion: true,
@@ -115,31 +126,40 @@ const PLAN_FEATURE_VALUES: Record<string, Record<string, PlanFeatureValue>> = {
     documentos: true,
     notificaciones_email: true,
     notificaciones_push: false,
+    // Exportación e integración
     export_csv: false,
-    export_excel: false,
+    export_excel: true,
     export_pdf: true,
     api_access: false,
     webhooks: false,
+    sso_saml: false,
     integraciones_nomina: false,
     firma_electronica: false,
+    // Branding y operaciones
     branding_personalizado: false,
     dominio_personalizado: false,
     auditoria_avanzada: false,
     people_analytics: false,
+    // Quotas
     emails_mes: 200,
-    pushs_mes: 1000,
+    pushs_mes: 0,
     exports_mes: 5,
     api_calls_dia: 0,
   },
   pro: {
+    // Limits
     max_employees: 50,
     max_tiendas: 5,
     historial_meses: 36,
     max_storage_mb: 5000,
-    multi_tienda: true,
-    geofencing: true,
+    // Fichaje
+    web_clock_in: true,
     fichaje_movil: true,
     fichaje_tablet: true,
+    // Funcionalidad
+    multi_tienda: true,
+    geofencing: true,
+    geo_clock_in: true,
     bolsa_horas: true,
     turnos_publicacion: true,
     ausencias_aprobacion: true,
@@ -149,31 +169,40 @@ const PLAN_FEATURE_VALUES: Record<string, Record<string, PlanFeatureValue>> = {
     documentos: true,
     notificaciones_email: true,
     notificaciones_push: true,
+    // Exportación e integración
     export_csv: true,
     export_excel: true,
     export_pdf: true,
     api_access: false,
     webhooks: false,
+    sso_saml: false,
     integraciones_nomina: false,
     firma_electronica: false,
-    branding_personalizado: true,
+    // Branding y operaciones
+    branding_personalizado: false,
     dominio_personalizado: false,
     auditoria_avanzada: true,
     people_analytics: false,
+    // Quotas
     emails_mes: 5000,
     pushs_mes: null,
     exports_mes: 100,
     api_calls_dia: 0,
   },
   enterprise: {
+    // Limits
     max_employees: null,
     max_tiendas: null,
     historial_meses: 120,
     max_storage_mb: 50000,
-    multi_tienda: true,
-    geofencing: true,
+    // Fichaje
+    web_clock_in: true,
     fichaje_movil: true,
     fichaje_tablet: true,
+    // Funcionalidad
+    multi_tienda: true,
+    geofencing: true,
+    geo_clock_in: true,
     bolsa_horas: true,
     turnos_publicacion: true,
     ausencias_aprobacion: true,
@@ -183,17 +212,21 @@ const PLAN_FEATURE_VALUES: Record<string, Record<string, PlanFeatureValue>> = {
     documentos: true,
     notificaciones_email: true,
     notificaciones_push: true,
+    // Exportación e integración
     export_csv: true,
     export_excel: true,
     export_pdf: true,
     api_access: true,
     webhooks: true,
+    sso_saml: true,
     integraciones_nomina: true,
     firma_electronica: true,
+    // Branding y operaciones
     branding_personalizado: true,
     dominio_personalizado: true,
     auditoria_avanzada: true,
     people_analytics: true,
+    // Quotas
     emails_mes: null,
     pushs_mes: null,
     exports_mes: null,
@@ -258,7 +291,7 @@ export async function seedMaster(prisma: PrismaClient): Promise<void> {
     });
   }
 
-  // 2. Features (32 upserts).
+  // 2. Features (35 upserts).
   for (const f of FEATURES) {
     await prisma.feature.upsert({
       where: { key: f.key },
@@ -278,7 +311,7 @@ export async function seedMaster(prisma: PrismaClient): Promise<void> {
     });
   }
 
-  // 3. PlanFeatures (96 upserts: 3 planes × 32 features).
+  // 3. PlanFeatures (105 upserts: 3 planes × 35 features).
   for (const [planKey, featureValues] of Object.entries(PLAN_FEATURE_VALUES)) {
     const plan = await prisma.plan.findUniqueOrThrow({ where: { key: planKey } });
     for (const [featureKey, value] of Object.entries(featureValues)) {
