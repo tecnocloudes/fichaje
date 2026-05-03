@@ -44,7 +44,8 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description: "empleaIA — gestión inteligente de personal con IA",
     manifest: "/manifest.webmanifest",
-    icons: { icon: "/favicon.ico" },
+    // El favicon se genera dinámicamente desde src/app/icon.tsx
+    // (convención Next 13+). Apple touch icon: src/app/apple-icon.tsx.
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",
