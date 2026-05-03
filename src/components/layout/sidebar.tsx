@@ -10,7 +10,7 @@ import {
   Bell, ChevronLeft, ChevronRight, UserCheck, CheckSquare, Megaphone,
   BookOpen, FolderOpen, Rocket, GraduationCap, Target, CreditCard,
   TrendingUp, GitBranch, Globe, Timer, Search, Star, Send, Pen,
-  MessageSquare, ChevronDown, ChevronUp, Landmark,
+  MessageSquare, ChevronDown, Landmark, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -109,6 +109,13 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
             { label: "Firma electrónica", href: "/admin/firma", icon: Pen, proximamente: true },
             { label: "Organigrama", href: "/admin/organigrama", icon: GitBranch, proximamente: true },
             { label: "Grupo", href: "/admin/grupo", icon: Globe, proximamente: true },
+          ],
+        },
+        {
+          key: "facturacion",
+          label: "FACTURACIÓN",
+          items: [
+            { label: "Planes y facturación", href: "/admin/planes", icon: Sparkles },
           ],
         },
       ],
