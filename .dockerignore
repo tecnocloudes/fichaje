@@ -1,11 +1,37 @@
+# Git / VCS
 .git
 .gitignore
+.gitattributes
+
+# Node / build artifacts
+node_modules
+.next
+out
+build
+dist
+coverage
+.swc
+.turbo
+.vercel
+.cache
+
+# Env files (NUNCA copiarlos a la imagen)
 .env
 .env.local
 .env.development
-node_modules
-.next
-README.md
-Dockerfile
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+
+# OS / editor
+.DS_Store
+.idea
+.vscode
+*.swp
+*.log
+
+# Docker meta
 docker-compose.yml
-.dockerignore
+docker-compose.*.yml

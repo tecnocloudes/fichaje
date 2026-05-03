@@ -52,6 +52,7 @@
     "clsx": "^2.1.1",
     "concurrently": "^9.2.1",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.4.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^1.7.0",
@@ -70,6 +71,7 @@
     "resend": "^6.10.0",
     "stripe": "^22.1.0",
     "tailwind-merge": "^3.5.0",
+    "tsx": "^4.21.0",
     "web-push": "^3.6.7",
     "xlsx": "^0.18.5",
     "zod": "^4.3.6",
@@ -88,12 +90,10 @@
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "@vitest/coverage-v8": "^4.1.5",
-    "dotenv": "^17.4.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "tailwindcss": "^4",
     "testcontainers": "^11.14.0",
-    "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.5"
   }
