@@ -6,11 +6,35 @@
 
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { prismaMaster } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe/client";
 import { getPlanPriceId } from "@/lib/stripe/price-catalog";
 import { registroSchema, suggestSlugAlternatives } from "@/lib/registro/schema";
+
+/**
+ * Resuelve la URL base pública del subdominio app a partir del request.
+ * Prioridad:
+ *   1. STRIPE_CHECKOUT_BASE_URL (env override).
+ *   2. NEXTAUTH_URL (canonical de la app).
+ *   3. host del request (con `https` por defecto si TENANT_ROOT_DOMAIN
+ *      no es localhost).
+ *
+ * Garantiza que en producción NO se filtre `localhost` ni `app.localhost`.
+ */
+async function resolveCheckoutBaseUrl(): Promise<string> {
+  const override = process.env.STRIPE_CHECKOUT_BASE_URL;
+  if (override) return override.replace(/\/$/, "");
+
+  const nextAuthUrl = process.env.NEXTAUTH_URL;
+  if (nextAuthUrl) return nextAuthUrl.replace(/\/$/, "");
+
+  const h = await headers();
+  const host = h.get("host") ?? "app.empleaia.es";
+  const proto = host.includes("localhost") ? "http" : "https";
+  return `${proto}://${host}`;
+}
 
 export type RegistroResult =
   | { kind: "ok"; redirectUrl: string } // server action redirige; este caso no se devuelve normalmente
@@ -113,10 +137,10 @@ export async function registrarTenantAction(
     customer_email: data.email,
     success_url:
       process.env.STRIPE_CHECKOUT_SUCCESS_URL ??
-      "http://app.localhost:3000/registro/exito?session_id={CHECKOUT_SESSION_ID}",
+      `${await resolveCheckoutBaseUrl()}/registro/exito?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:
       process.env.STRIPE_CHECKOUT_CANCEL_URL ??
-      "http://app.localhost:3000/registro/cancelado",
+      `${await resolveCheckoutBaseUrl()}/registro/cancelado`,
   });
 
   if (!session.url) {
