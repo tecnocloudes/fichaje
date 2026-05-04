@@ -30,7 +30,7 @@
  */
 
 import "dotenv/config";
-import { stripe } from "@/lib/stripe/client";
+import { stripe } from "../src/lib/stripe/client";
 import type Stripe from "stripe";
 
 type ProductDef = {

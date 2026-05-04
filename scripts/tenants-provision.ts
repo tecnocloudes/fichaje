@@ -23,10 +23,10 @@
  */
 
 import "dotenv/config";
-import { isValidTenantSlug } from "@/lib/tenant/quote";
-import { prismaMaster } from "@/lib/prisma";
-import { provisionTenantSchema } from "@/lib/tenant/provision";
-import { computeCurrentPeriod, isQuotaPeriod } from "@/lib/feature-guard/period";
+import { isValidTenantSlug } from "../src/lib/tenant/quote";
+import { prismaMaster } from "../src/lib/prisma";
+import { provisionTenantSchema } from "../src/lib/tenant/provision";
+import { computeCurrentPeriod, isQuotaPeriod } from "../src/lib/feature-guard/period";
 
 const USAGE = `
 tenants:provision <slug> <plan_key>

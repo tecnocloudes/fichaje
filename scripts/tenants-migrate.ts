@@ -27,8 +27,8 @@ import "dotenv/config";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { Client } from "pg";
-import { isValidTenantSlug, quoteSchemaName } from "@/lib/tenant/quote";
-import { prismaMaster } from "@/lib/prisma";
+import { isValidTenantSlug, quoteSchemaName } from "../src/lib/tenant/quote";
+import { prismaMaster } from "../src/lib/prisma";
 
 const USAGE = `
 tenants:migrate <slug>      Aplica migraciones del producto a tenant_<slug>.

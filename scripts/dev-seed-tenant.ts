@@ -24,8 +24,8 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { Client } from "pg";
-import { isValidTenantSlug, quoteSchemaName } from "@/lib/tenant/quote";
-import { prismaMaster } from "@/lib/prisma";
+import { isValidTenantSlug, quoteSchemaName } from "../src/lib/tenant/quote";
+import { prismaMaster } from "../src/lib/prisma";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 

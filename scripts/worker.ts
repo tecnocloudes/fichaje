@@ -14,8 +14,8 @@
 
 import "dotenv/config";
 import cron from "node-cron";
-import { cleanupPendingTenants } from "@/lib/worker/jobs/cleanup-pending";
-import { detectProvisioningStuck } from "@/lib/worker/jobs/detect-provisioning-stuck";
+import { cleanupPendingTenants } from "../src/lib/worker/jobs/cleanup-pending";
+import { detectProvisioningStuck } from "../src/lib/worker/jobs/detect-provisioning-stuck";
 
 console.log("[worker] arrancando…");
 
