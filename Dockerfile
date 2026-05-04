@@ -72,12 +72,17 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.tenant.ts ./prisma.config.tenant.ts
 
-# Scripts de migración de tenants y SQL idempotente.
+# src/lib/ — necesario en runtime para que tsx pueda resolver
+# `../src/lib/...` desde scripts/tenants-migrate.ts (commit 1646439:
+# alias @/ → paths relativos). El standalone de Next solo trae el
+# bundle compilado, no las fuentes TS, así que las copiamos aparte.
+COPY --from=builder --chown=nextjs:nodejs /app/src/lib ./src/lib
+
+# Scripts ejecutados con tsx en runtime + SQL idempotente.
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/tenants-migrate.ts ./scripts/tenants-migrate.ts
-COPY --from=builder --chown=nextjs:nodejs /app/src/lib/tenant/quote.ts ./scripts/_inline-quote.ts
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/sql ./scripts/sql
 
-# tsconfig + paths para que tsx resuelva @/* del script de migrations.
+# tsconfig — todavía referenciado por algunas dependencias de tsx.
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
 
 # Entrypoint.
