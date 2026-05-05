@@ -10,7 +10,7 @@ import {
   Bell, ChevronLeft, ChevronRight, UserCheck, CheckSquare, Megaphone,
   BookOpen, FolderOpen, Rocket, GraduationCap, Target, CreditCard,
   TrendingUp, GitBranch, Globe, Timer, Search, Star, Send, Pen,
-  MessageSquare, ChevronDown, Landmark, Sparkles, ShieldAlert,
+  MessageSquare, ChevronDown, Landmark, Sparkles, ShieldAlert, Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -73,7 +73,8 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
           label: "TALENTO",
           items: [
             { label: "Incorporaciones y bajas", href: "/admin/onboarding", icon: Rocket },
-            { label: "Reclutamiento", href: "/admin/reclutamiento", icon: Search, proximamente: true },
+            { label: "Reclutamiento", href: "/admin/reclutamiento", icon: Search },
+            { label: "Organigrama", href: "/admin/organigrama", icon: Network },
             { label: "Encuestas", href: "/admin/encuestas", icon: MessageSquare, proximamente: true },
             { label: "Evaluaciones", href: "/admin/evaluaciones", icon: Star, proximamente: true },
             { label: "Formación", href: "/admin/formacion", icon: GraduationCap, proximamente: true },
@@ -107,8 +108,7 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
             { label: "Documentos", href: "/admin/documentos", icon: FolderOpen },
             { label: "Informes", href: "/admin/informes", icon: BarChart3 },
             { label: "People Analytics", href: "/admin/people-analytics", icon: TrendingUp, proximamente: true },
-            { label: "Firma electrónica", href: "/admin/firma", icon: Pen, proximamente: true },
-            { label: "Organigrama", href: "/admin/organigrama", icon: GitBranch, proximamente: true },
+            { label: "Firma electrónica", href: "/admin/firma", icon: Pen },
             { label: "Grupo", href: "/admin/grupo", icon: Globe, proximamente: true },
           ],
         },

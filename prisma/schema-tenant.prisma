@@ -115,6 +115,15 @@ model User {
   denunciasInformante      Denuncia[]                @relation("DenunciaInformante")
   denunciasAsignadas       Denuncia[]                @relation("DenunciaAsignada")
   comentariosDenuncia      ComentarioDenuncia[]      @relation("ComentarioDenunciaAutor")
+  solicitudesFirmaRecibidas SolicitudFirma[]         @relation("SolicitudFirmaDestinatario")
+  solicitudesFirmaCreadas  SolicitudFirma[]          @relation("SolicitudFirmaSolicitante")
+  // Organigrama: jerarquía de mando self-reference.
+  managerId                String?
+  manager                  User?                     @relation("ManagerSubordinados", fields: [managerId], references: [id])
+  subordinados             User[]                    @relation("ManagerSubordinados")
+  // Reclutamiento: usuarios que crearon ofertas / gestionan candidatos.
+  ofertasCreadas           OfertaTrabajo[]           @relation("OfertaCreador")
+  candidatosCreados        Candidato[]               @relation("CandidatoCreador")
   preferenciasNotificacion PreferenciasNotificacion?
   pushSubscripciones       PushSubscripcion[]
   createdAt                DateTime                  @default(now())
@@ -342,26 +351,64 @@ model Documento {
   subidoPorId String
   subidoPor   User     @relation("DocumentoSubido", fields: [subidoPorId], references: [id])
   createdAt   DateTime @default(now())
-  firmas      Firma[]
+  firmas             Firma[]
+  solicitudesFirma   SolicitudFirma[] @relation("SolicitudFirmaDocumento")
 
   @@index([userId])
   @@index([subidoPorId])
 }
 
-// Firma electrónica de documentos. Plan D.2.
-// Stub: integración con DocuSign/proveedor real diferida a Fase 9.
-// Hoy registra el "intent" y el hash del documento al firmar (sello
-// temporal), suficiente para auditoría legal básica.
+// Firma electrónica de documentos. Plan D.2 + Sprint 1 #2.
+//
+// Flujo: el OWNER/MANAGER crea una SolicitudFirma sobre un documento
+// para uno o varios empleados. Cada empleado recibe la solicitud en
+// su bandeja de firmas (`/empleado/firmas`) y al firmar se crea un
+// registro `Firma` con el hash del documento, IP y user agent (sello
+// temporal con valor probatorio básico — ENISA "firma simple avanzada").
+//
+// Integración con proveedor real (DocuSign/Signaturit) diferida a Fase 9.
+
+enum EstadoSolicitudFirma {
+  pendiente
+  firmada
+  rechazada
+  expirada
+}
+
+model SolicitudFirma {
+  id                String                @id @default(cuid())
+  documentoId       String
+  documento         Documento             @relation("SolicitudFirmaDocumento", fields: [documentoId], references: [id], onDelete: Cascade)
+  destinatarioId    String
+  destinatario      User                  @relation("SolicitudFirmaDestinatario", fields: [destinatarioId], references: [id])
+  solicitadaPorId   String
+  solicitadaPor     User                  @relation("SolicitudFirmaSolicitante", fields: [solicitadaPorId], references: [id])
+  mensaje           String?
+  estado            EstadoSolicitudFirma  @default(pendiente)
+  expiraEn          DateTime?             @map("expira_en")
+  createdAt         DateTime              @default(now()) @map("created_at")
+  updatedAt         DateTime              @updatedAt      @map("updated_at")
+  firma             Firma?                @relation("SolicitudFirma")
+
+  @@index([destinatarioId])
+  @@index([documentoId])
+  @@index([estado])
+}
+
 model Firma {
-  id          String   @id @default(cuid())
-  documentoId String
-  documento   Documento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User      @relation("FirmaUsuario", fields: [userId], references: [id])
-  documentHash String  @map("document_hash")
-  ip          String?
-  userAgent   String?  @map("user_agent")
-  firmadoEn   DateTime @default(now()) @map("firmado_en")
+  id              String          @id @default(cuid())
+  documentoId     String
+  documento       Documento       @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User            @relation("FirmaUsuario", fields: [userId], references: [id])
+  // Vínculo opcional con la solicitud. Una firma "espontánea" del propio
+  // usuario sobre su documento NO requiere solicitud previa.
+  solicitudId     String?         @unique
+  solicitud       SolicitudFirma? @relation("SolicitudFirma", fields: [solicitudId], references: [id])
+  documentHash    String          @map("document_hash")
+  ip              String?
+  userAgent       String?         @map("user_agent")
+  firmadoEn       DateTime        @default(now()) @map("firmado_en")
 
   @@index([documentoId])
   @@index([userId])
@@ -531,4 +578,71 @@ model ComentarioDenuncia {
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([denunciaId])
+}
+
+// ─── Reclutamiento (ATS) ───────────────────────────────────────────────────────
+// Sprint 1 #3. Pipeline básico de selección: ofertas + candidatos.
+// Cada candidato avanza por estados kanban (recibido → preselec → entrevista
+// → oferta → contratado / rechazado). Los CV se almacenan como URL externa
+// para evitar la complejidad de blob storage en este MVP.
+
+enum EstadoOferta {
+  borrador
+  abierta
+  pausada
+  cerrada
+}
+
+enum EstadoCandidato {
+  recibido
+  preseleccionado
+  entrevista
+  oferta_enviada
+  contratado
+  rechazado
+}
+
+model OfertaTrabajo {
+  id              String        @id @default(cuid())
+  titulo          String
+  descripcion     String
+  departamento    String?
+  ubicacion       String?
+  modalidad       String?       // presencial / remoto / híbrido
+  salarioMinCents Int?          @map("salario_min_cents")
+  salarioMaxCents Int?          @map("salario_max_cents")
+  estado          EstadoOferta  @default(borrador)
+  fechaCierre     DateTime?     @map("fecha_cierre")
+  creadorId       String
+  creador         User          @relation("OfertaCreador", fields: [creadorId], references: [id])
+  candidatos      Candidato[]
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt      @map("updated_at")
+
+  @@index([estado])
+  @@index([creadorId])
+}
+
+model Candidato {
+  id           String          @id @default(cuid())
+  ofertaId     String
+  oferta       OfertaTrabajo   @relation(fields: [ofertaId], references: [id], onDelete: Cascade)
+  nombre       String
+  apellidos    String
+  email        String
+  telefono     String?
+  cvUrl        String?         @map("cv_url")
+  linkedinUrl  String?         @map("linkedin_url")
+  notas        String?
+  estado       EstadoCandidato @default(recibido)
+  // Quien lo creó (admin que añadió al candidato manualmente,
+  // o null si llegó vía portal público de la oferta).
+  creadorId    String?
+  creador      User?           @relation("CandidatoCreador", fields: [creadorId], references: [id])
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt      @map("updated_at")
+
+  @@index([ofertaId])
+  @@index([estado])
+  @@index([email])
 }
