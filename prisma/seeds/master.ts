@@ -61,6 +61,7 @@ const FEATURES: FeatureDef[] = [
 
   // ─── Booleans — funcionalidad (12) ─────────────────────────────────────────
   { key: "multi_tienda", name: "Multi-sede (>1 ubicación)", type: "boolean" },
+  { key: "multi_empresa", name: "Multi-empresa (>1 CIF en una cuenta)", type: "boolean" },
   { key: "geofencing", name: "Geofencing por GPS", type: "boolean" },
   { key: "geo_clock_in", name: "Geolocalización en cada fichaje", type: "boolean" },
   { key: "bolsa_horas", name: "Bolsa de horas", type: "boolean" },
@@ -72,6 +73,33 @@ const FEATURES: FeatureDef[] = [
   { key: "documentos", name: "Gestión documental por empleado", type: "boolean" },
   { key: "notificaciones_email", name: "Notificaciones por email", type: "boolean" },
   { key: "notificaciones_push", name: "Notificaciones push", type: "boolean" },
+
+  // ─── Booleans — gestión de personas (existentes en código, ahora con flag) ─
+  { key: "tareas", name: "Gestor de tareas y proyectos", type: "boolean" },
+  { key: "organigrama", name: "Organigrama interactivo", type: "boolean" },
+  { key: "reclutamiento", name: "Módulo de reclutamiento (ATS)", type: "boolean" },
+  { key: "evaluaciones", name: "Evaluaciones del desempeño", type: "boolean" },
+  { key: "encuestas_clima", name: "Encuestas de clima laboral", type: "boolean" },
+  { key: "objetivos", name: "Gestión de objetivos (OKRs)", type: "boolean" },
+  { key: "formacion", name: "Plataforma de formación (LMS)", type: "boolean" },
+  { key: "informes_avanzados", name: "Informes y estadísticas avanzados", type: "boolean" },
+
+  // ─── Booleans — finanzas (existentes en código, ahora con flag) ────────────
+  { key: "prenomina", name: "Preparación de nóminas (prenómina)", type: "boolean" },
+  { key: "envio_nominas", name: "Envío de nóminas a empleados", type: "boolean" },
+  { key: "control_gastos", name: "Control y gestión de gastos", type: "boolean" },
+  { key: "retribucion_flex", name: "Retribución flexible", type: "boolean" },
+  { key: "wallet", name: "Monedero / tarjetas para empleados", type: "boolean" },
+
+  // ─── Booleans — features nuevas (alineamiento con Sesame) ──────────────────
+  { key: "canal_denuncias", name: "Canal de denuncias (Ley 2/2023)", type: "boolean" },
+  { key: "asistente_ia", name: "Asistente IA (empleaIA AI)", type: "boolean" },
+  { key: "chat", name: "Chat interno", type: "boolean" },
+  { key: "face_id", name: "Fichaje con reconocimiento facial (Face ID)", type: "boolean" },
+  { key: "marketplace", name: "Marketplace de integraciones", type: "boolean" },
+  { key: "custom_requests", name: "Formularios y peticiones personalizadas", type: "boolean" },
+  { key: "reserva_espacios", name: "Reserva de espacios y mesas", type: "boolean" },
+  { key: "whatsapp_bot", name: "Asistente y notificaciones por WhatsApp", type: "boolean" },
 
   // ─── Booleans — exportación e integración (8) ──────────────────────────────
   { key: "export_csv", name: "Exportar a CSV", type: "boolean" },
@@ -96,79 +124,61 @@ const FEATURES: FeatureDef[] = [
   { key: "api_calls_dia", name: "Llamadas API por día", type: "quota", quotaPeriod: "dia" },
 ];
 
-// Estructura definitiva (Fase 8):
-//   STARTER  10 emps · 1 sede  · web/móvil/tablet · ausencias · PDF/Excel
-//   PRO      50 emps · 5 sedes · turnos · geo · bolsa horas · push · más exports
-//   ENTERPR. ∞       · ∞       · branding · dominio · API · webhooks · SSO · firma
+// Estructura definitiva alineada con Sesame (mínimo 15 usuarios global):
+//   STARTER  Time + base HR + nóminas + IA básica · 4 €/usuario · mín 60 €/mes
+//   PRO      Todo + cultura + reclutamiento avanzado · 5 €/usuario · mín 75 €/mes
+//   ENTERPR. Todo + branding + API + IA premium · 6 €/usuario · mín 90 €/mes
 type PlanFeatureValue = boolean | number | null;
 
 const PLAN_FEATURE_VALUES: Record<string, Record<string, PlanFeatureValue>> = {
   starter: {
     // Limits
-    max_employees: 10,
-    max_tiendas: 1,
-    historial_meses: 6,
-    max_storage_mb: 500,
+    max_employees: null,
+    max_tiendas: null,
+    historial_meses: 12,
+    max_storage_mb: 4000,
     // Fichaje
     web_clock_in: true,
     fichaje_movil: true,
     fichaje_tablet: true,
-    // Funcionalidad
-    multi_tienda: false,
-    geofencing: false,
-    geo_clock_in: false,
-    bolsa_horas: false,
-    turnos_publicacion: false,
-    ausencias_aprobacion: true,
-    onboarding_offboarding: false,
-    comunicados: true,
-    articulos: false,
-    documentos: true,
-    notificaciones_email: true,
-    notificaciones_push: false,
-    // Exportación e integración
-    export_csv: false,
-    export_excel: true,
-    export_pdf: true,
-    api_access: false,
-    webhooks: false,
-    sso_saml: false,
-    integraciones_nomina: false,
-    firma_electronica: false,
-    // Branding y operaciones
-    branding_personalizado: false,
-    dominio_personalizado: false,
-    auditoria_avanzada: false,
-    people_analytics: false,
-    // Quotas
-    emails_mes: 200,
-    pushs_mes: 0,
-    exports_mes: 5,
-    api_calls_dia: 0,
-  },
-  pro: {
-    // Limits
-    max_employees: 50,
-    max_tiendas: 5,
-    historial_meses: 36,
-    max_storage_mb: 5000,
-    // Fichaje
-    web_clock_in: true,
-    fichaje_movil: true,
-    fichaje_tablet: true,
+    face_id: true,
     // Funcionalidad
     multi_tienda: true,
-    geofencing: true,
-    geo_clock_in: true,
+    multi_empresa: true,
+    geofencing: false,
+    geo_clock_in: false,
     bolsa_horas: true,
     turnos_publicacion: true,
     ausencias_aprobacion: true,
-    onboarding_offboarding: true,
+    onboarding_offboarding: false,
     comunicados: true,
     articulos: true,
     documentos: true,
     notificaciones_email: true,
-    notificaciones_push: true,
+    notificaciones_push: false,
+    // Gestión de personas
+    tareas: true,
+    organigrama: true,
+    reclutamiento: true, // 5 ofertas activas (limitado vía quota)
+    evaluaciones: false,
+    encuestas_clima: false,
+    objetivos: false,
+    formacion: true,
+    informes_avanzados: true,
+    // Finanzas
+    prenomina: true,
+    envio_nominas: true,
+    control_gastos: false,
+    retribucion_flex: false,
+    wallet: false,
+    // Sesame parity
+    canal_denuncias: true,
+    asistente_ia: false,
+    chat: false,
+    marketplace: true,
+    custom_requests: false,
+    reserva_espacios: false,
+    whatsapp_bot: false,
     // Exportación e integración
     export_csv: true,
     export_excel: true,
@@ -176,31 +186,33 @@ const PLAN_FEATURE_VALUES: Record<string, Record<string, PlanFeatureValue>> = {
     api_access: false,
     webhooks: false,
     sso_saml: false,
-    integraciones_nomina: false,
-    firma_electronica: false,
+    integraciones_nomina: true,
+    firma_electronica: true, // 3/año (limitado vía quota)
     // Branding y operaciones
     branding_personalizado: false,
     dominio_personalizado: false,
-    auditoria_avanzada: true,
+    auditoria_avanzada: false,
     people_analytics: false,
     // Quotas
-    emails_mes: 5000,
-    pushs_mes: null,
-    exports_mes: 100,
+    emails_mes: 1000,
+    pushs_mes: 0,
+    exports_mes: 20,
     api_calls_dia: 0,
   },
-  enterprise: {
+  pro: {
     // Limits
     max_employees: null,
     max_tiendas: null,
-    historial_meses: 120,
-    max_storage_mb: 50000,
+    historial_meses: 36,
+    max_storage_mb: 6000,
     // Fichaje
     web_clock_in: true,
     fichaje_movil: true,
     fichaje_tablet: true,
+    face_id: true,
     // Funcionalidad
     multi_tienda: true,
+    multi_empresa: true,
     geofencing: true,
     geo_clock_in: true,
     bolsa_horas: true,
@@ -212,6 +224,97 @@ const PLAN_FEATURE_VALUES: Record<string, Record<string, PlanFeatureValue>> = {
     documentos: true,
     notificaciones_email: true,
     notificaciones_push: true,
+    // Gestión de personas
+    tareas: true,
+    organigrama: true,
+    reclutamiento: true, // 25 ofertas activas
+    evaluaciones: true,
+    encuestas_clima: true,
+    objetivos: true,
+    formacion: true,
+    informes_avanzados: true,
+    // Finanzas
+    prenomina: true,
+    envio_nominas: true,
+    control_gastos: true,
+    retribucion_flex: true,
+    wallet: true,
+    // Sesame parity
+    canal_denuncias: true,
+    asistente_ia: false,
+    chat: true,
+    marketplace: true,
+    custom_requests: true,
+    reserva_espacios: true,
+    whatsapp_bot: false,
+    // Exportación e integración
+    export_csv: true,
+    export_excel: true,
+    export_pdf: true,
+    api_access: false,
+    webhooks: false,
+    sso_saml: false,
+    integraciones_nomina: true,
+    firma_electronica: true, // 4/año
+    // Branding y operaciones
+    branding_personalizado: false,
+    dominio_personalizado: false,
+    auditoria_avanzada: true,
+    people_analytics: true,
+    // Quotas
+    emails_mes: 10000,
+    pushs_mes: null,
+    exports_mes: 200,
+    api_calls_dia: 0,
+  },
+  enterprise: {
+    // Limits
+    max_employees: null,
+    max_tiendas: null,
+    historial_meses: 120,
+    max_storage_mb: 10000,
+    // Fichaje
+    web_clock_in: true,
+    fichaje_movil: true,
+    fichaje_tablet: true,
+    face_id: true,
+    // Funcionalidad
+    multi_tienda: true,
+    multi_empresa: true,
+    geofencing: true,
+    geo_clock_in: true,
+    bolsa_horas: true,
+    turnos_publicacion: true,
+    ausencias_aprobacion: true,
+    onboarding_offboarding: true,
+    comunicados: true,
+    articulos: true,
+    documentos: true,
+    notificaciones_email: true,
+    notificaciones_push: true,
+    // Gestión de personas
+    tareas: true,
+    organigrama: true,
+    reclutamiento: true, // ofertas ilimitadas
+    evaluaciones: true,
+    encuestas_clima: true,
+    objetivos: true,
+    formacion: true,
+    informes_avanzados: true,
+    // Finanzas
+    prenomina: true,
+    envio_nominas: true,
+    control_gastos: true,
+    retribucion_flex: true,
+    wallet: true,
+    // Sesame parity
+    canal_denuncias: true,
+    asistente_ia: true,
+    chat: true,
+    marketplace: true,
+    custom_requests: true,
+    reserva_espacios: true,
+    whatsapp_bot: true,
     // Exportación e integración
     export_csv: true,
     export_excel: true,
@@ -220,7 +323,7 @@ const PLAN_FEATURE_VALUES: Record<string, Record<string, PlanFeatureValue>> = {
     webhooks: true,
     sso_saml: true,
     integraciones_nomina: true,
-    firma_electronica: true,
+    firma_electronica: true, // ilimitada
     // Branding y operaciones
     branding_personalizado: true,
     dominio_personalizado: true,
