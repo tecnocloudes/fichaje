@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Search, Loader2, ExternalLink, Globe } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Search,
+  Loader2,
+  ExternalLink,
+  Globe,
+  Pause,
+  Play,
+  Trash2,
+  X,
+  AlertTriangle,
+} from "lucide-react";
 
 interface Tenant {
   id: string;
@@ -46,12 +56,27 @@ const STATUS_LABEL: Record<Tenant["status"], string> = {
   deleted: "Eliminado",
 };
 
+type PurgeMode = "pseudonymize" | "hard-delete";
+
+interface PurgeState {
+  tenant: Tenant;
+  mode: PurgeMode;
+  confirmText: string;
+  submitting: boolean;
+  error: string | null;
+}
+
 export default function TenantsPage() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("");
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionInfo, setActionInfo] = useState<string | null>(null);
+  const [purge, setPurge] = useState<PurgeState | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
   const queryString = useMemo(() => {
     const p = new URLSearchParams();
@@ -86,7 +111,50 @@ export default function TenantsPage() {
       };
     }, 200);
     return () => clearTimeout(t);
-  }, [queryString]);
+  }, [queryString, reloadTick]);
+
+  const refresh = useCallback(() => setReloadTick((n) => n + 1), []);
+
+  const runAction = useCallback(
+    async (
+      tenant: Tenant,
+      path: string,
+      successMessage: string,
+      body?: unknown,
+    ) => {
+      setPendingId(tenant.id);
+      setActionError(null);
+      setActionInfo(null);
+      try {
+        const r = await fetch(`/api/admin/tenants/${tenant.slug}${path}`, {
+          method: "POST",
+          headers: body ? { "Content-Type": "application/json" } : undefined,
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        const payload = (await r.json().catch(() => ({}))) as Record<
+          string,
+          unknown
+        >;
+        if (!r.ok) {
+          const reason =
+            (payload.reason as string | undefined) ??
+            (payload.error as string | undefined) ??
+            `HTTP ${r.status}`;
+          throw new Error(reason);
+        }
+        const note = payload.note as string | undefined;
+        setActionInfo(note ? `${successMessage} — ${note}` : successMessage);
+        refresh();
+        return true;
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : "Error de red");
+        return false;
+      } finally {
+        setPendingId(null);
+      }
+    },
+    [refresh],
+  );
 
   const rootDomain = typeof window !== "undefined"
     ? window.location.host.replace(/^admin\./, "")
@@ -133,6 +201,30 @@ export default function TenantsPage() {
           ))}
         </div>
       </div>
+
+      {(actionError || actionInfo) && (
+        <div
+          className={`flex items-start gap-2 px-4 py-3 rounded-lg text-sm border ${
+            actionError
+              ? "bg-red-50 border-red-200 text-red-800"
+              : "bg-emerald-50 border-emerald-200 text-emerald-800"
+          }`}
+          role="status"
+        >
+          <span className="flex-1">{actionError ?? actionInfo}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setActionError(null);
+              setActionInfo(null);
+            }}
+            className="opacity-60 hover:opacity-100"
+            aria-label="Cerrar"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Tabla */}
       <div className="bg-white border border-[var(--color-border,#E2E8F0)] rounded-lg overflow-hidden">
@@ -200,15 +292,78 @@ export default function TenantsPage() {
                       {new Date(t.createdAt).toLocaleDateString("es-ES")}
                     </td>
                     <td className="px-4 py-3">
-                      <a
-                        href={`https://${t.slug}.${rootDomain}/admin`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Abrir
-                      </a>
+                      <div className="flex items-center gap-3">
+                        <a
+                          href={`https://${t.slug}.${rootDomain}/admin`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Abrir
+                        </a>
+                        {t.status === "active" && (
+                          <button
+                            type="button"
+                            disabled={pendingId === t.id}
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `¿Suspender el tenant "${t.slug}"? Pasará a estado suspendido y dejará de poder acceder. Es reversible.`,
+                                )
+                              ) {
+                                void runAction(t, "/suspend", `Tenant ${t.slug} suspendido`);
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 disabled:opacity-50"
+                            title="Suspender tenant"
+                          >
+                            {pendingId === t.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Pause className="h-3 w-3" />
+                            )}
+                            Suspender
+                          </button>
+                        )}
+                        {t.status === "suspended" && (
+                          <button
+                            type="button"
+                            disabled={pendingId === t.id}
+                            onClick={() => {
+                              void runAction(t, "/restore", `Tenant ${t.slug} restaurado`);
+                            }}
+                            className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-900 disabled:opacity-50"
+                            title="Restaurar tenant"
+                          >
+                            {pendingId === t.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Play className="h-3 w-3" />
+                            )}
+                            Restaurar
+                          </button>
+                        )}
+                        {t.status === "deleted" && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPurge({
+                                tenant: t,
+                                mode: "pseudonymize",
+                                confirmText: "",
+                                submitting: false,
+                                error: null,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 text-xs text-red-700 hover:text-red-900"
+                            title="Purgar tenant"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Purgar
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -217,6 +372,141 @@ export default function TenantsPage() {
           </div>
         )}
       </div>
+
+      {purge && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="purge-title"
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-red-700" />
+              </div>
+              <div className="flex-1">
+                <h2
+                  id="purge-title"
+                  className="text-lg font-semibold text-slate-900"
+                >
+                  Purgar tenant {purge.tenant.slug}
+                </h2>
+                <p className="text-sm text-slate-600 mt-1">
+                  Esta operación es <strong>irreversible</strong>. Solo se permite
+                  sobre tenants en estado <code>deleted</code>. La acción queda
+                  auditada; la ejecución física la realiza el CLI en el servidor.
+                </p>
+              </div>
+            </div>
+
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium text-slate-900">Modo</legend>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  name="purge-mode"
+                  value="pseudonymize"
+                  checked={purge.mode === "pseudonymize"}
+                  onChange={() =>
+                    setPurge((p) => p && { ...p, mode: "pseudonymize" })
+                  }
+                  className="mt-0.5"
+                />
+                <span>
+                  <strong>Pseudonimizar</strong>
+                  <span className="block text-xs text-slate-600">
+                    Borra PII (email, nombre). Conserva fichajes para RD 8/2019.
+                    Tras 4 años se podrá hacer hard-delete.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  name="purge-mode"
+                  value="hard-delete"
+                  checked={purge.mode === "hard-delete"}
+                  onChange={() =>
+                    setPurge((p) => p && { ...p, mode: "hard-delete" })
+                  }
+                  className="mt-0.5"
+                />
+                <span>
+                  <strong>Hard delete</strong>
+                  <span className="block text-xs text-slate-600">
+                    DROP SCHEMA + DELETE filas master. El slug queda libre. Solo
+                    permitido si el tenant lleva más de 4 años en{" "}
+                    <code>deleted</code>.
+                  </span>
+                </span>
+              </label>
+            </fieldset>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-900 mb-1">
+                Escribe el slug{" "}
+                <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">
+                  {purge.tenant.slug}
+                </code>{" "}
+                para confirmar
+              </label>
+              <input
+                type="text"
+                value={purge.confirmText}
+                onChange={(e) =>
+                  setPurge((p) => p && { ...p, confirmText: e.target.value })
+                }
+                className="w-full h-10 rounded-lg border border-slate-300 px-3 text-sm focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20"
+                placeholder={purge.tenant.slug}
+                autoFocus
+              />
+            </div>
+
+            {purge.error && (
+              <p className="text-sm text-red-700">{purge.error}</p>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPurge(null)}
+                disabled={purge.submitting}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={
+                  purge.submitting || purge.confirmText !== purge.tenant.slug
+                }
+                onClick={async () => {
+                  if (!purge) return;
+                  setPurge((p) => p && { ...p, submitting: true, error: null });
+                  const ok = await runAction(
+                    purge.tenant,
+                    "/purge",
+                    `Purga de ${purge.tenant.slug} (${purge.mode}) registrada`,
+                    { mode: purge.mode, confirmSlug: purge.confirmText },
+                  );
+                  if (ok) {
+                    setPurge(null);
+                  } else {
+                    setPurge((p) =>
+                      p && { ...p, submitting: false, error: "Falló la purga. Revisa el detalle arriba." },
+                    );
+                  }
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+              >
+                {purge.submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Purgar tenant
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
