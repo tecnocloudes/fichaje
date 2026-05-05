@@ -11,6 +11,7 @@ import { redirect } from "next/navigation";
 import { prismaMaster } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe/client";
 import { getPlanPriceId } from "@/lib/stripe/price-catalog";
+import { calculateQuantity } from "@/lib/billing/checkout";
 import { registroSchema, suggestSlugAlternatives } from "@/lib/registro/schema";
 
 /**
@@ -115,12 +116,18 @@ export async function registrarTenantAction(
   }
 
   // 5. Crear Checkout Session.
+  // En el registro inicial el tenant no tiene empleados todavía, así que
+  // partimos de 0 y `calculateQuantity` devuelve el suelo del plan
+  // (Starter=5, Pro=11, Enterprise=51 seats). El cliente verá en factura
+  // ese mínimo independientemente de cuánta gente cargue después, hasta
+  // que supere el suelo y empiece a facturarse el variable real.
   const trialDays = parseInt(process.env.STRIPE_TRIAL_DAYS ?? "14", 10);
   const requiresCard =
     (process.env.STRIPE_TRIAL_REQUIRES_CARD ?? "true") === "true";
+  const initialQuantity = calculateQuantity(0, data.planKey);
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
-    line_items: [{ price: priceId, quantity: 1 }],
+    line_items: [{ price: priceId, quantity: initialQuantity }],
     client_reference_id: tenant.id,
     metadata: { tenant_id: tenant.id, tenant_slug: tenant.slug },
     subscription_data: {

@@ -18,6 +18,8 @@ import {
   PLAN_ORDER,
   formatEuros,
   computeMonthlyCostCents,
+  isPlanCompatible,
+  rangeLabel,
   type PlanKey,
 } from "@/lib/billing/plan-pricing";
 
@@ -69,6 +71,13 @@ export function PlanesGrid({ currentPlan, empleadosActivos }: PlanesGridProps) {
         {PLAN_ORDER.map((key) => {
           const plan = PLAN_PRICING[key];
           const state = ctaStateFor(currentPlan, key);
+          const compatible = isPlanCompatible(key, empleadosActivos);
+          const incompatibleReason =
+            empleadosActivos < plan.minEmployees
+              ? `Mínimo ${plan.minEmployees} empleado${plan.minEmployees === 1 ? "" : "s"} — tienes ${empleadosActivos}`
+              : plan.maxEmployees !== null && empleadosActivos > plan.maxEmployees
+                ? `Máximo ${plan.maxEmployees} empleados — tienes ${empleadosActivos}`
+                : null;
           return (
             <div
               key={key}
@@ -111,7 +120,8 @@ export function PlanesGrid({ currentPlan, empleadosActivos }: PlanesGridProps) {
                   </span>
                 </div>
                 <p className="text-xs text-[var(--color-text-muted,#94A3B8)] mt-1">
-                  Mínimo {formatEuros(plan.monthlyMinimumCents, { compact: true })}/mes
+                  {rangeLabel(key)} — desde{" "}
+                  {formatEuros(plan.monthlyMinimumCents, { compact: true })}/mes
                 </p>
               </div>
 
@@ -128,6 +138,15 @@ export function PlanesGrid({ currentPlan, empleadosActivos }: PlanesGridProps) {
                 {state === "actual" ? (
                   <Button variant="outline" className="w-full" disabled>
                     Plan activo
+                  </Button>
+                ) : !compatible ? (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    disabled
+                    title={incompatibleReason ?? undefined}
+                  >
+                    No disponible
                   </Button>
                 ) : (
                   <Button
@@ -149,6 +168,11 @@ export function PlanesGrid({ currentPlan, empleadosActivos }: PlanesGridProps) {
                       `Bajar a ${plan.displayName}`
                     )}
                   </Button>
+                )}
+                {!compatible && incompatibleReason && (
+                  <p className="mt-2 text-xs text-amber-700 text-center">
+                    {incompatibleReason}
+                  </p>
                 )}
               </div>
             </div>
@@ -201,6 +225,12 @@ export function PlanesGrid({ currentPlan, empleadosActivos }: PlanesGridProps) {
                   <span className="text-[var(--color-text-body,#475569)]">Empleados activos</span>
                   <span className="font-semibold text-[var(--color-text-dark,#0F172A)]">
                     {empleadosActivos}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--color-text-body,#475569)]">Rango del plan</span>
+                  <span className="font-semibold text-[var(--color-text-dark,#0F172A)]">
+                    {rangeLabel(confirmingPlan)}
                   </span>
                 </div>
                 <div className="flex justify-between">

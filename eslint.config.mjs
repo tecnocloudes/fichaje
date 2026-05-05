@@ -51,6 +51,10 @@ const fichajePlugin = {
           // /api/configuracion/auditoria lee master.audit_log filtrado
           // por tenant. Plan D.6.
           "/api/configuracion/auditoria",
+          // /api/billing/** lee master.subscriptions y dispara checkout
+          // del tenant logueado. Las suscripciones viven en master
+          // (control plane), no en el schema del tenant.
+          "/api/billing/",
         ];
         return {
           ImportDeclaration(node) {

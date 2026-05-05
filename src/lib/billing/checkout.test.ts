@@ -1,37 +1,33 @@
 import { describe, it, expect } from "vitest";
 import { calculateQuantity } from "./checkout";
 
-describe("calculateQuantity — per-seat con mínimo", () => {
-  it("starter (4 €/emp, mín 39 €) → mínimo 10 seats", () => {
-    expect(calculateQuantity(0, "starter")).toBe(10);
-    expect(calculateQuantity(5, "starter")).toBe(10);
-    expect(calculateQuantity(9, "starter")).toBe(10);
+describe("calculateQuantity — per-seat con suelo por plan", () => {
+  it("starter (4 €/emp, suelo 19 €) → mínimo 5 seats (ceil(19/4))", () => {
+    expect(calculateQuantity(0, "starter")).toBe(5);
+    expect(calculateQuantity(3, "starter")).toBe(5);
+    expect(calculateQuantity(5, "starter")).toBe(5);
+    expect(calculateQuantity(7, "starter")).toBe(7);
     expect(calculateQuantity(10, "starter")).toBe(10);
-    expect(calculateQuantity(11, "starter")).toBe(11);
-    expect(calculateQuantity(50, "starter")).toBe(50);
   });
 
-  it("pro (5 €/emp, mín 49 €) → mínimo 10 seats", () => {
-    // ceil(4900/500) = 10
-    expect(calculateQuantity(0, "pro")).toBe(10);
-    expect(calculateQuantity(7, "pro")).toBe(10);
-    expect(calculateQuantity(10, "pro")).toBe(10);
-    expect(calculateQuantity(20, "pro")).toBe(20);
+  it("pro (5 €/emp, suelo 55 € = 11 seats) → mínimo 11 seats", () => {
+    // ceil(5500/500) = 11 — coincide con minEmployees del rango.
+    expect(calculateQuantity(0, "pro")).toBe(11);
+    expect(calculateQuantity(11, "pro")).toBe(11);
+    expect(calculateQuantity(30, "pro")).toBe(30);
     expect(calculateQuantity(50, "pro")).toBe(50);
   });
 
-  it("enterprise (6 €/emp, mín 99 €) → mínimo 17 seats", () => {
-    // ceil(9900/600) = 17 (16 × 6 = 96 < 99)
-    expect(calculateQuantity(0, "enterprise")).toBe(17);
-    expect(calculateQuantity(10, "enterprise")).toBe(17);
-    expect(calculateQuantity(16, "enterprise")).toBe(17);
-    expect(calculateQuantity(17, "enterprise")).toBe(17);
-    expect(calculateQuantity(20, "enterprise")).toBe(20);
+  it("enterprise (6 €/emp, suelo 306 € = 51 seats) → mínimo 51 seats", () => {
+    // ceil(30600/600) = 51 — coincide con minEmployees del rango.
+    expect(calculateQuantity(0, "enterprise")).toBe(51);
+    expect(calculateQuantity(50, "enterprise")).toBe(51);
+    expect(calculateQuantity(51, "enterprise")).toBe(51);
     expect(calculateQuantity(100, "enterprise")).toBe(100);
   });
 
   it("empleados negativos se tratan como 0 (defensivo)", () => {
-    expect(calculateQuantity(-5, "starter")).toBe(10);
-    expect(calculateQuantity(-1, "enterprise")).toBe(17);
+    expect(calculateQuantity(-5, "starter")).toBe(5);
+    expect(calculateQuantity(-1, "enterprise")).toBe(51);
   });
 });
