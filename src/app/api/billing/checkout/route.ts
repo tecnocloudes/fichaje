@@ -27,11 +27,7 @@ import { prismaApp, prismaMaster } from "@/lib/prisma";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { currentTenant } from "@/lib/tenant/context";
 import { createCheckoutSession } from "@/lib/billing/checkout";
-import {
-  PLAN_PRICING,
-  isPlanCompatible,
-  rangeLabel,
-} from "@/lib/billing/plan-pricing";
+import { PLAN_PRICING } from "@/lib/billing/plan-pricing";
 
 const bodySchema = z.object({
   planKey: z.enum(["starter", "pro", "enterprise"]),
@@ -71,19 +67,6 @@ export const POST = withTenant(async (req: NextRequest) => {
   const empleadosActivos = await prismaApp.user.count({
     where: { activo: true },
   });
-
-  // El plan elegido tiene que encajar con el nº de empleados (rangos
-  // no solapados). Bloqueamos en backend además de en UI: el cliente
-  // no puede contratar Starter con 12 empleados ni Pro con 5.
-  if (!isPlanCompatible(planKey, empleadosActivos)) {
-    return NextResponse.json(
-      {
-        error: `El plan ${PLAN_PRICING[planKey].displayName} cubre ${rangeLabel(planKey)}. Tienes ${empleadosActivos} empleados activos.`,
-        code: "plan_employee_range_mismatch",
-      },
-      { status: 400 },
-    );
-  }
 
   // ¿Tiene subscription activa? Si no, ofrecemos trial 14 días.
   const existingSub = await prismaMaster.subscription.findFirst({

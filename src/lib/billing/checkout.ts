@@ -1,22 +1,23 @@
 /**
  * Helpers para iniciar Stripe Checkout sessions desde la app del tenant.
  *
- * Modelo per-seat con suelo por plan (rangos no solapados):
+ * Modelo per-seat con mínimo de 15 usuarios global (Sesame-like):
  *   Stripe NO soporta nativamente "max(quantity × unit, mínimo)".
- *   El backend calcula `quantity` ajustada para cubrir el `monthlyMinimumCents`
- *   del plan. Ejemplo Starter (4 €/empleado, suelo 19 €):
- *     - 3 empleados → quantity=5 (5×4=20 ≥ 19) → cliente paga 20 €/mes
- *     - 8 empleados → quantity=8 → 32 €/mes
- *     - 10 empleados (techo) → quantity=10 → 40 €/mes
+ *   El backend calcula `quantity = max(empleadosActivos, 15)` y se la
+ *   pasa al line_item del Checkout. La factura muestra "N usuarios × X €".
  *
- *   En Pro y Enterprise el suelo coincide con `minEmployees × pricePerEmployee`,
- *   así que la quantity mínima ES el límite inferior del rango (11 en Pro,
- *   51 en Enterprise). El cliente no puede entrar al plan con menos empleados
- *   que el rango — la UI debe deshabilitar el plan cuando no encaja.
+ *   Ejemplo Starter (4 €/usuario, mínimo 15):
+ *     - 3 empleados → quantity=15 → 60 €/mes
+ *     - 14 empleados → quantity=15 → 60 €/mes
+ *     - 20 empleados → quantity=20 → 80 €/mes
  *
- *   En Stripe la factura muestra "N empleados × X €/mes". Si el tenant
- *   tiene menos empleados reales que la quantity facturada (caso Starter
- *   con <5 emp), la UI lo explica claramente como "suelo del plan".
+ *   El mínimo de 15 usuarios aplica a TODOS los planes:
+ *     Starter mín    = 60 €/mes  (15 × 4)
+ *     Pro mín        = 75 €/mes  (15 × 5)
+ *     Enterprise mín = 90 €/mes  (15 × 6)
+ *
+ *   La UI muestra claramente "Importe mínimo X €/mes — 15 usuarios mínimo"
+ *   en cada card y un banner global encima de la pricing-grid.
  */
 
 import { PLAN_PRICING, type PlanKey } from "@/lib/billing/plan-pricing";
