@@ -112,6 +112,9 @@ model User {
   onboardings              ProcesoOnboarding[]
   bolsaHoras               BolsaHoras[]
   bolsaHorasAprobadas      BolsaHoras[]              @relation("BolsaHorasAprobador")
+  denunciasInformante      Denuncia[]                @relation("DenunciaInformante")
+  denunciasAsignadas       Denuncia[]                @relation("DenunciaAsignada")
+  comentariosDenuncia      ComentarioDenuncia[]      @relation("ComentarioDenunciaAutor")
   preferenciasNotificacion PreferenciasNotificacion?
   pushSubscripciones       PushSubscripcion[]
   createdAt                DateTime                  @default(now())
@@ -441,4 +444,91 @@ model BolsaHoras {
   updatedAt     DateTime @updatedAt
 
   @@index([userId])
+}
+
+// ─── Canal de denuncias (Ley 2/2023) ───────────────────────────────────────────
+//
+// Buzón confidencial con plazos legales explícitos:
+//   - Acuse de recibo en máx 7 días desde recepción.
+//   - Resolución en máx 3 meses (prorrogable a 6 si se justifica).
+//
+// El informante puede ser anónimo. En ese caso se le devuelve un `accessToken`
+// (256 bits) que sirve como única credencial para volver a consultar el
+// estado y aportar nueva información sin revelar identidad.
+
+enum CategoriaDenuncia {
+  acoso_laboral
+  acoso_sexual
+  discriminacion
+  fraude
+  corrupcion
+  incumplimiento_normativo
+  proteccion_datos
+  seguridad_salud
+  otro
+}
+
+enum EstadoDenuncia {
+  recibida
+  acuse_recibido
+  en_investigacion
+  resuelta
+  archivada
+}
+
+model Denuncia {
+  id                   String            @id @default(cuid())
+  // Anonimato y acceso
+  esAnonima            Boolean           @default(false)
+  // Token para que un informante anónimo consulte/responda sin login.
+  // Hash del token real — el token plain solo se devuelve UNA VEZ al crear.
+  accessTokenHash      String?           @unique
+  // Datos de contacto del informante (null si anónima)
+  informanteEmail      String?
+  informanteNombre     String?
+  informanteTelefono   String?
+  // Si el denunciante es un usuario logueado (no anónimo), referencia.
+  informanteUserId     String?
+  informanteUser       User?             @relation("DenunciaInformante", fields: [informanteUserId], references: [id])
+  // Datos de la denuncia
+  asunto               String
+  categoria            CategoriaDenuncia
+  descripcion          String
+  fechaIncidente       DateTime?
+  // Estado y trazabilidad
+  estado               EstadoDenuncia    @default(recibida)
+  asignadoUserId       String?
+  asignadoUser         User?             @relation("DenunciaAsignada", fields: [asignadoUserId], references: [id])
+  // Plazos legales (Ley 2/2023)
+  acuseReciboAt        DateTime?         @map("acuse_recibo_at")
+  resolucionAt         DateTime?         @map("resolucion_at")
+  resolucionResumen    String?           @map("resolucion_resumen")
+  // Auditoría
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt      @map("updated_at")
+  // Relaciones
+  comentarios          ComentarioDenuncia[]
+
+  @@index([estado])
+  @@index([categoria])
+  @@index([createdAt])
+  @@index([asignadoUserId])
+}
+
+model ComentarioDenuncia {
+  id          String   @id @default(cuid())
+  denunciaId  String
+  denuncia    Denuncia @relation(fields: [denunciaId], references: [id], onDelete: Cascade)
+  // Quien escribe: usuario logueado o el informante anónimo (null + autorRole)
+  autorUserId String?
+  autorUser   User?    @relation("ComentarioDenunciaAutor", fields: [autorUserId], references: [id])
+  // "informante" si lo escribe el denunciante anónimo via token,
+  // "instructor" / "comite" / "owner" si lo escribe alguien del staff.
+  autorRole   String
+  contenido   String
+  // Visibilidad: si es interno (notas del comité que el informante no ve)
+  esInterno   Boolean  @default(false) @map("es_interno")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([denunciaId])
 }
