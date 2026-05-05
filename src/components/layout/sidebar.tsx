@@ -10,7 +10,7 @@ import {
   Bell, ChevronLeft, ChevronRight, UserCheck, CheckSquare, Megaphone,
   BookOpen, FolderOpen, Rocket, GraduationCap, Target, CreditCard,
   TrendingUp, GitBranch, Globe, Timer, Search, Star, Send, Pen,
-  MessageSquare, ChevronDown, Landmark, Sparkles,
+  MessageSquare, ChevronDown, Landmark, Sparkles, ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -86,6 +86,7 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
           items: [
             { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone },
             { label: "Artículos", href: "/admin/articulos", icon: BookOpen },
+            { label: "Canal de denuncias", href: "/admin/canal-denuncias", icon: ShieldAlert },
           ],
         },
         {
