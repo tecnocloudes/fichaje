@@ -1,13 +1,16 @@
 "use client";
 
 /**
- * /admin/login — login del panel super-admin.
- * Form mínimo funcional: email + password → POST /api/admin/login.
+ * /admin/login — login del panel super-admin (control plane).
+ * Diseño alineado con el login del tenant: blobs de fondo, logo
+ * empleaIA, paleta primaria. La diferencia visible es el badge
+ * "Super-admin" en lugar del tagline del tenant.
  */
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, LogIn, AlertCircle, ShieldCheck } from "lucide-react";
+import { EmpleaIALogo } from "@/components/brand/empleaia-logo";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -47,68 +50,110 @@ export default function AdminLoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
-      <div className="relative w-full max-w-md">
-        <div className="bg-white border border-slate-200 rounded-lg shadow-sm px-8 py-8">
-          <div className="mb-6 text-center">
-            <h1 className="text-xl font-semibold text-slate-900">Acceso super-admin</h1>
-            <p className="text-sm text-slate-500 mt-1">Panel interno empleaIA</p>
-          </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">
-                Email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20"
-                required
-                autoComplete="username"
-              />
+      {/* Sutiles blobs de color en el fondo */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+        <div className="absolute -top-32 -right-32 h-72 w-72 rounded-full bg-[var(--primary-light)] blur-3xl opacity-60" />
+        <div className="absolute -bottom-32 -left-32 h-72 w-72 rounded-full bg-[var(--primary-light)] blur-3xl opacity-50" />
+      </div>
+
+      <div className="relative w-full max-w-md animate-fade-in">
+        {/* Logo + badge super-admin arriba */}
+        <div className="flex flex-col items-center mb-8">
+          <EmpleaIALogo appNombre="empleaIA" symbolSize={40} className="mb-4" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--primary)]/10 px-3 py-1 text-xs font-semibold text-[var(--primary)]">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Super-admin · Panel interno
+          </span>
+        </div>
+
+        {/* Card formulario */}
+        <div className="bg-white border border-slate-200 rounded-lg shadow-sm">
+          <div className="px-8 py-8">
+            <div className="mb-6 text-center">
+              <h1 className="text-xl font-semibold text-slate-900">Iniciar sesión</h1>
+              <p className="text-sm text-slate-500 mt-1">
+                Acceso exclusivo al control plane de empleaIA
+              </p>
             </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPwd ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-slate-300 bg-white pl-3 pr-10 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20"
-                  required
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPwd((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                  aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
-                  tabIndex={-1}
-                >
-                  {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
+
             {error && (
-              <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-                {error}
+              <div className="mb-5 flex items-start gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800 animate-fade-in">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{error}</span>
               </div>
             )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex w-full items-center justify-center rounded-md bg-slate-900 hover:bg-slate-800 text-white py-2.5 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? "Entrando..." : "Entrar"}
-            </button>
-          </form>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-[var(--color-text-dark,#0F172A)] mb-1.5"
+                >
+                  Correo electrónico
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="username"
+                  placeholder="admin@empleaia.es"
+                  className="flex h-10 w-full rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white px-3.5 py-2 text-sm text-[var(--color-text-dark,#0F172A)] placeholder:text-[var(--color-text-muted,#94A3B8)] focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-[var(--color-text-dark,#0F172A)] mb-1.5"
+                >
+                  Contraseña
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPwd ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    className="flex h-10 w-full rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white pl-3.5 pr-11 py-2 text-sm text-[var(--color-text-dark,#0F172A)] placeholder:text-[var(--color-text-muted,#94A3B8)] focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-colors"
+                    aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    tabIndex={-1}
+                  >
+                    {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] active:bg-[var(--primary-dark)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <LogIn className="h-4 w-4" />
+                {loading ? "Entrando…" : "Iniciar sesión"}
+              </button>
+            </form>
+
+            <p className="mt-6 text-center text-xs text-slate-400">
+              Solo personal autorizado de empleaIA.
+            </p>
+          </div>
         </div>
+
+        <p className="mt-4 text-center text-xs text-slate-400">
+          empleaIA &mdash; {new Date().getFullYear()}
+        </p>
       </div>
     </div>
   );
