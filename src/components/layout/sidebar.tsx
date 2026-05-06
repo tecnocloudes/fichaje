@@ -11,6 +11,7 @@ import {
   BookOpen, FolderOpen, Rocket, GraduationCap, Target, CreditCard,
   TrendingUp, GitBranch, Globe, Timer, Search, Star, Send, Pen,
   MessageSquare, ChevronDown, Landmark, Sparkles, ShieldAlert, Network,
+  Bot, ScanFace,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -107,6 +108,8 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
           items: [
             { label: "Documentos", href: "/admin/documentos", icon: FolderOpen },
             { label: "Informes", href: "/admin/informes", icon: BarChart3 },
+            { label: "Asistente IA", href: "/admin/asistente-ia", icon: Bot },
+            { label: "Face ID", href: "/admin/face-id", icon: ScanFace },
             { label: "People Analytics", href: "/admin/people-analytics", icon: TrendingUp, proximamente: true },
             { label: "Firma electrónica", href: "/admin/firma", icon: Pen },
             { label: "Grupo", href: "/admin/grupo", icon: Globe, proximamente: true },

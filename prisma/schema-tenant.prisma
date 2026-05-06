@@ -124,6 +124,10 @@ model User {
   // Reclutamiento: usuarios que crearon ofertas / gestionan candidatos.
   ofertasCreadas           OfertaTrabajo[]           @relation("OfertaCreador")
   candidatosCreados        Candidato[]               @relation("CandidatoCreador")
+  // Asistente IA: conversaciones del usuario.
+  conversacionesIA         ConversacionIA[]          @relation("ConversacionIAUser")
+  // Face ID: plantilla biométrica (opcional, máx 1 por usuario).
+  faceTemplate             FaceTemplate?             @relation("FaceTemplateUser")
   preferenciasNotificacion PreferenciasNotificacion?
   pushSubscripciones       PushSubscripcion[]
   createdAt                DateTime                  @default(now())
@@ -621,6 +625,104 @@ model OfertaTrabajo {
 
   @@index([estado])
   @@index([creadorId])
+}
+
+// ─── Asistente IA (Sprint 2 #1) ────────────────────────────────────────────────
+//
+// Modelo BYOK (Bring Your Own Key): cada tenant configura su propio
+// proveedor de LLM (Anthropic / OpenAI / Google). La API key se guarda
+// cifrada con AES-256-GCM (clave maestra en IA_ENCRYPTION_KEY env).
+// El coste de tokens lo paga el tenant directamente al proveedor.
+
+enum ProveedorIA {
+  anthropic
+  openai
+  google
+}
+
+model IAConfiguracion {
+  // Singleton por tenant. id fijo a "default" para garantizar 1 fila.
+  id              String       @id @default("default")
+  provider        ProveedorIA
+  apiKeyEnc       Bytes        @map("api_key_enc")
+  modelo          String       // ej. "claude-sonnet-4-6", "gpt-4o", "gemini-1.5-pro"
+  endpointUrl     String?      @map("endpoint_url") // opcional para Azure/self-hosted
+  systemPrompt    String?      @map("system_prompt") // override del system prompt
+  activa          Boolean      @default(true)
+  ultimaPruebaAt  DateTime?    @map("ultima_prueba_at")
+  ultimaPruebaOk  Boolean?     @map("ultima_prueba_ok")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt      @map("updated_at")
+}
+
+model ConversacionIA {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation("ConversacionIAUser", fields: [userId], references: [id])
+  titulo      String
+  mensajes    MensajeIA[]
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt      @map("updated_at")
+
+  @@index([userId])
+  @@index([updatedAt])
+}
+
+model MensajeIA {
+  id              String         @id @default(cuid())
+  conversacionId  String
+  conversacion    ConversacionIA @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  rol             String         // "user" | "assistant" | "system"
+  contenido       String
+  tokensInput     Int?           @map("tokens_input")
+  tokensOutput    Int?           @map("tokens_output")
+  modelo          String?
+  errorMsg        String?        @map("error_msg")
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  @@index([conversacionId])
+}
+
+// ─── Face ID — fichaje con reconocimiento facial (Sprint 2 #2) ─────────────────
+//
+// El embedding facial (vector 128 floats normalizado) se almacena cifrado
+// con AES-256-GCM (misma clave maestra que IA). Es irreversible: con el
+// embedding solo se puede comparar (cosine similarity) contra otro
+// embedding nuevo, no reconstruir la imagen original.
+
+model FaceTemplate {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation("FaceTemplateUser", fields: [userId], references: [id], onDelete: Cascade)
+  embeddingEnc      Bytes    @map("embedding_enc")
+  algoritmo         String   @default("face-api.js@0.22") // versión + librería
+  // Consentimiento GDPR — registro inmutable del momento de la enrolación.
+  consentimientoAt  DateTime @default(now()) @map("consentimiento_at")
+  consentimientoIp  String?  @map("consentimiento_ip")
+  consentimientoUa  String?  @map("consentimiento_ua")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt      @map("updated_at")
+
+  verificaciones    FaceVerificacion[]
+}
+
+model FaceVerificacion {
+  id          String        @id @default(cuid())
+  templateId  String
+  template    FaceTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  // Score de similitud cosine (0..1, más cerca de 1 = más parecido)
+  score       Float
+  // Resultado: match (>=umbral), no_match (<umbral), spoof (anti-spoof falló)
+  resultado   String
+  ip          String?
+  userAgent   String?       @map("user_agent")
+  // Si la verificación se asoció a un fichaje real (link débil — no FK
+  // para no romper si el fichaje se borra/anonimiza).
+  fichajeId   String?       @map("fichaje_id")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  @@index([templateId])
+  @@index([createdAt])
 }
 
 model Candidato {

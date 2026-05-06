@@ -1,23 +1,119 @@
-import { ScanFace } from "lucide-react";
+import { ScanFace, CheckCircle2 } from "lucide-react";
 import { withTenantPage } from "@/lib/tenant/with-tenant-page";
-import { ProximamenteCard } from "@/components/admin/proximamente-card";
+import { prismaApp } from "@/lib/prisma";
+import { TemplateActions } from "./template-actions";
 
 async function FaceIDPage() {
+  const empleados = await prismaApp.user.findMany({
+    where: { activo: true },
+    orderBy: { nombre: "asc" },
+    select: {
+      id: true,
+      nombre: true,
+      apellidos: true,
+      email: true,
+      faceTemplate: {
+        select: {
+          id: true,
+          createdAt: true,
+          consentimientoAt: true,
+          algoritmo: true,
+        },
+      },
+    },
+  });
+
+  const conTemplate = empleados.filter((e) => e.faceTemplate).length;
+  const sinTemplate = empleados.length - conTemplate;
+
   return (
-    <ProximamenteCard
-      Icon={ScanFace}
-      title="Fichaje con reconocimiento facial"
-      description="Face ID para validar la identidad del empleado en cada fichaje desde móvil o tablet compartida. Elimina el fichaje fraudulento por compañeros."
-      plan="Todos los planes"
-      bullets={[
-        "Captura del rostro al fichar entrada/salida desde móvil o tablet",
-        "Comparación con plantilla biométrica almacenada cifrada (AES-256)",
-        "Detección de vida (anti-spoofing) — no acepta fotos ni vídeos",
-        "Cumple GDPR: dato biométrico tratado con consentimiento explícito",
-        "Plantilla biométrica reversible solo por el usuario o admin con audit log",
-        "Fallback a PIN si la cámara falla (con flag en el fichaje)",
-      ]}
-    />
+    <div className="space-y-6">
+      <header className="flex items-start gap-3">
+        <div className="flex-shrink-0 h-12 w-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center">
+          <ScanFace className="h-6 w-6 text-[var(--primary)]" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text-dark,#0F172A)]">
+            Face ID
+          </h1>
+          <p className="text-sm text-[var(--color-text-body,#475569)] mt-1">
+            Reconocimiento facial para validar identidad al fichar · Embeddings cifrados AES-256-GCM
+          </p>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="rounded-lg border bg-white p-4">
+          <p className="text-xs font-medium text-slate-500 uppercase">Empleados activos</p>
+          <p className="text-2xl font-bold mt-1">{empleados.length}</p>
+        </div>
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+          <p className="text-xs font-medium text-emerald-700 uppercase">Con Face ID</p>
+          <p className="text-2xl font-bold mt-1 text-emerald-900">{conTemplate}</p>
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <p className="text-xs font-medium text-amber-700 uppercase">Sin Face ID</p>
+          <p className="text-2xl font-bold mt-1 text-amber-900">{sinTemplate}</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+        <p>
+          <strong>GDPR · datos biométricos.</strong> El embedding facial (vector de 128 valores
+          numéricos) se cifra con AES-256-GCM antes de persistirse. No se almacena ninguna foto.
+          El proceso de captura se ejecuta en el dispositivo del empleado (face-api.js en
+          navegador) y requiere consentimiento explícito.
+        </p>
+      </div>
+
+      <div className="rounded-lg border bg-white overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-[var(--bg-subtle,#F8FAFC)] border-b">
+            <tr>
+              {["Empleado", "Email", "Face ID", "Registrada", "Acciones"].map((h) => (
+                <th key={h} className="text-left text-xs font-semibold uppercase tracking-wide text-slate-600 px-4 py-3">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {empleados.map((e) => (
+              <tr key={e.id} className="hover:bg-[var(--bg-subtle,#F8FAFC)]">
+                <td className="px-4 py-3 text-sm font-medium">
+                  {e.nombre} {e.apellidos}
+                </td>
+                <td className="px-4 py-3 text-sm text-slate-600">{e.email}</td>
+                <td className="px-4 py-3">
+                  {e.faceTemplate ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Registrada
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                      Sin registrar
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-sm text-slate-600 tabular-nums">
+                  {e.faceTemplate
+                    ? new Date(e.faceTemplate.createdAt).toLocaleDateString("es-ES")
+                    : "—"}
+                </td>
+                <td className="px-4 py-3">
+                  {e.faceTemplate ? (
+                    <TemplateActions userId={e.id} />
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">El empleado se registra desde su portal</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
