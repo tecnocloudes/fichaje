@@ -112,6 +112,23 @@ function appSubdomainHandler(req: AuthedRequest): NextResponse {
   const isAuthPage = nextUrl.pathname.startsWith("/login");
   const isApiRoute = nextUrl.pathname.startsWith("/api");
 
+  // El panel super-admin vive en admin.<root>, NO en app.<root>.
+  // Si alguien accede a app.<root>/admin/* o /api/admin/*, redirigimos
+  // al subdominio correcto. Sin este redirect, NextAuth (que sirve
+  // app.*) intercepta y mete cookies CSRF de tenant en el panel
+  // super-admin, dejándolo inutilizable.
+  if (
+    nextUrl.pathname.startsWith("/admin") ||
+    nextUrl.pathname.startsWith("/api/admin")
+  ) {
+    const root = getRootDomain();
+    const adminUrl = new URL(req.url);
+    adminUrl.host = `admin.${root}`;
+    adminUrl.port = "";
+    adminUrl.protocol = "https:";
+    return NextResponse.redirect(adminUrl, 308);
+  }
+
   if (isApiRoute) return NextResponse.next();
   if (isLoggedIn && isAuthPage) {
     return NextResponse.redirect(new URL("/", nextUrl));
