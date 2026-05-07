@@ -118,21 +118,30 @@ function appSubdomainHandler(req: AuthedRequest): NextResponse {
   const isAuthPage = nextUrl.pathname.startsWith("/login");
   const isApiRoute = nextUrl.pathname.startsWith("/api");
 
-  // El panel super-admin vive en admin.<root>, NO en app.<root>.
-  // Si alguien accede a app.<root>/admin/* o /api/admin/*, redirigimos
-  // al subdominio correcto. Sin este redirect, NextAuth (que sirve
-  // app.*) intercepta y mete cookies CSRF de tenant en el panel
-  // super-admin, dejándolo inutilizable.
+  // app.<root> es el subdominio público (registro, checkout, login del
+  // tenant cuando NEXTAUTH_URL apunta aquí). NO debe servir páginas
+  // del panel del tenant ni del super-admin.
+  //
+  //   - Si llegas con sesión de tenant a /admin/* o /api/admin/*, la
+  //     URL correcta es <tenantSlug>.<root>/admin/* — redirigimos allí.
+  //   - Si llegas sin sesión, mandamos al login global (app/login).
+  //   - El subdominio super-admin (admin.<root>) tiene su propia auth
+  //     con cookies separadas; nunca pasa por aquí.
   if (
     nextUrl.pathname.startsWith("/admin") ||
     nextUrl.pathname.startsWith("/api/admin")
   ) {
-    const root = getRootDomain();
-    const adminUrl = new URL(req.url);
-    adminUrl.host = `admin.${root}`;
-    adminUrl.port = "";
-    adminUrl.protocol = "https:";
-    return NextResponse.redirect(adminUrl, 308);
+    const tenantSlug = (req.auth?.user as { tenantSlug?: string } | undefined)?.tenantSlug;
+    if (tenantSlug) {
+      const root = getRootDomain();
+      const tenantUrl = new URL(req.url);
+      tenantUrl.host = `${tenantSlug}.${root}`;
+      tenantUrl.port = "";
+      tenantUrl.protocol = "https:";
+      return NextResponse.redirect(tenantUrl, 307);
+    }
+    // Sin sesión → al login del subdominio app.
+    return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
   if (isApiRoute) return NextResponse.next();
