@@ -155,19 +155,16 @@ export async function handleCheckoutCompleted(
     // correctamente en emails de invitación, login, etc. — sin esto
     // se queda con el default "Mi Empresa" del schema.
     if (tenant.name) {
-      const existing = await prismaApp.configuracionEmpresa.findFirst({
-        select: { id: true },
+      // Usamos id fijo 'singleton' para evitar duplicados (la UI de
+      // configuración usa el mismo id). Sin esto, el provisioning crea
+      // una fila con cuid y la UI crea otra con id='singleton',
+      // dejando dos filas — el findFirst del template puede coger la
+      // equivocada (la sin logo del provisioning).
+      await prismaApp.configuracionEmpresa.upsert({
+        where: { id: "singleton" },
+        create: { id: "singleton", nombre: tenant.name },
+        update: { nombre: tenant.name },
       });
-      if (existing) {
-        await prismaApp.configuracionEmpresa.update({
-          where: { id: existing.id },
-          data: { nombre: tenant.name },
-        });
-      } else {
-        await prismaApp.configuracionEmpresa.create({
-          data: { nombre: tenant.name },
-        });
-      }
     }
   });
 
