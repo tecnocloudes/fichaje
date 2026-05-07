@@ -1,10 +1,14 @@
 import React from "react";
-import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 import { auth, signIn } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
 import { LogIn, AlertCircle } from "lucide-react";
-import { withTenantPage } from "@/lib/tenant/with-tenant-page";
+import { resolveTenant } from "@/lib/tenant/resolver";
+import { runWithTenant } from "@/lib/tenant/context";
+import { ensureFeatureCatalogLoaded } from "@/lib/feature-guard/catalog";
 import { EmpleaIALogo } from "@/components/brand/empleaia-logo";
+import { GlobalLoginForm } from "./global-login-form";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +42,7 @@ async function loginAction(formData: FormData) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 interface LoginPageProps {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; email?: string }>;
 }
 
 async function LoginPage({ searchParams }: LoginPageProps) {
@@ -51,7 +55,7 @@ async function LoginPage({ searchParams }: LoginPageProps) {
     redirect("/");
   }
 
-  const { error } = await searchParams;
+  const { error, email: prefilledEmail } = await searchParams;
   const errorMessage = error ? decodeURIComponent(error) : null;
 
   const branding = await prisma.configuracionEmpresa.findFirst({
@@ -117,6 +121,7 @@ async function LoginPage({ searchParams }: LoginPageProps) {
                   type="email"
                   autoComplete="email"
                   required
+                  defaultValue={prefilledEmail ?? ""}
                   placeholder="usuario@empresa.com"
                   className="flex h-10 w-full rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white px-3.5 py-2 text-sm text-[var(--color-text-dark,#0F172A)] placeholder:text-[var(--color-text-muted,#94A3B8)] focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 transition-colors"
                 />
@@ -163,4 +168,57 @@ async function LoginPage({ searchParams }: LoginPageProps) {
   );
 }
 
-export default withTenantPage(LoginPage as never);
+/**
+ * `/login` se sirve desde 2 subdominios distintos con comportamiento
+ * distinto:
+ *   - <slug>.<root>/login   → form normal del tenant (LoginPage arriba).
+ *   - app.<root>/login      → form global por email: pide email y
+ *     redirige al subdominio del tenant donde existe ese usuario.
+ */
+export default async function LoginRoute(props: { searchParams: Promise<{ error?: string; email?: string }> }) {
+  const h = await headers();
+  const host = h.get("host") ?? "";
+  const resolved = await resolveTenant(host);
+
+  if (resolved.kind === "tenant" && resolved.ctx.status === "active") {
+    return runWithTenant(resolved.ctx, async () => {
+      await ensureFeatureCatalogLoaded();
+      return LoginPage({ searchParams: props.searchParams });
+    });
+  }
+
+  // Subdominios `app` y `apex` → login global con resolución por email.
+  if (resolved.kind === "app" || resolved.kind === "apex") {
+    const { email } = await props.searchParams;
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+          <div className="absolute -top-32 -right-32 h-72 w-72 rounded-full bg-[var(--primary-light)] blur-3xl opacity-60" />
+          <div className="absolute -bottom-32 -left-32 h-72 w-72 rounded-full bg-[var(--primary-light)] blur-3xl opacity-50" />
+        </div>
+        <div className="relative w-full max-w-md animate-fade-in">
+          <div className="flex flex-col items-center mb-8">
+            <EmpleaIALogo appNombre="empleaIA" symbolSize={40} className="mb-4" />
+            <p className="text-sm text-slate-500">Acceso a tu empresa</p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-lg shadow-sm">
+            <div className="px-8 py-8">
+              <div className="mb-6 text-center">
+                <h1 className="text-xl font-semibold text-slate-900">Iniciar sesión</h1>
+                <p className="text-sm text-slate-500 mt-1">
+                  Indica tu correo y te llevamos al panel de tu empresa.
+                </p>
+              </div>
+              <GlobalLoginForm initialEmail={email ?? ""} />
+            </div>
+          </div>
+          <p className="mt-4 text-center text-xs text-slate-400">
+            empleaIA &mdash; {new Date().getFullYear()}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  notFound();
+}
