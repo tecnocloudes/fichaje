@@ -74,6 +74,12 @@ export default auth(async (req) => {
       // Redirigir cualquier otro path al login del panel.
       return NextResponse.redirect(new URL("/admin/login", adminUrl));
     }
+    // /admin exacto (sin sub-path) no tiene page.tsx en el grupo
+    // (authed). Redirigimos al dashboard que sí existe; si el usuario
+    // no está logueado, el layout/page del dashboard delega al login.
+    if (adminUrl.pathname === "/admin" || adminUrl.pathname === "/admin/") {
+      return NextResponse.redirect(new URL("/admin/dashboard", adminUrl));
+    }
     return NextResponse.next();
   }
 
