@@ -93,7 +93,20 @@ async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   const { error, email: prefilledEmail } = await searchParams;
-  const errorMessage = error ? decodeURIComponent(error) : null;
+  // Mapeamos los códigos técnicos de NextAuth a mensajes humanos.
+  // Si el error es un código conocido, lo traducimos; si no, lo mostramos
+  // tal cual (es probable que ya venga decodificado del catch local).
+  const ERROR_MESSAGES: Record<string, string> = {
+    CredentialsSignin: "Email o contraseña incorrectos.",
+    Configuration: "Error de configuración del servidor. Contacta con soporte.",
+    AccessDenied: "Acceso denegado.",
+    Verification: "El enlace ha expirado o ya se usó.",
+    Default: "No se pudo iniciar sesión.",
+  };
+  const rawError = error ? decodeURIComponent(error) : null;
+  const errorMessage = rawError
+    ? ERROR_MESSAGES[rawError] ?? rawError
+    : null;
 
   const branding = await prisma.configuracionEmpresa.findFirst({
     select: { logo: true, appNombre: true, nombre: true },
