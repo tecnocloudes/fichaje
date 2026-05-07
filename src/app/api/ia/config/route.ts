@@ -84,7 +84,20 @@ export const PUT = withTenant(async (req: NextRequest) => {
       { status: 400 },
     );
   }
-  const apiKeyEnc = data.apiKey ? encryptString(data.apiKey) : existing!.apiKeyEnc;
+  let apiKeyEnc: Uint8Array<ArrayBuffer>;
+  try {
+    apiKeyEnc = data.apiKey ? encryptString(data.apiKey) : (existing!.apiKeyEnc as Uint8Array<ArrayBuffer>);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Error cifrando la API key";
+    return NextResponse.json(
+      {
+        error: message.includes("IA_ENCRYPTION_KEY")
+          ? "El servidor no tiene configurada la clave de cifrado IA_ENCRYPTION_KEY. Contacta con tu administrador del SaaS."
+          : message,
+      },
+      { status: 500 },
+    );
+  }
 
   const cfg = await prismaApp.iAConfiguracion.upsert({
     where: { id: "default" },
