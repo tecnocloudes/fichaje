@@ -148,6 +148,27 @@ export async function handleCheckoutCompleted(
         activo: true,
       },
     });
+
+    // Sembrar `ConfiguracionEmpresa` con el nombre que el cliente
+    // introdujo en /registro. Si ya existe (improbable en provisioning,
+    // pero idempotente por defensa), lo actualizamos para que aparezca
+    // correctamente en emails de invitación, login, etc. — sin esto
+    // se queda con el default "Mi Empresa" del schema.
+    if (tenant.name) {
+      const existing = await prismaApp.configuracionEmpresa.findFirst({
+        select: { id: true },
+      });
+      if (existing) {
+        await prismaApp.configuracionEmpresa.update({
+          where: { id: existing.id },
+          data: { nombre: tenant.name },
+        });
+      } else {
+        await prismaApp.configuracionEmpresa.create({
+          data: { nombre: tenant.name },
+        });
+      }
+    }
   });
 
   // 11. PROVISIONING → ACTIVE.
