@@ -1,5 +1,16 @@
 import type { NextAuthConfig } from "next-auth";
 
+// NEXTAUTH_URL hace que NextAuth construya URLs absolutas a ese host
+// para errores y callbacks. Como en producción NEXTAUTH_URL=app.empleaia.es
+// y los tenants viven en <slug>.empleaia.es, eso provoca rebotes
+// cross-subdomain (incluido el bucle de login post-CSRF). Con
+// `trustHost: true` y sin esta env var, NextAuth deriva las URLs del
+// host del request — comportamiento correcto multi-tenant.
+//
+// Lo eliminamos en runtime para no depender de cambios en Dokploy.
+delete process.env.NEXTAUTH_URL;
+delete process.env.AUTH_URL;
+
 export const authConfig: NextAuthConfig = {
   trustHost: true,
   session: { strategy: "jwt" },
