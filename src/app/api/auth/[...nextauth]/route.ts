@@ -18,29 +18,62 @@ import type { NextRequest } from "next/server";
 
 const INTERNAL_HOSTS = ["0.0.0.0:3000", "0.0.0.0", "localhost:3000", "localhost"];
 
-function rewriteLocation(req: NextRequest, response: Response): Response {
-  const loc = response.headers.get("location");
-  if (!loc) return response;
-  let parsed: URL;
-  try {
-    parsed = new URL(loc);
-  } catch {
-    return response;
-  }
-  if (!INTERNAL_HOSTS.includes(parsed.host)) return response;
-
-  // Reconstruir Location con el host real del request.
+function realHost(req: NextRequest): { host: string; proto: string } {
   const host = req.headers.get("host") ?? new URL(req.url).host;
   const proto =
     req.headers.get("x-forwarded-proto") ??
     (host.includes("localhost") ? "http" : "https");
-  const newLoc = `${proto}://${host}${parsed.pathname}${parsed.search}${parsed.hash}`;
+  return { host, proto };
+}
 
-  // Clonamos los headers, reemplazamos Location.
+function rewriteIfInternal(url: string, host: string, proto: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (!INTERNAL_HOSTS.includes(parsed.host)) return null;
+  return `${proto}://${host}${parsed.pathname}${parsed.search}${parsed.hash}`;
+}
+
+async function rewriteResponse(req: NextRequest, response: Response): Promise<Response> {
+  const { host, proto } = realHost(req);
+
+  // 1. Reescribir el header `Location` (redirects 30x del signIn, etc.)
+  const loc = response.headers.get("location");
+  let newLoc: string | null = null;
+  if (loc) newLoc = rewriteIfInternal(loc, host, proto);
+
+  // 2. Reescribir body JSON con campo `url` (que es lo que devuelve el
+  //    POST /api/auth/signout y el cliente lee para hacer window.location).
+  const contentType = response.headers.get("content-type") ?? "";
+  let newBody: BodyInit | null = response.body;
+  if (contentType.includes("application/json")) {
+    const text = await response.clone().text();
+    try {
+      const data = JSON.parse(text) as Record<string, unknown>;
+      if (typeof data.url === "string") {
+        const rewrittenUrl = rewriteIfInternal(data.url, host, proto);
+        if (rewrittenUrl) {
+          data.url = rewrittenUrl;
+          newBody = JSON.stringify(data);
+        }
+      }
+    } catch {
+      // No JSON válido — dejar como está.
+    }
+  }
+
+  if (!newLoc && newBody === response.body) return response;
+
   const newHeaders = new Headers(response.headers);
-  newHeaders.set("location", newLoc);
+  if (newLoc) newHeaders.set("location", newLoc);
+  if (newBody !== response.body) {
+    newHeaders.set("content-length", String(new TextEncoder().encode(newBody as string).byteLength));
+  }
 
-  return new Response(response.body, {
+  return new Response(newBody, {
     status: response.status,
     statusText: response.statusText,
     headers: newHeaders,
@@ -49,10 +82,10 @@ function rewriteLocation(req: NextRequest, response: Response): Response {
 
 export async function GET(req: NextRequest) {
   const r = await handlers.GET(req);
-  return rewriteLocation(req, r);
+  return rewriteResponse(req, r);
 }
 
 export async function POST(req: NextRequest) {
   const r = await handlers.POST(req);
-  return rewriteLocation(req, r);
+  return rewriteResponse(req, r);
 }
