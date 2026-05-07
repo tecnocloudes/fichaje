@@ -10,6 +10,7 @@ import { withTenant } from "@/lib/tenant/with-tenant";
 import { currentTenant } from "@/lib/tenant/context";
 import { getLimit } from "@/lib/tenant/features";
 import { HttpError, wrapHttpErrors } from "@/lib/feature-guard/http-error";
+import { buildSetPasswordUrl } from "@/lib/tenant/urls";
 export const GET = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
@@ -200,30 +201,38 @@ export const POST = withTenant(
       });
     });
 
-    // Send invite email (fire-and-forget) — fuera de la tx para no
-    // romperla si el SMTP tarda o falla.
-    const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-    prisma.configuracionEmpresa.findFirst({
-      select: {
-        nombre: true, appNombre: true, colorPrimario: true,
-        colorSidebar: true, logo: true, emailActivo: true,
-      },
-    }).then((config) => {
-      if (!config?.emailActivo) return;
-      const empresa = config.nombre ?? config.appNombre ?? "Mi Empresa";
+    // Email de invitación. NO depende de `emailActivo` — un empleado
+    // nuevo no puede entrar nunca sin este email, así que siempre se
+    // envía. Construimos la URL con el subdominio del tenant (no
+    // NEXTAUTH_URL, que apunta al subdominio app de registro).
+    const tenantSlug = currentTenant().slug;
+    const setPasswordUrl = buildSetPasswordUrl(tenantSlug, resetToken);
+    try {
+      const config = await prisma.configuracionEmpresa.findFirst({
+        select: {
+          nombre: true, appNombre: true, colorPrimario: true,
+          colorSidebar: true, logo: true,
+        },
+      });
+      const empresa = config?.nombre ?? config?.appNombre ?? "Mi Empresa";
       const html = invitacionTemplate({
         nombre,
         apellidos,
         email,
         rol,
         empresa,
-        colorPrimario: config.colorPrimario ?? "#6366f1",
-        colorSidebar: config.colorSidebar ?? "#1e1b4b",
-        logo: config.logo,
-        setPasswordUrl: `${appUrl}/set-password?token=${resetToken}`,
+        colorPrimario: config?.colorPrimario ?? "#6366f1",
+        colorSidebar: config?.colorSidebar ?? "#1e1b4b",
+        logo: config?.logo ?? null,
+        setPasswordUrl,
       });
-      return sendEmail(email, `Bienvenido/a a ${empresa} — Crea tu contraseña`, html);
-    }).catch(() => {});
+      await sendEmail(email, `Bienvenido/a a ${empresa} — Crea tu contraseña`, html);
+    } catch (err) {
+      // El empleado ya está en BD. El email ha fallado, pero no
+      // anulamos el create — el admin puede reenviarlo manualmente
+      // desde la ficha del empleado.
+      console.error("[/api/empleados] fallo enviando email de invitación:", err);
+    }
 
     return Response.json(empleado, { status: 201 });
   })

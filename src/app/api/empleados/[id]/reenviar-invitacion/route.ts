@@ -7,6 +7,8 @@ import crypto from "crypto";
 import type { NextRequest } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
+import { currentTenant } from "@/lib/tenant/context";
+import { buildSetPasswordUrl } from "@/lib/tenant/urls";
 export const POST = withTenant(async (_request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
   try {
@@ -33,26 +35,25 @@ export const POST = withTenant(async (_request: NextRequest,
       data: { resetToken, resetTokenExpiry },
     });
 
-    const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+    // Email de invitación. NO depende de `emailActivo` — sin este
+    // mail el empleado no puede entrar nunca.
+    const setPasswordUrl = buildSetPasswordUrl(currentTenant().slug, resetToken);
     const config = await prisma.configuracionEmpresa.findFirst({
-      select: { nombre: true, appNombre: true, colorPrimario: true, colorSidebar: true, logo: true, emailActivo: true },
+      select: { nombre: true, appNombre: true, colorPrimario: true, colorSidebar: true, logo: true },
     });
-
-    if (config?.emailActivo) {
-      const empresa = config.nombre ?? config.appNombre ?? "Mi Empresa";
-      const html = invitacionTemplate({
-        nombre: empleado.nombre,
-        apellidos: empleado.apellidos,
-        email: empleado.email,
-        rol: empleado.rol,
-        empresa,
-        colorPrimario: config.colorPrimario ?? "#6366f1",
-        colorSidebar: config.colorSidebar ?? "#1e1b4b",
-        logo: config.logo,
-        setPasswordUrl: `${appUrl}/set-password?token=${resetToken}`,
-      });
-      await sendEmail(empleado.email, `Invitación a ${empresa} — Crea tu contraseña`, html);
-    }
+    const empresa = config?.nombre ?? config?.appNombre ?? "Mi Empresa";
+    const html = invitacionTemplate({
+      nombre: empleado.nombre,
+      apellidos: empleado.apellidos,
+      email: empleado.email,
+      rol: empleado.rol,
+      empresa,
+      colorPrimario: config?.colorPrimario ?? "#6366f1",
+      colorSidebar: config?.colorSidebar ?? "#1e1b4b",
+      logo: config?.logo ?? null,
+      setPasswordUrl,
+    });
+    await sendEmail(empleado.email, `Invitación a ${empresa} — Crea tu contraseña`, html);
 
     return Response.json({ success: true });
   } catch (error) {
