@@ -1,5 +1,6 @@
 import React from "react";
 import { cookies, headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { auth, signIn } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
@@ -68,14 +69,17 @@ async function loginAction(formData: FormData) {
       error?.name ??
       (error?.message?.includes?.("credentialssignin") ? "CredentialsSignin" : null) ??
       "CredentialsSignin";
-    // URL ABSOLUTA al subdominio actual para forzar hard navigation.
-    // Un redirect relativo desde un server action genera soft navigation
-    // que reusa el Router Cache cliente — y si la página /login fue
-    // cacheada antes desde app.<root> (form global), sirve esa.
+    // Invalidar el Router Cache cliente para /login. Sin esto, el
+    // server action redirect (soft navigation) reusaría la página
+    // cacheada del primer host visitado (app.<root> con form global)
+    // aunque el server envíe el HTML correcto del tenant.
+    revalidatePath("/login", "layout");
     redirect(`${proto}://${host}/login?error=${encodeURIComponent(code)}`);
   }
 
   console.log("[loginAction] redirecting to dest=%s", dest);
+  // Invalidar Router Cache cliente igual que en el error path.
+  revalidatePath("/", "layout");
   redirect(dest);
 }
 
