@@ -188,6 +188,7 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
         items: [
           { label: "Mis Documentos", href: "/empleado/documentos", icon: FolderOpen },
           { label: "Mis Firmas", href: "/empleado/firmas", icon: Pen },
+          { label: "Face ID", href: "/empleado/face-id", icon: ScanFace },
         ],
       },
     ],
