@@ -11,6 +11,9 @@ import { EmpleaIALogo } from "@/components/brand/empleaia-logo";
 import { GlobalLoginForm } from "./global-login-form";
 
 export const dynamic = "force-dynamic";
+// Sin cache cliente/SW — el HTML depende del subdominio (form del tenant
+// vs global) y un cache stale entre subdominios sirve el form incorrecto.
+export const fetchCache = "force-no-store";
 
 // ─── Server action ────────────────────────────────────────────────────────────
 
@@ -56,20 +59,19 @@ async function loginAction(formData: FormData) {
       redirectTo: dest,
     });
   } catch (error: any) {
-    // NEXT_REDIRECT es un throw legítimo de Next que no debemos tratar
-    // como error de credenciales — re-lanzamos para que Next lo procese.
+    // NEXT_REDIRECT es un throw legítimo de Next — re-lanzar.
     if (error?.digest?.startsWith?.("NEXT_REDIRECT")) {
-      console.log("[loginAction] re-throwing NEXT_REDIRECT digest=%s", error.digest);
       throw error;
     }
-    const message =
-      error?.cause?.err?.message ??
-      error?.message ??
-      "Credenciales incorrectas";
-    console.log("[loginAction] catch error=%s digest=%s message=%s", error?.name, error?.digest, message);
-
-    const encoded = encodeURIComponent(message);
-    redirect(`/login?error=${encoded}`);
+    // CredentialsSignin (typo, AccessDenied, etc.) son errores conocidos de NextAuth.
+    // En vez de exponer el mensaje técnico ("Read more at errors.authjs.dev..."),
+    // mandamos solo el código y la page lo traduce a texto amigable.
+    const code =
+      error?.type ??
+      error?.name ??
+      (error?.message?.includes?.("credentialssignin") ? "CredentialsSignin" : null) ??
+      "CredentialsSignin";
+    redirect(`/login?error=${encodeURIComponent(code)}`);
   }
 
   console.log("[loginAction] redirecting to dest=%s", dest);
