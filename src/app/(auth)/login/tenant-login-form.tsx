@@ -1,0 +1,95 @@
+"use client";
+
+import { useActionState } from "react";
+import { LogIn, AlertCircle, Loader2 } from "lucide-react";
+
+export interface LoginFormState {
+  ok: boolean;
+  error?: string;
+}
+
+interface Props {
+  action: (prev: LoginFormState | null, formData: FormData) => Promise<LoginFormState>;
+  initialEmail?: string;
+}
+
+const ERROR_MESSAGES: Record<string, string> = {
+  CredentialsSignin: "Email o contraseña incorrectos.",
+  Configuration: "Error de configuración del servidor. Contacta con soporte.",
+  AccessDenied: "Acceso denegado.",
+  Verification: "El enlace ha expirado o ya se usó.",
+};
+
+export function TenantLoginForm({ action, initialEmail = "" }: Props) {
+  const [state, formAction, pending] = useActionState<LoginFormState | null, FormData>(
+    async (prev, fd) => action(prev, fd),
+    null,
+  );
+
+  const errorMessage = state?.error
+    ? ERROR_MESSAGES[state.error] ?? state.error
+    : null;
+
+  return (
+    <>
+      {errorMessage && (
+        <div className="mb-5 flex items-start gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800 animate-fade-in">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
+      <form action={formAction} className="space-y-4">
+        <div>
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-[var(--color-text-dark,#0F172A)] mb-1.5"
+          >
+            Correo electrónico
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            defaultValue={initialEmail}
+            placeholder="usuario@empresa.com"
+            className="flex h-10 w-full rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white px-3.5 py-2 text-sm text-[var(--color-text-dark,#0F172A)] placeholder:text-[var(--color-text-muted,#94A3B8)] focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 transition-colors"
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-[var(--color-text-dark,#0F172A)] mb-1.5"
+          >
+            Contraseña
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            placeholder="••••••••"
+            className="flex h-10 w-full rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white px-3.5 py-2 text-sm text-[var(--color-text-dark,#0F172A)] placeholder:text-[var(--color-text-muted,#94A3B8)] focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 transition-colors"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={pending}
+          className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] active:bg-[var(--primary-dark)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30 focus-visible:ring-offset-1 disabled:opacity-60"
+        >
+          {pending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LogIn className="h-4 w-4" />
+          )}
+          {pending ? "Entrando…" : "Iniciar sesión"}
+        </button>
+      </form>
+    </>
+  );
+}

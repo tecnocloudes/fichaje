@@ -4,38 +4,48 @@ import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { auth, signIn } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
-import { LogIn, AlertCircle } from "lucide-react";
 import { resolveTenant } from "@/lib/tenant/resolver";
 import { runWithTenant } from "@/lib/tenant/context";
 import { ensureFeatureCatalogLoaded } from "@/lib/feature-guard/catalog";
 import { EmpleaIALogo } from "@/components/brand/empleaia-logo";
 import { GlobalLoginForm } from "./global-login-form";
+import { TenantLoginForm } from "./tenant-login-form";
 
 export const dynamic = "force-dynamic";
 // Sin cache cliente/SW — el HTML depende del subdominio (form del tenant
 // vs global) y un cache stale entre subdominios sirve el form incorrecto.
 export const fetchCache = "force-no-store";
 
-// ─── Server action ────────────────────────────────────────────────────────────
+// ─── Server action (useActionState pattern) ──────────────────────────────────
+//
+// En caso de credenciales inválidas devolvemos el error como state, NO
+// redirigimos. Eso evita el bug del Router Cache cliente cuya key es solo
+// el path /login (sin host) y reusaba la página cacheada del subdominio
+// app cuando llegabas al tenant tras un error.
+//
+// Solo redirigimos en caso de éxito.
 
-async function loginAction(formData: FormData) {
+interface LoginActionState {
+  ok: boolean;
+  error?: string;
+}
+
+async function loginAction(
+  _prev: LoginActionState | null,
+  formData: FormData,
+): Promise<LoginActionState> {
   "use server";
 
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
-  // Destino absoluto al subdominio actual.
   const h = await headers();
   const host = h.get("host") ?? "";
   const proto = host.includes("localhost") ? "http" : "https";
   const dest = `${proto}://${host}/`;
 
-  // Sobreescribimos la cookie __Secure-authjs.callback-url ANTES de
-  // signIn. Su valor por defecto lo setea NextAuth en el GET de /login
-  // como NEXTAUTH_URL = https://app.empleaia.es, y es la causa del
-  // rebote al subdominio app. Reescribirla con `dest` (subdominio
-  // actual) hace que cualquier redirect interno de NextAuth se quede
-  // en el tenant correcto.
+  // Sobreescribimos cookies callback-url antes de signIn (default
+  // NextAuth las setea con NEXTAUTH_URL).
   const cookieStore = await cookies();
   cookieStore.set("__Secure-authjs.callback-url", dest, {
     httpOnly: true,
@@ -43,14 +53,11 @@ async function loginAction(formData: FormData) {
     sameSite: "lax",
     path: "/",
   });
-  // Variante sin Secure por si el cookie name del entorno es la no-secure.
   cookieStore.set("authjs.callback-url", dest, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
   });
-
-  console.log("[loginAction] host=%s dest=%s email=%s", host, dest, email);
 
   try {
     await signIn("credentials", {
@@ -60,7 +67,6 @@ async function loginAction(formData: FormData) {
       redirectTo: dest,
     });
   } catch (error: any) {
-    // NEXT_REDIRECT es un throw legítimo de Next — re-lanzar.
     if (error?.digest?.startsWith?.("NEXT_REDIRECT")) {
       throw error;
     }
@@ -69,16 +75,10 @@ async function loginAction(formData: FormData) {
       error?.name ??
       (error?.message?.includes?.("credentialssignin") ? "CredentialsSignin" : null) ??
       "CredentialsSignin";
-    // Invalidar el Router Cache cliente para /login. Sin esto, el
-    // server action redirect (soft navigation) reusaría la página
-    // cacheada del primer host visitado (app.<root> con form global)
-    // aunque el server envíe el HTML correcto del tenant.
-    revalidatePath("/login", "layout");
-    redirect(`${proto}://${host}/login?error=${encodeURIComponent(code)}`);
+    return { ok: false, error: code };
   }
 
-  console.log("[loginAction] redirecting to dest=%s", dest);
-  // Invalidar Router Cache cliente igual que en el error path.
+  // Login exitoso → redirect absoluto al subdominio actual.
   revalidatePath("/", "layout");
   redirect(dest);
 }
@@ -99,21 +99,7 @@ async function LoginPage({ searchParams }: LoginPageProps) {
     redirect("/");
   }
 
-  const { error, email: prefilledEmail } = await searchParams;
-  // Mapeamos los códigos técnicos de NextAuth a mensajes humanos.
-  // Si el error es un código conocido, lo traducimos; si no, lo mostramos
-  // tal cual (es probable que ya venga decodificado del catch local).
-  const ERROR_MESSAGES: Record<string, string> = {
-    CredentialsSignin: "Email o contraseña incorrectos.",
-    Configuration: "Error de configuración del servidor. Contacta con soporte.",
-    AccessDenied: "Acceso denegado.",
-    Verification: "El enlace ha expirado o ya se usó.",
-    Default: "No se pudo iniciar sesión.",
-  };
-  const rawError = error ? decodeURIComponent(error) : null;
-  const errorMessage = rawError
-    ? ERROR_MESSAGES[rawError] ?? rawError
-    : null;
+  const { email: prefilledEmail } = await searchParams;
 
   const branding = await prisma.configuracionEmpresa.findFirst({
     select: { logo: true, appNombre: true, nombre: true },
@@ -157,59 +143,7 @@ async function LoginPage({ searchParams }: LoginPageProps) {
               <p className="text-sm text-slate-500 mt-1">Accede a tu espacio de trabajo</p>
             </div>
 
-            {errorMessage && (
-              <div className="mb-5 flex items-start gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800 animate-fade-in">
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            <form action={loginAction} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-[var(--color-text-dark,#0F172A)] mb-1.5"
-                >
-                  Correo electrónico
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  defaultValue={prefilledEmail ?? ""}
-                  placeholder="usuario@empresa.com"
-                  className="flex h-10 w-full rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white px-3.5 py-2 text-sm text-[var(--color-text-dark,#0F172A)] placeholder:text-[var(--color-text-muted,#94A3B8)] focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 transition-colors"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-[var(--color-text-dark,#0F172A)] mb-1.5"
-                >
-                  Contraseña
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  placeholder="••••••••"
-                  className="flex h-10 w-full rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white px-3.5 py-2 text-sm text-[var(--color-text-dark,#0F172A)] placeholder:text-[var(--color-text-muted,#94A3B8)] focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 transition-colors"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] active:bg-[var(--primary-dark)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30 focus-visible:ring-offset-1"
-              >
-                <LogIn className="h-4 w-4" />
-                Iniciar sesión
-              </button>
-            </form>
+            <TenantLoginForm action={loginAction} initialEmail={prefilledEmail ?? ""} />
 
             <p className="mt-6 text-center text-xs text-slate-400">
               Acceso exclusivo para empleados de {empresa}.
