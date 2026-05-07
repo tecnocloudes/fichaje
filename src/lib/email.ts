@@ -93,8 +93,16 @@ export async function sendSystemEmail(
   opts: { from?: string; text?: string } = {},
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
+  // Fallback chain: opts > SYSTEM_EMAIL_FROM > EMAIL_FROM > sandbox.
+  // EMAIL_FROM ya se configura en producción (Dokploy) y sirve como
+  // default sin tener que añadir otra env var. El sandbox de Resend
+  // (noreply@resend.dev) solo permite enviar al dueño de la cuenta —
+  // último recurso para que dev local no rompa.
   const from =
-    opts.from ?? process.env.SYSTEM_EMAIL_FROM ?? "noreply@resend.dev";
+    opts.from ??
+    process.env.SYSTEM_EMAIL_FROM ??
+    process.env.EMAIL_FROM ??
+    "noreply@resend.dev";
   if (!apiKey) {
     console.log("[email-system mock]", { to, subject, from });
     return;
@@ -108,6 +116,7 @@ export async function sendSystemEmail(
     ...(opts.text ? { text: opts.text } : {}),
   });
   if (result.error) {
+    console.error("[sendSystemEmail] Resend error", { to, from, error: result.error });
     throw new Error(
       `Resend error: ${result.error.name}: ${result.error.message}`,
     );

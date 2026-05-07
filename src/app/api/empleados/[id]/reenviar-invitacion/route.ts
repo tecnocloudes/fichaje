@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
 import { Rol } from "@/generated/prisma-tenant/client";
-import { sendEmail } from "@/lib/email";
+import { sendSystemEmail } from "@/lib/email";
 import { invitacionTemplate } from "@/lib/email-templates";
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
@@ -53,7 +53,7 @@ export const POST = withTenant(async (_request: NextRequest,
       logo: config?.logo ?? null,
       setPasswordUrl,
     });
-    await sendEmail(empleado.email, `Invitación a ${empresa} — Crea tu contraseña`, html);
+    await sendSystemEmail(empleado.email, `Invitación a ${empresa} — Crea tu contraseña`, html);
 
     return Response.json({ success: true });
   } catch (error) {

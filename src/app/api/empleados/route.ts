@@ -3,7 +3,7 @@ import { prismaApp as prisma } from "@/lib/prisma";
 import { Rol } from "@/generated/prisma-tenant/client";
 import crypto from "crypto";
 import type { NextRequest } from "next/server";
-import { sendEmail } from "@/lib/email";
+import { sendSystemEmail } from "@/lib/email";
 import { invitacionTemplate } from "@/lib/email-templates";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
@@ -201,10 +201,12 @@ export const POST = withTenant(
       });
     });
 
-    // Email de invitación. NO depende de `emailActivo` — un empleado
-    // nuevo no puede entrar nunca sin este email, así que siempre se
-    // envía. Construimos la URL con el subdominio del tenant (no
-    // NEXTAUTH_URL, que apunta al subdominio app de registro).
+    // Email de invitación. Crítico: sin él el empleado no puede entrar.
+    // Por eso usamos `sendSystemEmail` (Resend global RESEND_API_KEY)
+    // en vez de `sendEmail` (BYOK del tenant — ese requiere que el
+    // tenant haya configurado su Resend, lo cual no es realista para
+    // flows críticos como una invitación). Operacionales (turnos,
+    // ausencias) sí pueden seguir BYOK por separado.
     const tenantSlug = currentTenant().slug;
     const setPasswordUrl = buildSetPasswordUrl(tenantSlug, resetToken);
     try {
@@ -226,7 +228,11 @@ export const POST = withTenant(
         logo: config?.logo ?? null,
         setPasswordUrl,
       });
-      await sendEmail(email, `Bienvenido/a a ${empresa} — Crea tu contraseña`, html);
+      await sendSystemEmail(
+        email,
+        `Bienvenido/a a ${empresa} — Crea tu contraseña`,
+        html,
+      );
     } catch (err) {
       // El empleado ya está en BD. El email ha fallado, pero no
       // anulamos el create — el admin puede reenviarlo manualmente
