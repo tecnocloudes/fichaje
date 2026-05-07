@@ -11,6 +11,8 @@ import { auth } from "@/lib/auth";
 import { Rol } from "@/generated/prisma-tenant/client";
 import { prismaApp } from "@/lib/prisma";
 import { withTenant } from "@/lib/tenant/with-tenant";
+import { sendSystemEmail } from "@/lib/email";
+import { denunciaEstadoTemplate } from "@/lib/email-templates/denuncia-estado";
 
 const ESTADOS = [
   "recibida",
@@ -136,6 +138,30 @@ export const PATCH = withTenant(
       where: { id },
       data: update,
     });
+
+    // Email automático al informante si NO es anónima y cambió el estado.
+    if (data.estado && denuncia.informanteEmail && !denuncia.esAnonima) {
+      try {
+        const config = await prismaApp.configuracionEmpresa.findFirst({
+          select: { nombre: true, appNombre: true },
+        });
+        const empresa = config?.nombre ?? config?.appNombre ?? "tu empresa";
+        const html = denunciaEstadoTemplate({
+          asunto: denuncia.asunto,
+          estadoNuevo: data.estado,
+          empresa,
+          resolucionResumen: denuncia.resolucionResumen,
+        });
+        await sendSystemEmail(
+          denuncia.informanteEmail,
+          `Tu denuncia "${denuncia.asunto}" — actualización de estado`,
+          html,
+        );
+      } catch (err) {
+        console.error("[denuncia PATCH] fallo email estado:", err);
+      }
+    }
+
     return NextResponse.json({ denuncia: { ...denuncia, accessTokenHash: undefined } });
   },
 );
