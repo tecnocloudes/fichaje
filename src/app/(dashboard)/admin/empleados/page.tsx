@@ -26,6 +26,7 @@ interface Empleado {
   password: string | null;
   resetToken: string | null;
   tiendaId?: string;
+  managerId?: string;
   tienda?: { nombre: string; color: string };
 }
 
@@ -44,6 +45,7 @@ interface Tienda {
 const FORM_INICIAL = {
   nombre: "", apellidos: "", email: "", dni: "", telefono: "",
   password: "", rol: "EMPLEADO" as "OWNER" | "MANAGER" | "EMPLEADO", tiendaId: "",
+  managerId: "",
 };
 
 // Password field only used when editing (to change existing password)
@@ -99,6 +101,7 @@ export default function EmpleadosPage() {
       nombre: emp.nombre, apellidos: emp.apellidos, email: emp.email,
       dni: emp.dni || "", telefono: emp.telefono || "", password: "",
       rol: emp.rol, tiendaId: emp.tiendaId || "",
+      managerId: (emp as { managerId?: string }).managerId || "",
     });
     setDialogOpen(true);
   };
@@ -115,6 +118,8 @@ export default function EmpleadosPage() {
       if (!editando) delete body.password;
       if (editando && !body.password) delete body.password;
       if (!body.tiendaId) body.tiendaId = null;
+      // managerId vacío = quitar manager. "ninguno" del select también vacío.
+      if (!body.managerId || body.managerId === "ninguno") body.managerId = null;
 
       const url = editando ? `/api/empleados/${editando.id}` : "/api/empleados";
       const method = editando ? "PUT" : "POST";
@@ -380,6 +385,28 @@ export default function EmpleadosPage() {
                     {tiendas.map((t) => (
                       <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2">
+                <Label>Manager (responsable directo)</Label>
+                <Select
+                  value={form.managerId || "ninguno"}
+                  onValueChange={(v) => setForm((f) => ({ ...f, managerId: v === "ninguno" ? "" : v }))}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Sin manager" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ninguno">Sin manager</SelectItem>
+                    {empleados
+                      .filter((e) => e.id !== editando?.id && e.activo)
+                      .map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.nombre} {e.apellidos}{" "}
+                          <span className="text-xs text-slate-400">({e.rol})</span>
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

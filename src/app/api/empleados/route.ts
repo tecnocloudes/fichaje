@@ -119,6 +119,7 @@ export const POST = withTenant(
       foto,
       rol = Rol.EMPLEADO,
       tiendaId,
+      managerId,
     } = body as {
       email: string;
       nombre: string;
@@ -128,6 +129,7 @@ export const POST = withTenant(
       foto?: string;
       rol?: Rol;
       tiendaId?: string;
+      managerId?: string | null;
     };
 
     if (!email || !nombre || !apellidos) {
@@ -178,6 +180,7 @@ export const POST = withTenant(
           foto: foto || undefined,
           rol,
           tiendaId: tiendaId || null,
+          managerId: managerId || null,
           resetToken,
           resetTokenExpiry,
         },

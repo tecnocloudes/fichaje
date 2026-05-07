@@ -101,6 +101,7 @@ export const PUT = withTenant(async (request: NextRequest,
       foto,
       rol,
       tiendaId,
+      managerId,
       activo,
     } = body as {
       email?: string;
@@ -112,6 +113,7 @@ export const PUT = withTenant(async (request: NextRequest,
       foto?: string;
       rol?: Rol;
       tiendaId?: string;
+      managerId?: string | null;
       activo?: boolean;
     };
 
@@ -143,6 +145,16 @@ export const PUT = withTenant(async (request: NextRequest,
     if (foto !== undefined) updateData.foto = foto;
     if (rol !== undefined && userRol === Rol.OWNER) updateData.rol = rol;
     if (tiendaId !== undefined && userRol === Rol.OWNER) updateData.tiendaId = tiendaId;
+    if (managerId !== undefined && (userRol === Rol.OWNER || userRol === Rol.MANAGER)) {
+      // No permitir auto-asignación como manager.
+      if (managerId === id) {
+        return Response.json(
+          { error: "Un empleado no puede ser su propio manager" },
+          { status: 400 },
+        );
+      }
+      updateData.managerId = managerId;
+    }
     if (activo !== undefined && userRol === Rol.OWNER) updateData.activo = activo;
 
     if (password) {
