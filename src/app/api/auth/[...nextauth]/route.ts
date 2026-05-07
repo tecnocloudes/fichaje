@@ -48,11 +48,11 @@ function rewriteLocation(req: NextRequest, response: Response): Response {
 }
 
 export async function GET(req: NextRequest) {
-  const r = await handlers.GET(req as unknown as Request);
+  const r = await handlers.GET(req);
   return rewriteLocation(req, r);
 }
 
 export async function POST(req: NextRequest) {
-  const r = await handlers.POST(req as unknown as Request);
+  const r = await handlers.POST(req);
   return rewriteLocation(req, r);
 }
