@@ -1,5 +1,5 @@
 import React from "react";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { auth, signIn } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
@@ -20,14 +20,33 @@ async function loginAction(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
-  // Construimos el destino absoluto al subdominio actual *antes* de
-  // llamar signIn. Pasarlo como `redirectTo` evita que NextAuth use
-  // la cookie `__Secure-authjs.callback-url` (cuyo valor por defecto
-  // es NEXTAUTH_URL = app.empleaia.es) y rebote al subdominio app.
+  // Destino absoluto al subdominio actual.
   const h = await headers();
   const host = h.get("host") ?? "";
   const proto = host.includes("localhost") ? "http" : "https";
   const dest = `${proto}://${host}/`;
+
+  // Sobreescribimos la cookie __Secure-authjs.callback-url ANTES de
+  // signIn. Su valor por defecto lo setea NextAuth en el GET de /login
+  // como NEXTAUTH_URL = https://app.empleaia.es, y es la causa del
+  // rebote al subdominio app. Reescribirla con `dest` (subdominio
+  // actual) hace que cualquier redirect interno de NextAuth se quede
+  // en el tenant correcto.
+  const cookieStore = await cookies();
+  cookieStore.set("__Secure-authjs.callback-url", dest, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+  });
+  // Variante sin Secure por si el cookie name del entorno es la no-secure.
+  cookieStore.set("authjs.callback-url", dest, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+  });
+
+  console.log("[loginAction] host=%s dest=%s email=%s", host, dest, email);
 
   try {
     await signIn("credentials", {
@@ -40,17 +59,20 @@ async function loginAction(formData: FormData) {
     // NEXT_REDIRECT es un throw legítimo de Next que no debemos tratar
     // como error de credenciales — re-lanzamos para que Next lo procese.
     if (error?.digest?.startsWith?.("NEXT_REDIRECT")) {
+      console.log("[loginAction] re-throwing NEXT_REDIRECT digest=%s", error.digest);
       throw error;
     }
     const message =
       error?.cause?.err?.message ??
       error?.message ??
       "Credenciales incorrectas";
+    console.log("[loginAction] catch error=%s digest=%s message=%s", error?.name, error?.digest, message);
 
     const encoded = encodeURIComponent(message);
     redirect(`/login?error=${encoded}`);
   }
 
+  console.log("[loginAction] redirecting to dest=%s", dest);
   redirect(dest);
 }
 
