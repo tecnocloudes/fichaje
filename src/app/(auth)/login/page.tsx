@@ -20,13 +20,28 @@ async function loginAction(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
+  // Construimos el destino absoluto al subdominio actual *antes* de
+  // llamar signIn. Pasarlo como `redirectTo` evita que NextAuth use
+  // la cookie `__Secure-authjs.callback-url` (cuyo valor por defecto
+  // es NEXTAUTH_URL = app.empleaia.es) y rebote al subdominio app.
+  const h = await headers();
+  const host = h.get("host") ?? "";
+  const proto = host.includes("localhost") ? "http" : "https";
+  const dest = `${proto}://${host}/`;
+
   try {
     await signIn("credentials", {
       email,
       password,
       redirect: false,
+      redirectTo: dest,
     });
   } catch (error: any) {
+    // NEXT_REDIRECT es un throw legítimo de Next que no debemos tratar
+    // como error de credenciales — re-lanzamos para que Next lo procese.
+    if (error?.digest?.startsWith?.("NEXT_REDIRECT")) {
+      throw error;
+    }
     const message =
       error?.cause?.err?.message ??
       error?.message ??
@@ -36,15 +51,7 @@ async function loginAction(formData: FormData) {
     redirect(`/login?error=${encoded}`);
   }
 
-  // Redirect absoluto al subdominio actual del request — sin esto,
-  // NextAuth puede hacer que el flow termine en app.<root> por la
-  // cookie `__Secure-authjs.callback-url` (que se setea con NEXTAUTH_URL
-  // = app.empleaia.es). Ese rebote desde app.* no lleva la cookie de
-  // sesión (es host-only de <slug>.<root>) → bucle de login.
-  const h = await headers();
-  const host = h.get("host") ?? "";
-  const proto = host.includes("localhost") ? "http" : "https";
-  redirect(`${proto}://${host}/`);
+  redirect(dest);
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
