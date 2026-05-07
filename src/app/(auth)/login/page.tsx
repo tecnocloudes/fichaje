@@ -36,7 +36,15 @@ async function loginAction(formData: FormData) {
     redirect(`/login?error=${encoded}`);
   }
 
-  redirect("/");
+  // Redirect absoluto al subdominio actual del request — sin esto,
+  // NextAuth puede hacer que el flow termine en app.<root> por la
+  // cookie `__Secure-authjs.callback-url` (que se setea con NEXTAUTH_URL
+  // = app.empleaia.es). Ese rebote desde app.* no lleva la cookie de
+  // sesión (es host-only de <slug>.<root>) → bucle de login.
+  const h = await headers();
+  const host = h.get("host") ?? "";
+  const proto = host.includes("localhost") ? "http" : "https";
+  redirect(`${proto}://${host}/`);
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
