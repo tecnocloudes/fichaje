@@ -40,40 +40,47 @@ function rewriteIfInternal(url: string, host: string, proto: string): string | n
 async function rewriteResponse(req: NextRequest, response: Response): Promise<Response> {
   const { host, proto } = realHost(req);
 
-  // 1. Reescribir el header `Location` (redirects 30x del signIn, etc.)
+  // Reescribir Location header (redirects 30x).
   const loc = response.headers.get("location");
-  let newLoc: string | null = null;
-  if (loc) newLoc = rewriteIfInternal(loc, host, proto);
+  const newLoc = loc ? rewriteIfInternal(loc, host, proto) : null;
 
-  // 2. Reescribir body JSON con campo `url` (que es lo que devuelve el
-  //    POST /api/auth/signout y el cliente lee para hacer window.location).
+  // Solo procesamos el body si es JSON (signOut, providers list, etc.).
+  // Si no, devolvemos la response intacta — modificar el body de un
+  // stream consumido o no-JSON rompe el cliente.
   const contentType = response.headers.get("content-type") ?? "";
-  let newBody: BodyInit | null = response.body;
-  if (contentType.includes("application/json")) {
-    const text = await response.clone().text();
-    try {
-      const data = JSON.parse(text) as Record<string, unknown>;
-      if (typeof data.url === "string") {
-        const rewrittenUrl = rewriteIfInternal(data.url, host, proto);
-        if (rewrittenUrl) {
-          data.url = rewrittenUrl;
-          newBody = JSON.stringify(data);
-        }
-      }
-    } catch {
-      // No JSON válido — dejar como está.
-    }
+  if (!contentType.includes("application/json")) {
+    if (!newLoc) return response;
+    const newHeaders = new Headers(response.headers);
+    newHeaders.set("location", newLoc);
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: newHeaders,
+    });
   }
 
-  if (!newLoc && newBody === response.body) return response;
+  // JSON: lo leemos una sola vez.
+  const originalText = await response.text();
+  let bodyText = originalText;
+  try {
+    const data = JSON.parse(originalText) as Record<string, unknown>;
+    if (typeof data.url === "string") {
+      const rewrittenUrl = rewriteIfInternal(data.url, host, proto);
+      if (rewrittenUrl) {
+        data.url = rewrittenUrl;
+        bodyText = JSON.stringify(data);
+      }
+    }
+  } catch {
+    // No JSON válido — dejar como está.
+  }
 
   const newHeaders = new Headers(response.headers);
   if (newLoc) newHeaders.set("location", newLoc);
-  if (newBody !== response.body) {
-    newHeaders.set("content-length", String(new TextEncoder().encode(newBody as string).byteLength));
-  }
+  // Quitar content-length para que el runtime lo recalcule según el body.
+  newHeaders.delete("content-length");
 
-  return new Response(newBody, {
+  return new Response(bodyText, {
     status: response.status,
     statusText: response.statusText,
     headers: newHeaders,
