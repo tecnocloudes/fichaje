@@ -18,8 +18,29 @@ export const GET = withSuperAdmin(async (req) => {
   const limit = Math.min(Number(searchParams.get("limit") ?? 50), 200);
   const offset = Number(searchParams.get("offset") ?? 0);
 
+  // Validamos status contra el enum TenantStatus + soportamos el filtro
+  // "trialing" como caso especial (no es un status del tenant, sino del
+  // subscription — buscamos tenants con al menos 1 subscription en trial).
+  const VALID_TENANT_STATUSES = [
+    "pending",
+    "provisioning",
+    "active",
+    "suspended",
+    "deleted",
+  ] as const;
+
   const where: Record<string, unknown> = {};
-  if (status) where.status = status;
+  if (status === "trialing") {
+    where.subscriptions = { some: { status: "trialing" } };
+  } else if (status) {
+    if (!VALID_TENANT_STATUSES.includes(status as never)) {
+      return NextResponse.json(
+        { error: `Status inválido: ${status}` },
+        { status: 400 },
+      );
+    }
+    where.status = status;
+  }
   if (q) {
     where.OR = [
       { slug: { contains: q, mode: "insensitive" } },
