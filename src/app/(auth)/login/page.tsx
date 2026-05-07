@@ -63,15 +63,16 @@ async function loginAction(formData: FormData) {
     if (error?.digest?.startsWith?.("NEXT_REDIRECT")) {
       throw error;
     }
-    // CredentialsSignin (typo, AccessDenied, etc.) son errores conocidos de NextAuth.
-    // En vez de exponer el mensaje técnico ("Read more at errors.authjs.dev..."),
-    // mandamos solo el código y la page lo traduce a texto amigable.
     const code =
       error?.type ??
       error?.name ??
       (error?.message?.includes?.("credentialssignin") ? "CredentialsSignin" : null) ??
       "CredentialsSignin";
-    redirect(`/login?error=${encodeURIComponent(code)}`);
+    // URL ABSOLUTA al subdominio actual para forzar hard navigation.
+    // Un redirect relativo desde un server action genera soft navigation
+    // que reusa el Router Cache cliente — y si la página /login fue
+    // cacheada antes desde app.<root> (form global), sirve esa.
+    redirect(`${proto}://${host}/login?error=${encodeURIComponent(code)}`);
   }
 
   console.log("[loginAction] redirecting to dest=%s", dest);
