@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import {
   Clock,
   LogIn,
@@ -14,6 +15,8 @@ import {
   CheckCircle2,
   AlertCircle,
   XCircle,
+  ScanFace,
+  X as XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { useFeatures } from "@/lib/hooks/use-features";
 import { useDeviceType, deviceFichajeFeature } from "@/lib/device";
 import { UpsellCTA } from "@/components/upsell-cta";
+import { FaceCapture } from "@/components/face/face-capture";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -158,6 +162,15 @@ export default function EmpleadoPage() {
   // Action loading
   const [loadingAction, setLoadingAction] = useState<TipoFichaje | null>(null);
 
+  // Política de Face ID del tenant + estado del template del usuario.
+  const [faceRequired, setFaceRequired] = useState<boolean>(false);
+  const [hasFaceTemplate, setHasFaceTemplate] = useState<boolean | null>(null);
+  // Cuando el usuario pulsa fichar y Face ID es obligatorio, abrimos
+  // un modal de captura. Tras match, ejecutamos el fichaje real.
+  const [pendingFaceTipo, setPendingFaceTipo] = useState<TipoFichaje | null>(null);
+  const [faceVerifying, setFaceVerifying] = useState(false);
+  const [faceError, setFaceError] = useState<string | null>(null);
+
   // Fetch estado
   const fetchEstado = useCallback(async () => {
     try {
@@ -205,6 +218,20 @@ export default function EmpleadoPage() {
     fetchEstado();
     fetchFichajesHoy();
   }, [fetchEstado, fetchFichajesHoy]);
+
+  // Política de Face ID del tenant + ¿el usuario tiene template?
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetch("/api/configuracion").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/face/status").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([cfg, st]) => {
+      if (cancelled) return;
+      setFaceRequired(!!cfg?.faceIdObligatorio);
+      setHasFaceTemplate(!!st?.hasTemplate);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   // Geolocation passive: comprueba el estado del permiso al cargar
   // y se actualiza si el usuario lo cambia desde la barra del navegador
@@ -275,7 +302,7 @@ export default function EmpleadoPage() {
 
   // Fichar action
   const handleFichar = useCallback(
-    async (tipo: TipoFichaje) => {
+    async (tipo: TipoFichaje, opts: { faceVerified?: boolean } = {}) => {
       setLoadingAction(tipo);
       try {
         let lat: number | undefined;
@@ -294,7 +321,10 @@ export default function EmpleadoPage() {
         const res = await fetch("/api/fichajes", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tipo, latitud: lat, longitud: lon, distancia: dist }),
+          body: JSON.stringify({
+            tipo, latitud: lat, longitud: lon, distancia: dist,
+            ...(opts.faceVerified ? { faceVerified: true } : {}),
+          }),
         });
 
         const data = await res.json();
@@ -341,6 +371,47 @@ export default function EmpleadoPage() {
       }
     },
     [getLocation, fetchEstado, fetchFichajesHoy, toast]
+  );
+
+  // Wrapper público que decide si pedir Face ID antes de fichar.
+  const fichar = useCallback(
+    (tipo: TipoFichaje) => {
+      if (faceRequired && hasFaceTemplate) {
+        setFaceError(null);
+        setPendingFaceTipo(tipo);
+        return;
+      }
+      void handleFichar(tipo);
+    },
+    [faceRequired, hasFaceTemplate, handleFichar],
+  );
+
+  const handleFaceCapture = useCallback(
+    async (embedding: number[]) => {
+      if (!pendingFaceTipo) return;
+      setFaceVerifying(true);
+      setFaceError(null);
+      try {
+        const r = await fetch("/api/face/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ embedding }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.error ?? `HTTP ${r.status}`);
+        if (!data.match) {
+          throw new Error(`No coincide con tu rostro registrado (similitud ${(data.score ?? 0).toFixed(2)}).`);
+        }
+        const tipo = pendingFaceTipo;
+        setPendingFaceTipo(null);
+        await handleFichar(tipo, { faceVerified: true });
+      } catch (e) {
+        setFaceError(e instanceof Error ? e.message : "Error verificando rostro");
+      } finally {
+        setFaceVerifying(false);
+      }
+    },
+    [pendingFaceTipo, handleFichar],
   );
 
   // ── Render helpers ────────────────────────────────────────────────────────
@@ -422,10 +493,32 @@ export default function EmpleadoPage() {
   function ActionButtons() {
     const isLoading = loadingAction !== null;
 
+    // Face ID obligatorio + el usuario no tiene rostro registrado.
+    // No tiene sentido renderizar los botones; le obligamos a enrolar.
+    if (faceRequired && hasFaceTemplate === false) {
+      return (
+        <div className="w-full max-w-md mx-auto rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center space-y-3">
+          <ScanFace className="h-8 w-8 text-amber-600 mx-auto" />
+          <h3 className="font-semibold text-amber-900">Face ID requerido</h3>
+          <p className="text-sm text-amber-800">
+            Tu empresa exige reconocimiento facial para fichar. Registra tu rostro
+            (solo se guarda un vector cifrado, nunca tu foto) y vuelve aquí.
+          </p>
+          <Link
+            href="/empleado/face-id"
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-700 px-4 py-2 text-sm font-semibold text-white"
+          >
+            <ScanFace className="h-4 w-4" />
+            Registrar Face ID
+          </Link>
+        </div>
+      );
+    }
+
     if (estado === "sin_fichar") {
       return (
         <button
-          onClick={() => handleFichar("ENTRADA")}
+          onClick={() => fichar("ENTRADA")}
           disabled={isLoading}
           className={cn(
             "w-full max-w-xs mx-auto flex items-center justify-center gap-3 rounded-2xl py-6 text-white text-2xl font-bold shadow-lg transition-all duration-200",
@@ -447,7 +540,7 @@ export default function EmpleadoPage() {
       return (
         <div className="flex gap-4 w-full max-w-sm mx-auto">
           <button
-            onClick={() => handleFichar("PAUSA")}
+            onClick={() => fichar("PAUSA")}
             disabled={isLoading}
             className={cn(
               "flex-1 flex flex-col items-center justify-center gap-2 rounded-2xl py-5 text-white font-bold shadow-lg transition-all duration-200",
@@ -463,7 +556,7 @@ export default function EmpleadoPage() {
             <span className="text-lg">PAUSA</span>
           </button>
           <button
-            onClick={() => handleFichar("SALIDA")}
+            onClick={() => fichar("SALIDA")}
             disabled={isLoading}
             className={cn(
               "flex-1 flex flex-col items-center justify-center gap-2 rounded-2xl py-5 text-white font-bold shadow-lg transition-all duration-200",
@@ -486,7 +579,7 @@ export default function EmpleadoPage() {
     return (
       <div className="flex gap-4 w-full max-w-sm mx-auto">
         <button
-          onClick={() => handleFichar("VUELTA_PAUSA")}
+          onClick={() => fichar("VUELTA_PAUSA")}
           disabled={isLoading}
           className={cn(
             "flex-1 flex flex-col items-center justify-center gap-2 rounded-2xl py-5 text-white font-bold shadow-lg transition-all duration-200",
@@ -502,7 +595,7 @@ export default function EmpleadoPage() {
           <span className="text-lg">VOLVER</span>
         </button>
         <button
-          onClick={() => handleFichar("SALIDA")}
+          onClick={() => fichar("SALIDA")}
           disabled={isLoading}
           className={cn(
             "flex-1 flex flex-col items-center justify-center gap-2 rounded-2xl py-5 text-white font-bold shadow-lg transition-all duration-200",
@@ -636,6 +729,44 @@ export default function EmpleadoPage() {
             </ul>
           </CardContent>
         </Card>
+      )}
+
+      {pendingFaceTipo && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <h2 className="font-semibold text-lg flex items-center gap-2">
+                <ScanFace className="h-5 w-5 text-[var(--primary)]" />
+                Verifica tu identidad
+              </h2>
+              <button
+                onClick={() => { setPendingFaceTipo(null); setFaceError(null); }}
+                className="text-slate-400 hover:text-slate-600"
+                aria-label="Cerrar"
+                disabled={faceVerifying}
+              >
+                <XIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Tu empresa exige Face ID para fichar. Captura tu rostro para confirmar la acción <strong>{pendingFaceTipo}</strong>.
+            </p>
+            <FaceCapture
+              cta="Verificar y fichar"
+              pending={faceVerifying}
+              onCapture={(emb) => void handleFaceCapture(emb)}
+            />
+            {faceError && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {faceError}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

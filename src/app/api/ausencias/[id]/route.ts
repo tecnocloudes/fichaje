@@ -4,6 +4,7 @@ import { Rol, EstadoAusencia } from "@/generated/prisma-tenant/client";
 import type { NextRequest } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
+import { notifyAusenciaResuelta } from "@/lib/ausencias/notify";
 export const PATCH = withTenant(async (request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
   try {
@@ -89,11 +90,14 @@ export const PATCH = withTenant(async (request: NextRequest,
           : {}),
       },
       include: {
-        user: { select: { id: true, nombre: true, apellidos: true, email: true } },
+        user: { select: { id: true, nombre: true, apellidos: true, email: true, tiendaId: true } },
         tipoAusencia: true,
         aprobadoPor: { select: { id: true, nombre: true, apellidos: true } },
       },
     });
+
+    // Best-effort: avisa al empleado del resultado (sólo APROBADA/RECHAZADA).
+    void notifyAusenciaResuelta(updated);
 
     return Response.json(updated);
   } catch (error) {

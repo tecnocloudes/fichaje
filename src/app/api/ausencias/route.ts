@@ -5,6 +5,7 @@ import type { NextRequest } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
+import { notifyAusenciaCreada } from "@/lib/ausencias/notify";
 function calcularDias(fechaInicio: Date, fechaFin: Date): number {
   const msPerDay = 1000 * 60 * 60 * 24;
   const diff = fechaFin.getTime() - fechaInicio.getTime();
@@ -147,11 +148,14 @@ export const POST = withTenant(withFeature("ausencias_aprobacion", async (reques
       },
       include: {
         user: {
-          select: { id: true, nombre: true, apellidos: true, email: true },
+          select: { id: true, nombre: true, apellidos: true, email: true, tiendaId: true },
         },
         tipoAusencia: true,
       },
     });
+
+    // Best-effort: notifica a managers + OWNERs. No bloquea la respuesta.
+    void notifyAusenciaCreada(ausencia);
 
     return Response.json(ausencia, { status: 201 });
   } catch (error) {

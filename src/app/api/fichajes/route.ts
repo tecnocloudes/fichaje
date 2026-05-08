@@ -99,6 +99,7 @@ export const POST = withTenant(async (request: NextRequest) => {
       distancia,
       metodo = MetodoFichaje.WEB,
       nota,
+      faceVerified,
     } = body as {
       tipo: TipoFichaje;
       latitud?: number;
@@ -106,6 +107,7 @@ export const POST = withTenant(async (request: NextRequest) => {
       distancia?: number;
       metodo?: MetodoFichaje;
       nota?: string;
+      faceVerified?: boolean;
     };
 
     if (!tipo || !Object.values(TipoFichaje).includes(tipo)) {
@@ -142,17 +144,39 @@ export const POST = withTenant(async (request: NextRequest) => {
     const lon = geofencingActivo ? longitud : null;
     const dist = geofencingActivo ? distancia : null;
 
-    // Política de tenant: geolocalización obligatoria al fichar.
-    // Si el OWNER lo activa y la feature `geofencing` está disponible,
-    // exigimos lat/lon en el body o devolvemos 400.
-    if (geofencingActivo) {
-      const cfg = await prisma.configuracionEmpresa.findUnique({
-        where: { id: "singleton" },
-        select: { geoObligatoria: true },
+    // Políticas de tenant: geo + Face ID obligatorios.
+    const cfg = await prisma.configuracionEmpresa.findUnique({
+      where: { id: "singleton" },
+      select: { geoObligatoria: true, faceIdObligatorio: true },
+    });
+
+    if (geofencingActivo && cfg?.geoObligatoria && (lat == null || lon == null)) {
+      return Response.json(
+        { error: "Tu empresa requiere localización para fichar. Activa el GPS y vuelve a intentarlo." },
+        { status: 400 },
+      );
+    }
+
+    if (cfg?.faceIdObligatorio) {
+      const tpl = await prisma.faceTemplate.findUnique({
+        where: { userId: userId! },
+        select: { id: true },
       });
-      if (cfg?.geoObligatoria && (lat == null || lon == null)) {
+      if (!tpl) {
         return Response.json(
-          { error: "Tu empresa requiere localización para fichar. Activa el GPS y vuelve a intentarlo." },
+          {
+            error: "Tu empresa exige Face ID para fichar. Regístralo en tu perfil antes de continuar.",
+            code: "face_id_required",
+          },
+          { status: 400 },
+        );
+      }
+      if (faceVerified !== true) {
+        return Response.json(
+          {
+            error: "Necesitas verificar tu rostro con Face ID antes de fichar.",
+            code: "face_id_verify_required",
+          },
           { status: 400 },
         );
       }
