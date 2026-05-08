@@ -71,8 +71,8 @@ export default function MisAusenciasPage() {
         fetch("/api/ausencias/tipos"),
       ]);
       const [ausData, tiposData] = await Promise.all([ausRes.json(), tiposRes.json()]);
-      setAusencias(ausData.ausencias || []);
-      setTipos(tiposData.tipos || []);
+      setAusencias(Array.isArray(ausData) ? ausData : (ausData?.ausencias ?? []));
+      setTipos(Array.isArray(tiposData) ? tiposData : (tiposData?.tipos ?? []));
     } finally {
       setLoading(false);
     }

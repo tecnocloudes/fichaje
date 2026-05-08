@@ -46,7 +46,7 @@ export default function ManagerAusenciasPage() {
     try {
       const res = await fetch("/api/ausencias");
       const data = await res.json();
-      setAusencias(data.ausencias || []);
+      setAusencias(Array.isArray(data) ? data : (data?.ausencias ?? []));
     } finally {
       setLoading(false);
     }
