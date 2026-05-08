@@ -35,6 +35,13 @@ export async function runMigrations() {
         ADD COLUMN IF NOT EXISTS "appNombre"     TEXT NOT NULL DEFAULT 'empleaIA';
     `);
 
+    // ── ConfiguracionEmpresa: políticas de fichaje (geo + face id) ────────
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "ConfiguracionEmpresa"
+        ADD COLUMN IF NOT EXISTS "geo_obligatoria"     BOOLEAN NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS "face_id_obligatorio" BOOLEAN NOT NULL DEFAULT false;
+    `);
+
     // ── PreferenciasNotificacion table ─────────────────────────────────────
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "PreferenciasNotificacion" (

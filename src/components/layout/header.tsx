@@ -191,7 +191,10 @@ export function Header({ user, onMenuToggle, notificationCount = 0 }: HeaderProp
               </div>
 
               <DropdownMenu.Item asChild>
-                <button className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent focus:bg-accent focus:outline-none transition-colors">
+                <button
+                  onClick={() => router.push("/perfil")}
+                  className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent focus:bg-accent focus:outline-none transition-colors"
+                >
                   <User className="h-4 w-4 text-muted-foreground" />
                   Mi perfil
                 </button>

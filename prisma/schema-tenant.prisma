@@ -235,8 +235,14 @@ model ConfiguracionEmpresa {
   horasSemanales      Float    @default(40)
   toleranciaFichaje   Int      @default(15)
   geofencingActivo    Boolean  @default(true)
+  // Si true, el fichaje requiere geolocalización (lat/lon). Si false,
+  // se acepta sin geo y el cliente puede saltarse la captura GPS.
+  geoObligatoria      Boolean  @default(false) @map("geo_obligatoria")
   fichajeMovilActivo  Boolean  @default(true)
   fichajeTabletActivo Boolean  @default(true)
+  // Si true, los empleados con Face ID registrado deben verificarlo
+  // al fichar (no se permite fichar sin Face ID si lo tienen).
+  faceIdObligatorio   Boolean  @default(false) @map("face_id_obligatorio")
   notifAusencias      Boolean  @default(true)
   notifTurnos         Boolean  @default(true)
   notifTareas         Boolean  @default(true)

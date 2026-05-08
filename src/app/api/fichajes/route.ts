@@ -139,6 +139,22 @@ export const POST = withTenant(async (request: NextRequest) => {
     const lon = geofencingActivo ? longitud : null;
     const dist = geofencingActivo ? distancia : null;
 
+    // Política de tenant: geolocalización obligatoria al fichar.
+    // Si el OWNER lo activa y la feature `geofencing` está disponible,
+    // exigimos lat/lon en el body o devolvemos 400.
+    if (geofencingActivo) {
+      const cfg = await prisma.configuracionEmpresa.findUnique({
+        where: { id: "singleton" },
+        select: { geoObligatoria: true },
+      });
+      if (cfg?.geoObligatoria && (lat == null || lon == null)) {
+        return Response.json(
+          { error: "Tu empresa requiere localización para fichar. Activa el GPS y vuelve a intentarlo." },
+          { status: 400 },
+        );
+      }
+    }
+
     const fichaje = await prisma.fichaje.create({
       data: {
         userId: userId!,

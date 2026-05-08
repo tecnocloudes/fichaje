@@ -27,6 +27,8 @@ interface Configuracion {
   horasSemanales: number;
   toleranciaFichaje: number;
   geofencingActivo: boolean;
+  geoObligatoria: boolean;
+  faceIdObligatorio: boolean;
   fichajeMovilActivo: boolean;
   fichajeTabletActivo: boolean;
   // Notificaciones globales
@@ -123,7 +125,8 @@ export default function ConfiguracionPage() {
   const DEFAULT_CONFIG: Configuracion = {
     id: "singleton", nombre: "Mi Empresa",
     horasJornadaDiaria: 8, horasSemanales: 40, toleranciaFichaje: 15,
-    geofencingActivo: true, fichajeMovilActivo: true, fichajeTabletActivo: true,
+    geofencingActivo: true, geoObligatoria: false, faceIdObligatorio: false,
+    fichajeMovilActivo: true, fichajeTabletActivo: true,
     notifAusencias: true, notifTurnos: true, notifTareas: true,
     notifFichajes: false, notifComunicados: true,
     emailActivo: false, emailHost: "", emailPort: 587, emailSecure: true,
@@ -162,6 +165,8 @@ export default function ConfiguracionPage() {
           horasSemanales: config.horasSemanales,
           toleranciaFichaje: config.toleranciaFichaje,
           geofencingActivo: config.geofencingActivo,
+          geoObligatoria: config.geoObligatoria,
+          faceIdObligatorio: config.faceIdObligatorio,
           fichajeMovilActivo: config.fichajeMovilActivo,
           fichajeTabletActivo: config.fichajeTabletActivo,
         }),
@@ -413,6 +418,8 @@ export default function ConfiguracionPage() {
               </div>
               <div className="pt-2">
                 <Toggle label="Geofencing activo (validar ubicación al fichar)" value={config.geofencingActivo} onChange={(v) => setConfig((c) => c && ({ ...c, geofencingActivo: v }))} />
+                <Toggle label="Geolocalización obligatoria al fichar (rechaza fichaje si el navegador no envía coordenadas)" value={config.geoObligatoria} onChange={(v) => setConfig((c) => c && ({ ...c, geoObligatoria: v }))} />
+                <Toggle label="Face ID obligatorio (empleados con rostro registrado deben verificarlo al fichar)" value={config.faceIdObligatorio} onChange={(v) => setConfig((c) => c && ({ ...c, faceIdObligatorio: v }))} />
                 <Toggle label="Fichaje desde móvil" value={config.fichajeMovilActivo} onChange={(v) => setConfig((c) => c && ({ ...c, fichajeMovilActivo: v }))} />
                 <Toggle label="Fichaje desde tablet (kiosko)" value={config.fichajeTabletActivo} onChange={(v) => setConfig((c) => c && ({ ...c, fichajeTabletActivo: v }))} />
               </div>

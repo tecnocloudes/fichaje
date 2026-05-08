@@ -4,13 +4,14 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useFeatures } from "@/lib/hooks/use-features";
+import { Lock } from "lucide-react";
 import {
   LayoutDashboard, Store, Users, Calendar, FileText,
   Settings, LogOut, Clock, ClipboardList, CalendarCheck, BarChart3,
   Bell, ChevronLeft, ChevronRight, UserCheck, CheckSquare, Megaphone,
-  BookOpen, FolderOpen, Rocket, GraduationCap, Target, CreditCard,
-  TrendingUp, GitBranch, Globe, Timer, Search, Star, Send, Pen,
-  MessageSquare, ChevronDown, Landmark, Sparkles, ShieldAlert, Network,
+  BookOpen, FolderOpen, Rocket, Timer, Search, Pen,
+  ChevronDown, Sparkles, ShieldAlert, Network,
   Bot, ScanFace,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,8 +31,13 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  proximamente?: boolean;
   badge?: number;
+  /**
+   * Feature key del catálogo (ADR-004). Si está presente y el plan del
+   * tenant NO la incluye, el item se pinta como bloqueado y al pulsar
+   * lleva a /admin/planes en lugar de a su href real.
+   */
+  feature?: string;
 }
 
 interface NavSection {
@@ -55,7 +61,7 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
           label: "ADMINISTRADOR",
           items: [
             { label: "Empleados", href: "/admin/empleados", icon: Users },
-            { label: "Sedes", href: "/admin/tiendas", icon: Store },
+            { label: "Sedes", href: "/admin/tiendas", icon: Store, feature: "multi_tienda" },
           ],
         },
         {
@@ -63,56 +69,39 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
           label: "GESTIÓN DEL TIEMPO",
           items: [
             { label: "Fichajes", href: "/admin/informes", icon: Clock },
-            { label: "Ausencias", href: "/admin/ausencias", icon: ClipboardList, badge: pendingAusencias || undefined },
-            { label: "Turnos", href: "/admin/turnos", icon: Calendar },
-            { label: "Bolsa de horas", href: "/admin/bolsa-horas", icon: Timer },
-            { label: "Tareas", href: "/admin/tareas", icon: CheckSquare },
+            { label: "Ausencias", href: "/admin/ausencias", icon: ClipboardList, badge: pendingAusencias || undefined, feature: "ausencias_aprobacion" },
+            { label: "Turnos", href: "/admin/turnos", icon: Calendar, feature: "turnos_publicacion" },
+            { label: "Bolsa de horas", href: "/admin/bolsa-horas", icon: Timer, feature: "bolsa_horas" },
+            { label: "Tareas", href: "/admin/tareas", icon: CheckSquare, feature: "tareas" },
           ],
         },
         {
           key: "talento",
           label: "TALENTO",
           items: [
-            { label: "Incorporaciones y bajas", href: "/admin/onboarding", icon: Rocket },
-            { label: "Reclutamiento", href: "/admin/reclutamiento", icon: Search },
-            { label: "Organigrama", href: "/admin/organigrama", icon: Network },
-            { label: "Encuestas", href: "/admin/encuestas", icon: MessageSquare, proximamente: true },
-            { label: "Evaluaciones", href: "/admin/evaluaciones", icon: Star, proximamente: true },
-            { label: "Formación", href: "/admin/formacion", icon: GraduationCap, proximamente: true },
-            { label: "Objetivos", href: "/admin/objetivos", icon: Target, proximamente: true },
+            { label: "Incorporaciones y bajas", href: "/admin/onboarding", icon: Rocket, feature: "onboarding_offboarding" },
+            { label: "Reclutamiento", href: "/admin/reclutamiento", icon: Search, feature: "reclutamiento" },
+            { label: "Organigrama", href: "/admin/organigrama", icon: Network, feature: "organigrama" },
           ],
         },
         {
           key: "comunicacion",
           label: "COMUNICACIÓN",
           items: [
-            { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone },
-            { label: "Artículos", href: "/admin/articulos", icon: BookOpen },
-            { label: "Canal de denuncias", href: "/admin/canal-denuncias", icon: ShieldAlert },
-          ],
-        },
-        {
-          key: "finanzas",
-          label: "FINANZAS",
-          items: [
-            { label: "Nóminas", href: "/admin/nominas", icon: FileText, proximamente: true },
-            { label: "Envío Nóminas", href: "/admin/envio-nominas", icon: Send, proximamente: true },
-            { label: "Control de gastos", href: "/admin/control-gastos", icon: CreditCard, proximamente: true },
-            { label: "Retribución flexible", href: "/admin/retribucion", icon: Timer, proximamente: true },
-            { label: "Wallet", href: "/admin/wallet", icon: Landmark, proximamente: true },
+            { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone, feature: "comunicados" },
+            { label: "Artículos", href: "/admin/articulos", icon: BookOpen, feature: "articulos" },
+            { label: "Canal de denuncias", href: "/admin/canal-denuncias", icon: ShieldAlert, feature: "canal_denuncias" },
           ],
         },
         {
           key: "empresa",
           label: "EMPRESA",
           items: [
-            { label: "Documentos", href: "/admin/documentos", icon: FolderOpen },
-            { label: "Informes", href: "/admin/informes", icon: BarChart3 },
-            { label: "Asistente IA", href: "/admin/asistente-ia", icon: Bot },
-            { label: "Face ID", href: "/admin/face-id", icon: ScanFace },
-            { label: "People Analytics", href: "/admin/people-analytics", icon: TrendingUp, proximamente: true },
-            { label: "Firma electrónica", href: "/admin/firma", icon: Pen },
-            { label: "Grupo", href: "/admin/grupo", icon: Globe, proximamente: true },
+            { label: "Documentos", href: "/admin/documentos", icon: FolderOpen, feature: "documentos" },
+            { label: "Informes", href: "/admin/informes", icon: BarChart3, feature: "informes_avanzados" },
+            { label: "Asistente IA", href: "/admin/asistente-ia", icon: Bot, feature: "asistente_ia" },
+            { label: "Face ID", href: "/admin/face-id", icon: ScanFace, feature: "face_id" },
+            { label: "Firma electrónica", href: "/admin/firma", icon: Pen, feature: "firma_electronica" },
           ],
         },
         {
@@ -245,6 +234,16 @@ export function Sidebar({
   const { top, sections } = getSidebarConfig(user.rol, pendingAusencias);
   const fullName = user.apellidos ? `${user.nombre} ${user.apellidos}` : user.nombre;
 
+  // Plan del tenant: para items con `feature`, comprobamos si el plan
+  // incluye esa key. `null` = aún cargando (no bloqueamos nada hasta
+  // saber, evitamos pintar todo locked durante el primer paint).
+  const { data: features } = useFeatures();
+  const isLocked = (feature?: string): boolean => {
+    if (!feature) return false;
+    if (!features) return false; // sin datos aún → tratamos como disponible
+    return features.booleans[feature] !== true;
+  };
+
   const isActive = (href: string) => {
     if (pathname === href) return true;
     if (href !== "/admin" && href !== "/manager" && href !== "/empleado") {
@@ -261,23 +260,24 @@ export function Sidebar({
     const active = isActive(item.href);
     const Icon = item.icon;
 
-    if (item.proximamente) {
+    if (isLocked(item.feature)) {
       return (
         <Link
-          href={item.href}
+          href="/admin/planes"
           className={cn(
             "group flex items-center gap-3 rounded-md pl-3 pr-3 py-2 text-sm transition-colors",
-            "text-slate-400 hover:text-slate-500 hover:bg-slate-50",
+            "text-slate-400 hover:text-slate-700 hover:bg-amber-50",
             collapsed && "justify-center px-2"
           )}
-          title={collapsed ? item.label : undefined}
+          title={collapsed ? `${item.label} — requiere plan superior` : undefined}
         >
-          <Icon className="h-4 w-4 shrink-0 text-slate-300" />
+          <Icon className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-amber-600" />
           {!collapsed && (
             <>
-              <span className="flex-1 truncate text-xs">{item.label}</span>
-              <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full font-medium shrink-0">
-                Pronto
+              <span className="flex-1 truncate">{item.label}</span>
+              <span className="inline-flex items-center gap-1 text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full font-medium shrink-0">
+                <Lock className="h-3 w-3" />
+                Plan
               </span>
             </>
           )}
