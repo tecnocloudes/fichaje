@@ -6,7 +6,7 @@ import type { NextRequest } from "next/server";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { getLimit, hasFeature } from "@/lib/tenant/features";
 import { runMigrations } from "@/lib/migrate";
-import { detectDeviceTypeFromUA } from "@/lib/device";
+import { detectDeviceTypeFromUA } from "@/lib/device-ua";
 export const GET = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
