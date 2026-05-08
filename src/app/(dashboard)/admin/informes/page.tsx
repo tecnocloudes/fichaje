@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { FileSpreadsheet, FileText, BarChart2 } from "lucide-react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { FileSpreadsheet, FileText, BarChart2, MapPin, Smartphone, Tablet, Globe, ScanFace, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FeatureGateClient } from "@/components/feature-gate-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,44 +15,134 @@ import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { ProgressBar } from "@/components/ui/progress-bar";
 
 interface Tienda { id: string; nombre: string; }
+interface Empleado {
+  id: string;
+  nombre: string;
+  apellidos: string;
+  foto: string | null;
+  tiendaId: string | null;
+}
 interface ResumenEmpleado {
   userId: string; nombre: string; apellidos: string;
   diasTrabajados: number; horasTotales: number; horasExtra: number; diasAusencia: number;
 }
 interface Stats { totalHoras: number; mediaHorasDia: number; totalAusencias: number; horasExtra: number; }
 
+interface FichajeDetalle {
+  id: string;
+  timestamp: string;
+  tipo: "ENTRADA" | "PAUSA" | "VUELTA_PAUSA" | "SALIDA";
+  metodo: "WEB" | "MOVIL" | "TABLET" | "MANUAL";
+  latitud: number | null;
+  longitud: number | null;
+  distancia: number | null;
+  nota: string | null;
+  user: { id: string; nombre: string; apellidos: string; foto: string | null };
+  tienda: { id: string; nombre: string } | null;
+}
+
+const TIPO_LABEL: Record<FichajeDetalle["tipo"], string> = {
+  ENTRADA: "Entrada",
+  PAUSA: "Pausa",
+  VUELTA_PAUSA: "Vuelta",
+  SALIDA: "Salida",
+};
+const TIPO_CLS: Record<FichajeDetalle["tipo"], string> = {
+  ENTRADA: "bg-emerald-50 text-emerald-700",
+  PAUSA: "bg-amber-50 text-amber-700",
+  VUELTA_PAUSA: "bg-sky-50 text-sky-700",
+  SALIDA: "bg-rose-50 text-rose-700",
+};
+
+function MetodoIcon({ m }: { m: FichajeDetalle["metodo"] }) {
+  if (m === "MOVIL") return <Smartphone className="h-3.5 w-3.5" />;
+  if (m === "TABLET") return <Tablet className="h-3.5 w-3.5" />;
+  if (m === "MANUAL") return <ScanFace className="h-3.5 w-3.5" />;
+  return <Globe className="h-3.5 w-3.5" />;
+}
+
 export default function AdminInformesPage() {
   const { toast } = useToast();
+
   const [fechaInicio, setFechaInicio] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"));
   const [fechaFin, setFechaFin] = useState(format(new Date(), "yyyy-MM-dd"));
   const [tiendas, setTiendas] = useState<Tienda[]>([]);
+  const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [tiendaId, setTiendaId] = useState<string>("todas");
+  const [empleadoId, setEmpleadoId] = useState<string>("todos");
+
   const [datos, setDatos] = useState<ResumenEmpleado[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [fichajes, setFichajes] = useState<FichajeDetalle[]>([]);
   const [loading, setLoading] = useState(false);
   const [exportando, setExportando] = useState(false);
 
+  // ── Carga inicial: sedes + empleados ────────────────────────────────────
   useEffect(() => {
     fetch("/api/tiendas").then(r => r.json()).then(d => setTiendas(d.tiendas || []));
+    fetch("/api/empleados").then(r => r.json()).then(d => {
+      const list: Empleado[] = (d.empleados || d || []).map((e: Record<string, unknown>) => ({
+        id: String(e.id),
+        nombre: String(e.nombre ?? ""),
+        apellidos: String(e.apellidos ?? ""),
+        foto: (e.foto as string | null) ?? null,
+        tiendaId: (e.tiendaId as string | null) ?? null,
+      }));
+      setEmpleados(list);
+    }).catch(() => setEmpleados([]));
   }, []);
 
+  // Cuando cambia la sede, si el empleado seleccionado no pertenece a esa
+  // sede, lo reseteamos a "todos".
+  useEffect(() => {
+    if (tiendaId === "todas" || empleadoId === "todos") return;
+    const e = empleados.find((x) => x.id === empleadoId);
+    if (e && e.tiendaId !== tiendaId) setEmpleadoId("todos");
+  }, [tiendaId, empleadoId, empleados]);
+
+  const empleadosFiltrados = useMemo(() => {
+    if (tiendaId === "todas") return empleados;
+    return empleados.filter((e) => e.tiendaId === tiendaId);
+  }, [empleados, tiendaId]);
+
+  const empleadoSel = useMemo(
+    () => empleados.find((e) => e.id === empleadoId) ?? null,
+    [empleados, empleadoId],
+  );
+  const empleadoTienda = useMemo(
+    () => (empleadoSel?.tiendaId ? tiendas.find((t) => t.id === empleadoSel.tiendaId) : null),
+    [empleadoSel, tiendas],
+  );
+
+  // ── Fetch principal ──────────────────────────────────────────────────────
   const fetchInformes = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        tipo: "resumen",
+      const baseParams = new URLSearchParams({
         fechaInicio: `${fechaInicio}T00:00:00Z`,
         fechaFin: `${fechaFin}T23:59:59Z`,
       });
-      if (tiendaId !== "todas") params.set("tiendaId", tiendaId);
-      const res = await fetch(`/api/informes?${params}`);
-      const data = await res.json();
-      setDatos(data.empleados || []);
-      setStats(data.stats || null);
+      if (tiendaId !== "todas") baseParams.set("tiendaId", tiendaId);
+      if (empleadoId !== "todos") baseParams.set("userId", empleadoId);
+
+      // Resumen agregado siempre.
+      const resResumen = await fetch(`/api/informes?${baseParams}&tipo=resumen`);
+      const dataResumen = await resResumen.json();
+      setDatos(dataResumen.empleados || []);
+      setStats(dataResumen.stats || null);
+
+      // Si hay empleado seleccionado → fichajes detallados.
+      if (empleadoId !== "todos") {
+        const resF = await fetch(`/api/informes?${baseParams}&tipo=fichajes`);
+        const dataF = await resF.json();
+        setFichajes((dataF?.data ?? []) as FichajeDetalle[]);
+      } else {
+        setFichajes([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [fechaInicio, fechaFin, tiendaId]);
+  }, [fechaInicio, fechaFin, tiendaId, empleadoId]);
 
   useEffect(() => { fetchInformes(); }, [fetchInformes]);
 
@@ -72,6 +162,7 @@ export default function AdminInformesPage() {
         formato,
       });
       if (tiendaId !== "todas") params.set("tiendaId", tiendaId);
+      if (empleadoId !== "todos") params.set("userId", empleadoId);
       const res = await fetch(`/api/informes/exportar?${params}`);
       if (!res.ok) {
         if (res.status === 402 || res.status === 429) {
@@ -99,15 +190,20 @@ export default function AdminInformesPage() {
     }
   };
 
-  // Para barras de progreso, normalizamos sobre el máximo del set.
   const maxHoras = Math.max(...datos.map((d) => d.horasTotales), 0);
+
+  // Selecciona la fila del resumen correspondiente al empleado activo.
+  const detalleEmpleadoStats = useMemo(() => {
+    if (empleadoId === "todos") return null;
+    return datos.find((d) => d.userId === empleadoId) ?? null;
+  }, [datos, empleadoId]);
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Informes</h1>
-          <p className="text-slate-500 text-sm mt-1">Análisis de asistencia de todas las sedes</p>
+          <p className="text-slate-500 text-sm mt-1">Análisis de asistencia y detalle de fichajes</p>
         </div>
         <div className="flex gap-2">
           <FeatureGateClient feature="export_excel">
@@ -137,6 +233,18 @@ export default function AdminInformesPage() {
               </Select>
             </div>
             <div>
+              <Label>Empleado</Label>
+              <Select value={empleadoId} onValueChange={setEmpleadoId}>
+                <SelectTrigger className="mt-1 w-56"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los empleados</SelectItem>
+                  {empleadosFiltrados.map(e => (
+                    <SelectItem key={e.id} value={e.id}>{e.nombre} {e.apellidos}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label>Desde</Label>
               <Input type="date" className="mt-1 w-40" value={fechaInicio} max={fechaFin} onChange={e => setFechaInicio(e.target.value)} />
             </div>
@@ -144,7 +252,10 @@ export default function AdminInformesPage() {
               <Label>Hasta</Label>
               <Input type="date" className="mt-1 w-40" value={fechaFin} min={fechaInicio} max={format(new Date(), "yyyy-MM-dd")} onChange={e => setFechaFin(e.target.value)} />
             </div>
-            <Button onClick={fetchInformes} disabled={loading}>{loading ? "Cargando..." : "Aplicar"}</Button>
+            <Button onClick={fetchInformes} disabled={loading}>
+              <Search className="h-4 w-4 mr-1.5" />
+              {loading ? "Cargando..." : "Aplicar"}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -167,78 +278,191 @@ export default function AdminInformesPage() {
         </div>
       )}
 
-      {chartData.length > 0 && (
+      {/* ─── Vista resumen (sin empleado seleccionado) ───────────────────── */}
+      {empleadoId === "todos" && (
+        <>
+          {chartData.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <BarChart2 className="h-4 w-4 text-[var(--primary)]" /> Horas trabajadas por empleado
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={chartData} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="nombre" tick={{ fontSize: 12, fill: "#475569" }} />
+                    <YAxis tick={{ fontSize: 12, fill: "#475569" }} />
+                    <Tooltip formatter={v => [`${v}h`]} />
+                    <Bar dataKey="horas" name="Horas" fill="#5B5FE9" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="extra" name="Extra" fill="#F59E0B" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader><CardTitle className="text-base">Detalle por empleado</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="p-4 space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}</div>
+              ) : datos.length === 0 ? (
+                <p className="text-center py-8 text-slate-400">No hay datos para el período seleccionado</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>{["Empleado", "Días trab.", "Horas trabajadas", "Horas extra", "Ausencias", ""].map(h => (
+                        <th key={h} className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 px-4 py-3">{h}</th>
+                      ))}</tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {datos.map(e => {
+                        const pct = maxHoras > 0 ? (e.horasTotales / maxHoras) * 100 : 0;
+                        return (
+                          <tr key={e.userId} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <EmployeeAvatar nombre={e.nombre} apellidos={e.apellidos} seed={e.userId} size="sm" />
+                                <span className="font-medium text-sm text-slate-900">{e.nombre} {e.apellidos}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-600">{e.diasTrabajados}</td>
+                            <td className="px-4 py-3 text-sm">
+                              <div className="flex items-center gap-3 min-w-[140px]">
+                                <ProgressBar value={pct} className="flex-1 max-w-[140px]" />
+                                <span className="font-semibold text-slate-900 tabular-nums shrink-0">
+                                  {e.horasTotales.toFixed(1)}h
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <span className={e.horasExtra > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>
+                                {e.horasExtra > 0 ? `+${e.horasExtra.toFixed(1)}h` : "0h"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-600">{e.diasAusencia} días</td>
+                            <td className="px-4 py-3 text-right">
+                              <Button variant="ghost" size="sm" onClick={() => setEmpleadoId(e.userId)}>
+                                Ver fichajes →
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* ─── Vista detalle de un empleado ───────────────────────────────── */}
+      {empleadoId !== "todos" && empleadoSel && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <BarChart2 className="h-4 w-4 text-[var(--primary)]" /> Horas trabajadas por empleado
-            </CardTitle>
+            <div className="flex items-center gap-4 flex-wrap">
+              {empleadoSel.foto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={empleadoSel.foto}
+                  alt={`${empleadoSel.nombre} ${empleadoSel.apellidos}`}
+                  className="h-14 w-14 rounded-full object-cover border-2 border-white shadow-sm"
+                />
+              ) : (
+                <EmployeeAvatar nombre={empleadoSel.nombre} apellidos={empleadoSel.apellidos} seed={empleadoSel.id} size="lg" />
+              )}
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-lg">{empleadoSel.nombre} {empleadoSel.apellidos}</CardTitle>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  {empleadoTienda ? empleadoTienda.nombre : "Sin sede asignada"}
+                  {detalleEmpleadoStats && (
+                    <> · <strong>{detalleEmpleadoStats.horasTotales.toFixed(1)}h</strong> en {detalleEmpleadoStats.diasTrabajados} días</>
+                  )}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setEmpleadoId("todos")}>
+                ← Volver al resumen
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={chartData} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="nombre" tick={{ fontSize: 12, fill: "#475569" }} />
-                <YAxis tick={{ fontSize: 12, fill: "#475569" }} />
-                <Tooltip formatter={v => [`${v}h`]} />
-                <Bar dataKey="horas" name="Horas" fill="#5B5FE9" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="extra" name="Extra" fill="#F59E0B" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="p-4 space-y-2">{[1, 2, 3, 4].map(i => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}</div>
+            ) : fichajes.length === 0 ? (
+              <p className="text-center py-8 text-slate-400">No hay fichajes en el periodo seleccionado</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      {["Fecha", "Hora", "Tipo", "Método", "Sede", "Localización", "Nota"].map(h => (
+                        <th key={h} className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 px-4 py-3">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {fichajes.map(f => {
+                      const d = new Date(f.timestamp);
+                      const tieneGeo = f.latitud != null && f.longitud != null;
+                      const mapsUrl = tieneGeo
+                        ? `https://www.google.com/maps?q=${f.latitud},${f.longitud}`
+                        : null;
+                      return (
+                        <tr key={f.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">
+                            {format(d, "dd/MM/yyyy")}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-mono text-slate-900 whitespace-nowrap">
+                            {format(d, "HH:mm:ss")}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${TIPO_CLS[f.tipo]}`}>
+                              {TIPO_LABEL[f.tipo]}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1 text-xs text-slate-600">
+                              <MetodoIcon m={f.metodo} />
+                              {f.metodo}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+                            {f.tienda?.nombre ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {mapsUrl ? (
+                              <a
+                                href={mapsUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[var(--primary)] hover:underline"
+                                title={`${f.latitud!.toFixed(6)}, ${f.longitud!.toFixed(6)}${f.distancia != null ? ` · ${f.distancia.toFixed(0)} m` : ""}`}
+                              >
+                                <MapPin className="h-3.5 w-3.5" />
+                                Ver en mapa
+                              </a>
+                            ) : (
+                              <span className="text-slate-400 text-xs">Sin ubicación</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-600 max-w-[200px] truncate" title={f.nota ?? ""}>
+                            {f.nota || "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">Detalle por empleado</CardTitle></CardHeader>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-4 space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}</div>
-          ) : datos.length === 0 ? (
-            <p className="text-center py-8 text-slate-400">No hay datos para el período seleccionado</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>{["Empleado", "Días trab.", "Horas trabajadas", "Horas extra", "Ausencias"].map(h => (
-                    <th key={h} className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 px-4 py-3">{h}</th>
-                  ))}</tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {datos.map(e => {
-                    const pct = maxHoras > 0 ? (e.horasTotales / maxHoras) * 100 : 0;
-                    return (
-                      <tr key={e.userId} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <EmployeeAvatar nombre={e.nombre} apellidos={e.apellidos} seed={e.userId} size="sm" />
-                            <span className="font-medium text-sm text-slate-900">{e.nombre} {e.apellidos}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-600">{e.diasTrabajados}</td>
-                        <td className="px-4 py-3 text-sm">
-                          <div className="flex items-center gap-3 min-w-[140px]">
-                            <ProgressBar value={pct} className="flex-1 max-w-[140px]" />
-                            <span className="font-semibold text-slate-900 tabular-nums shrink-0">
-                              {e.horasTotales.toFixed(1)}h
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className={e.horasExtra > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>
-                            {e.horasExtra > 0 ? `+${e.horasExtra.toFixed(1)}h` : "0h"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-600">{e.diasAusencia} días</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

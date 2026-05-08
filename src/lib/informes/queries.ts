@@ -152,7 +152,7 @@ async function informeFichajes(
   const fichajes = await prisma.fichaje.findMany({
     where: { ...roleFilter, timestamp: { gte: inicio, lte: fin } },
     include: {
-      user: { select: { id: true, nombre: true, apellidos: true, email: true } },
+      user: { select: { id: true, nombre: true, apellidos: true, email: true, foto: true } },
       tienda: { select: { id: true, nombre: true } },
     },
     orderBy: [{ userId: "asc" }, { timestamp: "asc" }],
