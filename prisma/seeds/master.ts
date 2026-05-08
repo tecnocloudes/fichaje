@@ -89,7 +89,6 @@ const FEATURES: FeatureDef[] = [
   { key: "envio_nominas", name: "Envío de nóminas a empleados", type: "boolean" },
   { key: "control_gastos", name: "Control y gestión de gastos", type: "boolean" },
   { key: "retribucion_flex", name: "Retribución flexible", type: "boolean" },
-  { key: "wallet", name: "Monedero / tarjetas para empleados", type: "boolean" },
 
   // ─── Booleans — features nuevas (alineamiento con Sesame) ──────────────────
   { key: "canal_denuncias", name: "Canal de denuncias (Ley 2/2023)", type: "boolean" },
@@ -170,7 +169,6 @@ const PLAN_FEATURE_VALUES: Record<string, Record<string, PlanFeatureValue>> = {
     envio_nominas: true,
     control_gastos: false,
     retribucion_flex: false,
-    wallet: false,
     // Sesame parity
     canal_denuncias: true,
     asistente_ia: false,
@@ -238,7 +236,6 @@ const PLAN_FEATURE_VALUES: Record<string, Record<string, PlanFeatureValue>> = {
     envio_nominas: true,
     control_gastos: true,
     retribucion_flex: true,
-    wallet: true,
     // Sesame parity
     canal_denuncias: true,
     asistente_ia: false,
@@ -306,7 +303,6 @@ const PLAN_FEATURE_VALUES: Record<string, Record<string, PlanFeatureValue>> = {
     envio_nominas: true,
     control_gastos: true,
     retribucion_flex: true,
-    wallet: true,
     // Sesame parity
     canal_denuncias: true,
     asistente_ia: true,

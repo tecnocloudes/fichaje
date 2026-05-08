@@ -144,7 +144,7 @@ export default function ConfiguracionPage() {
     ]);
     const [configData, tiposData] = await Promise.all([configRes.json(), tipRes.json()]);
     setConfig({ ...DEFAULT_CONFIG, ...configData });
-    setTipos(tiposData.tipos || []);
+    setTipos(Array.isArray(tiposData) ? tiposData : (tiposData?.tipos ?? []));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

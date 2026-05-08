@@ -5,6 +5,7 @@ import type { NextRequest } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { getLimit, hasFeature } from "@/lib/tenant/features";
+import { runMigrations } from "@/lib/migrate";
 export const GET = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
@@ -83,6 +84,8 @@ export const GET = withTenant(async (request: NextRequest) => {
 
 export const POST = withTenant(async (request: NextRequest) => {
   try {
+    await runMigrations();
+
     const session = await auth();
     if (!session?.user) {
       return Response.json({ error: "No autorizado" }, { status: 401 });

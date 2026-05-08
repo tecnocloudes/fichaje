@@ -44,6 +44,8 @@ export const GET = withTenant(async () => {
 
 export const PUT = withTenant(async (request: NextRequest) => {
   try {
+    await runMigrations();
+
     const session = await auth();
     const user = session?.user as { rol?: string } | undefined;
     if (!user || user.rol !== Rol.OWNER) {

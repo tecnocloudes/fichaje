@@ -1,10 +1,26 @@
 import { prismaApp as prisma } from "./prisma";
+import { currentTenant } from "./tenant/context";
 
 /**
  * Adds missing columns / tables introduced since the initial schema.
  * Uses IF NOT EXISTS so it's safe to call on every app start.
+ *
+ * Cacheada por slug en `globalThis._migratedTenants` — la primera
+ * petición de cada tenant ejecuta el SQL; las siguientes son no-op.
+ * Esto permite llamarla desde cualquier handler que use columnas
+ * nuevas sin penalización de rendimiento.
  */
+const MIGRATED = (globalThis as { _migratedTenants?: Set<string> })._migratedTenants
+  ?? ((globalThis as { _migratedTenants?: Set<string> })._migratedTenants = new Set<string>());
+
 export async function runMigrations() {
+  let slug: string | null = null;
+  try {
+    slug = currentTenant().slug;
+  } catch {
+    // Sin contexto de tenant (tests, build) → ejecuta sin cache.
+  }
+  if (slug && MIGRATED.has(slug)) return;
   try {
     // ── ConfiguracionEmpresa: notification columns ─────────────────────────
     await prisma.$executeRawUnsafe(`
@@ -134,6 +150,7 @@ export async function runMigrations() {
       CREATE INDEX IF NOT EXISTS "PushSubscripcion_userId_idx" ON "PushSubscripcion"("userId");
     `);
 
+    if (slug) MIGRATED.add(slug);
   } catch (err) {
     // Log but don't crash — if DB isn't ready yet it'll retry on next request
     console.error("[migrate] Error running lazy migrations:", err);
