@@ -6,6 +6,7 @@ import type { NextRequest } from "next/server";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { getLimit, hasFeature } from "@/lib/tenant/features";
 import { runMigrations } from "@/lib/migrate";
+import { detectDeviceTypeFromUA } from "@/lib/device";
 export const GET = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
@@ -144,11 +145,34 @@ export const POST = withTenant(async (request: NextRequest) => {
     const lon = geofencingActivo ? longitud : null;
     const dist = geofencingActivo ? distancia : null;
 
-    // Políticas de tenant: geo + Face ID obligatorios.
+    // Políticas de tenant: geo + Face ID + device gating.
     const cfg = await prisma.configuracionEmpresa.findUnique({
       where: { id: "singleton" },
-      select: { geoObligatoria: true, faceIdObligatorio: true },
+      select: {
+        geoObligatoria: true,
+        faceIdObligatorio: true,
+        fichajeMovilActivo: true,
+        fichajeTabletActivo: true,
+      },
     });
+
+    // Si el OWNER apaga el fichaje desde móvil/tablet, rechazamos
+    // requests cuyo UA encaje. Detección por UA (heurística — no
+    // perfecta pero coherente con el gating cliente-side).
+    const ua = request.headers.get("user-agent") || "";
+    const dev = detectDeviceTypeFromUA(ua);
+    if (dev === "mobile" && cfg?.fichajeMovilActivo === false) {
+      return Response.json(
+        { error: "El fichaje desde móvil está deshabilitado por tu empresa." },
+        { status: 400 },
+      );
+    }
+    if (dev === "tablet" && cfg?.fichajeTabletActivo === false) {
+      return Response.json(
+        { error: "El fichaje desde tablet está deshabilitado por tu empresa." },
+        { status: 400 },
+      );
+    }
 
     if (geofencingActivo && cfg?.geoObligatoria && (lat == null || lon == null)) {
       return Response.json(

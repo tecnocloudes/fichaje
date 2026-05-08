@@ -21,6 +21,21 @@ import { useEffect, useState } from "react";
 
 export type DeviceType = "mobile" | "tablet" | "desktop" | "unknown";
 
+/**
+ * Detección server-side basada solo en User-Agent (sin viewport ni
+ * pointer:coarse, no disponibles en Node). Heurística más conservadora
+ * que la del cliente — útil para gating en handlers HTTP.
+ */
+export function detectDeviceTypeFromUA(ua: string): DeviceType {
+  if (!ua) return "unknown";
+  // iPad moderno: UA de Mac. En server no podemos cruzar con
+  // maxTouchPoints, así que solo capturamos el iPad explícito.
+  if (/iPad/.test(ua)) return "tablet";
+  if (/Tablet|PlayBook|Silk/i.test(ua)) return "tablet";
+  if (/Mobi|Android|iPhone|iPod|Windows Phone/i.test(ua)) return "mobile";
+  return "desktop";
+}
+
 export function detectDeviceType(): DeviceType {
   if (typeof window === "undefined") return "unknown";
   const ua = navigator.userAgent || "";

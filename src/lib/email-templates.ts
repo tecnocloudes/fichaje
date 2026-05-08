@@ -327,3 +327,167 @@ export function bienvenidaTemplate(params: BienvenidaParams): string {
 </body>
 </html>`;
 }
+
+// ─── Ausencias ───────────────────────────────────────────────────────────────
+
+interface AusenciaEmailParams {
+  destinatarioNombre: string;
+  empleadoNombre: string;
+  tipo: string;
+  fechaInicio: Date;
+  fechaFin: Date;
+  dias: number;
+  motivo?: string | null;
+  comentarioAdmin?: string | null;
+  estado?: "PENDIENTE" | "APROBADA" | "RECHAZADA";
+  empresa: string;
+  colorPrimario: string;
+  colorSidebar: string;
+  logo?: string | null;
+  appUrl?: string;
+}
+
+function fmtFecha(d: Date): string {
+  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
+}
+
+function shellLayout(args: {
+  empresa: string;
+  colorPrimario: string;
+  colorSidebar: string;
+  logo?: string | null;
+  headerTitulo: string;
+  headerSubtitulo: string;
+  body: string;
+  cta?: { label: string; url: string };
+}): string {
+  const { empresa, colorPrimario, colorSidebar, logo, headerTitulo, headerSubtitulo, body, cta } = args;
+  const logoHtml = logo
+    ? `<img src="${logo}" alt="${empresa}" style="max-height:48px;max-width:180px;object-fit:contain;" />`
+    : `<div style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.2);font-size:22px;font-weight:800;color:white;letter-spacing:-1px;">${empresa.charAt(0).toUpperCase()}</div>`;
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>${headerTitulo}</title></head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f1f5f9;padding:48px 16px;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;width:100%;">
+        <tr>
+          <td style="background:${colorSidebar};border-radius:16px 16px 0 0;padding:36px 40px;text-align:center;">
+            <div style="margin-bottom:20px;">${logoHtml}</div>
+            <h1 style="margin:0 0 8px;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.5px;">${headerTitulo}</h1>
+            <p style="margin:0;color:rgba(255,255,255,0.65);font-size:14px;">${headerSubtitulo}</p>
+          </td>
+        </tr>
+        <tr><td style="background:#ffffff;padding:40px;">${body}${
+          cta
+            ? `
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:28px;">
+                <tr><td align="center">
+                  <a href="${cta.url}" style="display:inline-block;background:${colorPrimario};color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 36px;border-radius:10px;letter-spacing:0.2px;">${cta.label} →</a>
+                </td></tr>
+              </table>`
+            : ""
+        }</td></tr>
+        <tr><td style="background:#ffffff;padding:0 40px;"><div style="border-top:1px solid #e2e8f0;"></div></td></tr>
+        <tr>
+          <td style="background:#ffffff;padding:24px 40px 32px;border-radius:0 0 16px 16px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">Email automático enviado por <strong>${empresa}</strong>.</p>
+            <p style="margin:0;font-size:12px;color:#cbd5e1;">No respondas a este mensaje.</p>
+          </td>
+        </tr>
+        <tr><td style="height:24px;"></td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function ausenciaCard(args: {
+  colorPrimario: string;
+  tipo: string;
+  fechaInicio: Date;
+  fechaFin: Date;
+  dias: number;
+  motivo?: string | null;
+  comentarioAdmin?: string | null;
+}): string {
+  const { colorPrimario, tipo, fechaInicio, fechaFin, dias, motivo, comentarioAdmin } = args;
+  const row = (k: string, v: string) => `
+    <tr>
+      <td style="padding:8px 0;font-size:13px;color:#64748b;width:40%;">${k}</td>
+      <td style="padding:8px 0;font-size:14px;color:#0f172a;font-weight:600;">${v}</td>
+    </tr>`;
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+      style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-top:8px;overflow:hidden;">
+      <tr>
+        <td style="background:${colorPrimario};padding:10px 20px;">
+          <p style="margin:0;font-size:11px;font-weight:700;color:rgba(255,255,255,0.85);text-transform:uppercase;letter-spacing:1px;">Detalles de la solicitud</p>
+        </td>
+      </tr>
+      <tr><td style="padding:8px 20px 14px;">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+          ${row("Tipo", escapeHtml(tipo))}
+          ${row("Desde", fmtFecha(fechaInicio))}
+          ${row("Hasta", fmtFecha(fechaFin))}
+          ${row("Días", String(dias))}
+          ${motivo ? row("Motivo", escapeHtml(motivo)) : ""}
+          ${comentarioAdmin ? row("Comentario", escapeHtml(comentarioAdmin)) : ""}
+        </table>
+      </td></tr>
+    </table>`;
+}
+
+export function ausenciaCreadaTemplate(p: AusenciaEmailParams): string {
+  const url = (p.appUrl ?? process.env.NEXTAUTH_URL ?? "") + "/admin/ausencias";
+  const body = `
+    <p style="margin:0 0 8px;font-size:18px;font-weight:700;color:#0f172a;">Hola, ${escapeHtml(p.destinatarioNombre)} 👋</p>
+    <p style="margin:0 0 24px;font-size:14px;color:#64748b;line-height:1.6;">
+      <strong style="color:#0f172a;">${escapeHtml(p.empleadoNombre)}</strong> ha solicitado una ausencia y está pendiente de aprobación.
+    </p>
+    ${ausenciaCard(p)}`;
+  return shellLayout({
+    empresa: p.empresa,
+    colorPrimario: p.colorPrimario,
+    colorSidebar: p.colorSidebar,
+    logo: p.logo,
+    headerTitulo: "Nueva solicitud de ausencia",
+    headerSubtitulo: `Pendiente de revisión por el equipo`,
+    body,
+    cta: { label: "Revisar solicitud", url },
+  });
+}
+
+export function ausenciaResueltaTemplate(p: AusenciaEmailParams): string {
+  const aprobada = p.estado === "APROBADA";
+  const titulo = aprobada ? "Solicitud aprobada" : "Solicitud rechazada";
+  const subtitulo = aprobada
+    ? "Tu día queda registrado en el calendario."
+    : "Consulta el comentario del responsable.";
+  const body = `
+    <p style="margin:0 0 8px;font-size:18px;font-weight:700;color:#0f172a;">Hola, ${escapeHtml(p.destinatarioNombre)} 👋</p>
+    <p style="margin:0 0 24px;font-size:14px;color:#64748b;line-height:1.6;">
+      Tu solicitud de ausencia ha sido
+      <strong style="color:${aprobada ? "#059669" : "#dc2626"};">${aprobada ? "aprobada" : "rechazada"}</strong>.
+    </p>
+    ${ausenciaCard(p)}`;
+  return shellLayout({
+    empresa: p.empresa,
+    colorPrimario: p.colorPrimario,
+    colorSidebar: p.colorSidebar,
+    logo: p.logo,
+    headerTitulo: titulo,
+    headerSubtitulo: subtitulo,
+    body,
+  });
+}
