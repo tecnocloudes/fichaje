@@ -21,10 +21,22 @@ export async function runMigrations() {
     // Sin contexto de tenant (tests, build) → ejecuta sin cache.
   }
   if (slug && MIGRATED.has(slug)) return;
+
+  // El SQL crudo NO usa el `schema:` configurado en PrismaPg
+  // (que solo aplica al SQL generado por los modelos). Tenemos que
+  // cualificar el schema explícitamente o las queries van al
+  // search_path por defecto y fallan con `relation does not exist`.
+  // Validamos el slug porque va a interpolarse en SQL crudo.
+  if (!slug || !/^[a-z0-9_-]+$/.test(slug)) {
+    console.error(`[migrate] slug inválido para SQL: ${JSON.stringify(slug)}`);
+    return;
+  }
+  const S = `"tenant_${slug}"`;
+
   try {
     // ── ConfiguracionEmpresa: notification columns ─────────────────────────
     await prisma.$executeRawUnsafe(`
-      ALTER TABLE "ConfiguracionEmpresa"
+      ALTER TABLE ${S}."ConfiguracionEmpresa"
         ADD COLUMN IF NOT EXISTS "notifAusencias"   BOOLEAN NOT NULL DEFAULT true,
         ADD COLUMN IF NOT EXISTS "notifTurnos"       BOOLEAN NOT NULL DEFAULT true,
         ADD COLUMN IF NOT EXISTS "notifTareas"       BOOLEAN NOT NULL DEFAULT true,
@@ -44,7 +56,7 @@ export async function runMigrations() {
 
     // ── ConfiguracionEmpresa: branding columns ─────────────────────────────
     await prisma.$executeRawUnsafe(`
-      ALTER TABLE "ConfiguracionEmpresa"
+      ALTER TABLE ${S}."ConfiguracionEmpresa"
         ADD COLUMN IF NOT EXISTS "favicon"       TEXT,
         ADD COLUMN IF NOT EXISTS "colorPrimario" TEXT NOT NULL DEFAULT '#6366f1',
         ADD COLUMN IF NOT EXISTS "colorSidebar"  TEXT NOT NULL DEFAULT '#1e1b4b',
@@ -53,14 +65,14 @@ export async function runMigrations() {
 
     // ── ConfiguracionEmpresa: políticas de fichaje (geo + face id) ────────
     await prisma.$executeRawUnsafe(`
-      ALTER TABLE "ConfiguracionEmpresa"
+      ALTER TABLE ${S}."ConfiguracionEmpresa"
         ADD COLUMN IF NOT EXISTS "geo_obligatoria"     BOOLEAN NOT NULL DEFAULT false,
         ADD COLUMN IF NOT EXISTS "face_id_obligatorio" BOOLEAN NOT NULL DEFAULT false;
     `);
 
     // ── PreferenciasNotificacion table ─────────────────────────────────────
     await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "PreferenciasNotificacion" (
+      CREATE TABLE IF NOT EXISTS ${S}."PreferenciasNotificacion" (
         "id"               TEXT NOT NULL,
         "userId"           TEXT NOT NULL,
         "inAppAusencias"   BOOLEAN NOT NULL DEFAULT true,
@@ -86,10 +98,12 @@ export async function runMigrations() {
     await prisma.$executeRawUnsafe(`
       DO $$ BEGIN
         IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint
-          WHERE conname = 'PreferenciasNotificacion_userId_key'
+          SELECT 1 FROM pg_constraint c
+            JOIN pg_namespace n ON n.oid = c.connamespace
+          WHERE c.conname = 'PreferenciasNotificacion_userId_key'
+            AND n.nspname = 'tenant_${slug}'
         ) THEN
-          ALTER TABLE "PreferenciasNotificacion"
+          ALTER TABLE ${S}."PreferenciasNotificacion"
             ADD CONSTRAINT "PreferenciasNotificacion_userId_key" UNIQUE ("userId");
         END IF;
       END $$;
@@ -98,12 +112,14 @@ export async function runMigrations() {
     await prisma.$executeRawUnsafe(`
       DO $$ BEGIN
         IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint
-          WHERE conname = 'PreferenciasNotificacion_userId_fkey'
+          SELECT 1 FROM pg_constraint c
+            JOIN pg_namespace n ON n.oid = c.connamespace
+          WHERE c.conname = 'PreferenciasNotificacion_userId_fkey'
+            AND n.nspname = 'tenant_${slug}'
         ) THEN
-          ALTER TABLE "PreferenciasNotificacion"
+          ALTER TABLE ${S}."PreferenciasNotificacion"
             ADD CONSTRAINT "PreferenciasNotificacion_userId_fkey"
-            FOREIGN KEY ("userId") REFERENCES "User"("id")
+            FOREIGN KEY ("userId") REFERENCES ${S}."User"("id")
             ON DELETE CASCADE ON UPDATE CASCADE;
         END IF;
       END $$;
@@ -111,7 +127,7 @@ export async function runMigrations() {
 
     // ── PushSubscripcion table ─────────────────────────────────────────────
     await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "PushSubscripcion" (
+      CREATE TABLE IF NOT EXISTS ${S}."PushSubscripcion" (
         "id"        TEXT NOT NULL,
         "userId"    TEXT NOT NULL,
         "endpoint"  TEXT NOT NULL,
@@ -125,9 +141,12 @@ export async function runMigrations() {
     await prisma.$executeRawUnsafe(`
       DO $$ BEGIN
         IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint WHERE conname = 'PushSubscripcion_endpoint_key'
+          SELECT 1 FROM pg_constraint c
+            JOIN pg_namespace n ON n.oid = c.connamespace
+          WHERE c.conname = 'PushSubscripcion_endpoint_key'
+            AND n.nspname = 'tenant_${slug}'
         ) THEN
-          ALTER TABLE "PushSubscripcion"
+          ALTER TABLE ${S}."PushSubscripcion"
             ADD CONSTRAINT "PushSubscripcion_endpoint_key" UNIQUE ("endpoint");
         END IF;
       END $$;
@@ -136,21 +155,24 @@ export async function runMigrations() {
     await prisma.$executeRawUnsafe(`
       DO $$ BEGIN
         IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint WHERE conname = 'PushSubscripcion_userId_fkey'
+          SELECT 1 FROM pg_constraint c
+            JOIN pg_namespace n ON n.oid = c.connamespace
+          WHERE c.conname = 'PushSubscripcion_userId_fkey'
+            AND n.nspname = 'tenant_${slug}'
         ) THEN
-          ALTER TABLE "PushSubscripcion"
+          ALTER TABLE ${S}."PushSubscripcion"
             ADD CONSTRAINT "PushSubscripcion_userId_fkey"
-            FOREIGN KEY ("userId") REFERENCES "User"("id")
+            FOREIGN KEY ("userId") REFERENCES ${S}."User"("id")
             ON DELETE CASCADE ON UPDATE CASCADE;
         END IF;
       END $$;
     `);
 
     await prisma.$executeRawUnsafe(`
-      CREATE INDEX IF NOT EXISTS "PushSubscripcion_userId_idx" ON "PushSubscripcion"("userId");
+      CREATE INDEX IF NOT EXISTS "PushSubscripcion_userId_idx" ON ${S}."PushSubscripcion"("userId");
     `);
 
-    if (slug) MIGRATED.add(slug);
+    MIGRATED.add(slug);
   } catch (err) {
     // Log but don't crash — if DB isn't ready yet it'll retry on next request
     console.error("[migrate] Error running lazy migrations:", err);

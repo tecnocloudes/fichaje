@@ -319,6 +319,12 @@ export default function ConfiguracionPage() {
     try {
       const body = { ...tipoForm, diasMaximos: tipoForm.diasMaximos ? parseInt(tipoForm.diasMaximos) : null };
       if (editandoTipo) {
+        const res = await fetch(`/api/ausencias/tipos/${editandoTipo.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error();
         toast({ title: "Tipo actualizado" });
       } else {
         const res = await fetch("/api/ausencias/tipos", {
@@ -333,6 +339,18 @@ export default function ConfiguracionPage() {
       fetchData();
     } catch {
       toast({ title: "Error al guardar", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteTipo = async (t: TipoAusencia) => {
+    if (!confirm(`¿Eliminar el tipo de ausencia "${t.nombre}"? Las ausencias existentes seguirán refiriéndose a él.`)) return;
+    try {
+      const res = await fetch(`/api/ausencias/tipos/${t.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast({ title: "Tipo eliminado" });
+      fetchData();
+    } catch {
+      toast({ title: "Error al eliminar", variant: "destructive" });
     }
   };
 
@@ -468,8 +486,11 @@ export default function ConfiguracionPage() {
                         {t.diasMaximos ? `· Máx. ${t.diasMaximos} días` : ""}
                       </p>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEditarTipo(t)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEditarTipo(t)} title="Editar">
                       <Settings className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteTipo(t)} title="Eliminar">
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 ))}
