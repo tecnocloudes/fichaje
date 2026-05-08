@@ -206,6 +206,49 @@ export default function EmpleadoPage() {
     fetchFichajesHoy();
   }, [fetchEstado, fetchFichajesHoy]);
 
+  // Geolocation passive: comprueba el estado del permiso al cargar
+  // y se actualiza si el usuario lo cambia desde la barra del navegador
+  // (sin esto, "Ubicación no disponible" se quedaba pegada tras un
+  // primer fallo aunque el usuario después permitiera el GPS).
+  useEffect(() => {
+    if (typeof navigator === "undefined") return;
+    if (!navigator.permissions || !navigator.geolocation) return;
+    let cancelled = false;
+
+    const tryGeo = () => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (cancelled) return;
+          setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+          setLocationStatus("found");
+        },
+        () => {
+          if (cancelled) return;
+          setLocationStatus("denied");
+        },
+        { timeout: 10000, maximumAge: 30000 },
+      );
+    };
+
+    navigator.permissions
+      .query({ name: "geolocation" as PermissionName })
+      .then((status) => {
+        if (cancelled) return;
+        const sync = () => {
+          if (status.state === "granted") tryGeo();
+          else if (status.state === "denied") setLocationStatus("denied");
+          else setLocationStatus("idle");
+        };
+        sync();
+        status.onchange = sync;
+      })
+      .catch(() => {
+        // Safari < 16 / iOS no soporta permissions.query: ignorar.
+      });
+
+    return () => { cancelled = true; };
+  }, []);
+
   // Geolocation
   const getLocation = useCallback((): Promise<{ lat: number; lon: number }> => {
     return new Promise((resolve, reject) => {

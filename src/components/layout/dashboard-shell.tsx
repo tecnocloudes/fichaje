@@ -62,7 +62,7 @@ export function DashboardShell({ children, user, branding, trial }: DashboardShe
       {/* Main content area */}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <Header user={user} onMenuToggle={toggleSidebar} notificationCount={0} />
-        {trial?.isTrialing && (
+        {trial?.isTrialing && user.rol === "OWNER" && (
           <div className="bg-amber-50 border-b border-amber-200 px-4 lg:px-6 py-2.5 text-sm flex items-center gap-3 flex-wrap">
             <Sparkles className="h-4 w-4 text-amber-600 shrink-0" />
             <span className="text-amber-900">
@@ -71,14 +71,12 @@ export function DashboardShell({ children, user, branding, trial }: DashboardShe
                 ? <> — te {dias === 1 ? "queda" : "quedan"} <strong>{dias} {dias === 1 ? "día" : "días"}</strong> de evaluación.</>
                 : <> — el periodo de prueba ha terminado.</>)}
             </span>
-            {user.rol === "OWNER" && (
-              <Link
-                href="/admin/planes"
-                className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 text-xs font-semibold"
-              >
-                Activar cuenta
-              </Link>
-            )}
+            <Link
+              href="/admin/planes"
+              className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 text-xs font-semibold"
+            >
+              Activar cuenta
+            </Link>
           </div>
         )}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
