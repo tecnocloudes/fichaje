@@ -6,6 +6,10 @@ import { z } from "zod";
 import { authConfig } from "@/lib/auth.config";
 import { runWithTenant, type TenantContext } from "@/lib/tenant/context";
 import { resolveTenant } from "@/lib/tenant/resolver";
+import { checkRate, isLocked, recordFailure, clearFailures } from "@/lib/rate-limit";
+
+const LOGIN_RATE_LIMIT = { limit: 10, windowMs: 60_000 };
+const LOGIN_LOCKOUT = { threshold: 5, lockoutMs: 15 * 60_000 };
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -38,6 +42,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
         const ctx: TenantContext = resolved.ctx;
 
+        // Rate limit + lockout. Combinamos slug+email+IP en la key para
+        // que un atacante no pueda lockoutear cuentas legítimas desde
+        // otra IP (lockout es por IP+email, no solo por email).
+        const fwd = req.headers?.get("x-forwarded-for") ?? "";
+        const ip = fwd ? fwd.split(",")[0]!.trim() : "unknown";
+        const lockKey = `login:${ctx.slug}:${parsed.data.email}:${ip}`;
+        const rateKey = `login-rate:${ip}`;
+
+        const lock = isLocked(lockKey);
+        if (lock.locked) return null;
+
+        const rate = checkRate(rateKey, LOGIN_RATE_LIMIT.limit, LOGIN_RATE_LIMIT.windowMs);
+        if (!rate.ok) return null;
+
         return await runWithTenant(ctx, async () => {
           const user = await prisma.user.findUnique({
             where: { email: parsed.data.email },
@@ -53,13 +71,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
           });
 
-          if (!user || !user.activo || !user.password) return null;
+          if (!user || !user.activo || !user.password) {
+            recordFailure(lockKey, LOGIN_LOCKOUT.threshold, LOGIN_LOCKOUT.lockoutMs);
+            return null;
+          }
 
           const passwordOk = await bcrypt.compare(
             parsed.data.password,
             user.password,
           );
-          if (!passwordOk) return null;
+          if (!passwordOk) {
+            recordFailure(lockKey, LOGIN_LOCKOUT.threshold, LOGIN_LOCKOUT.lockoutMs);
+            return null;
+          }
+
+          clearFailures(lockKey);
 
           return {
             id: user.id,

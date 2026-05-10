@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { generarCSV, generarExcel, generarPDF } from "./generators";
 
 const SAMPLE: Record<string, unknown> = {
@@ -59,29 +59,34 @@ describe("generarCSV", () => {
 });
 
 describe("generarExcel", () => {
-  it("produce un buffer leíble como XLSX con headers correctos", () => {
-    const buf = generarExcel(SAMPLE);
+  it("produce un buffer leíble como XLSX con headers correctos", async () => {
+    const buf = await generarExcel(SAMPLE);
     expect(buf.length).toBeGreaterThan(0);
     // Verifica magic bytes ZIP (xlsx es zip).
     expect(buf[0]).toBe(0x50); // P
     expect(buf[1]).toBe(0x4b); // K
-    const wb = XLSX.read(buf, { type: "buffer" });
-    expect(wb.SheetNames).toContain("fichajes");
-    const sheet = wb.Sheets[wb.SheetNames[0]!];
-    const aoa = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
-    expect(aoa[0]).toContain("empleado");
-    expect(aoa[1]).toContain("Ana García");
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer);
+    expect(wb.worksheets.map((w) => w.name)).toContain("fichajes");
+    const sheet = wb.getWorksheet("fichajes")!;
+    const headerRow = (sheet.getRow(1).values as unknown[]).slice(1);
+    const dataRow = (sheet.getRow(2).values as unknown[]).slice(1);
+    expect(headerRow).toContain("empleado");
+    expect(dataRow).toContain("Ana García");
   });
 
-  it("añade hoja Resumen si payload tiene stats", () => {
-    const buf = generarExcel({
+  it("añade hoja con stats si payload tiene stats", async () => {
+    const buf = await generarExcel({
       tipo: "resumen",
       empleados: [{ userId: "u1", nombre: "Ana", apellidos: "G", horasTotales: 8 }],
       stats: { totalHoras: 8, mediaHorasDia: 8 },
       total: 1,
     });
-    const wb = XLSX.read(buf, { type: "buffer" });
-    expect(wb.SheetNames).toContain("Resumen");
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer);
+    // tipo="resumen" hace que la hoja extra se llame "Estadísticas"
+    // para evitar colisión con la hoja principal.
+    expect(wb.worksheets.map((w) => w.name)).toContain("Estadísticas");
   });
 });
 

@@ -66,9 +66,10 @@ export async function runMigrations() {
     // ── ConfiguracionEmpresa: políticas de fichaje (geo + face id) ────────
     await prisma.$executeRawUnsafe(`
       ALTER TABLE ${S}."ConfiguracionEmpresa"
-        ADD COLUMN IF NOT EXISTS "geo_obligatoria"      BOOLEAN NOT NULL DEFAULT false,
-        ADD COLUMN IF NOT EXISTS "face_id_obligatorio"  BOOLEAN NOT NULL DEFAULT false,
-        ADD COLUMN IF NOT EXISTS "face_id_guardar_foto" BOOLEAN NOT NULL DEFAULT false;
+        ADD COLUMN IF NOT EXISTS "geo_obligatoria"       BOOLEAN NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS "face_id_obligatorio"   BOOLEAN NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS "face_id_guardar_foto"  BOOLEAN NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS "retencion_fotos_dias"  INTEGER NOT NULL DEFAULT 90;
     `);
 
     // ── Fichaje: snapshot facial cifrado (Bytes, opcional) ────────────────

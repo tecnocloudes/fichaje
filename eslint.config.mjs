@@ -55,6 +55,10 @@ const fichajePlugin = {
           // del tenant logueado. Las suscripciones viven en master
           // (control plane), no en el schema del tenant.
           "/api/billing/",
+          // /api/cron/** son endpoints de plataforma (autenticados con
+          // CRON_SECRET) que iteran sobre master.tenants y reanidan
+          // runWithTenant para cada uno. Necesitan prismaMaster.
+          "/api/cron/",
         ];
         return {
           ImportDeclaration(node) {
@@ -175,6 +179,9 @@ const fichajePlugin = {
           "/api/onboarding/",
           "/api/health/",
           "/api/admin/",
+          // /api/cron/** son operaciones de plataforma que iteran
+          // tenants y reanidan runWithTenant manualmente.
+          "/api/cron/",
         ];
         const filename = context.filename || context.getFilename();
         const relevant =

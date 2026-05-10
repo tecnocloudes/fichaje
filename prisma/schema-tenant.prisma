@@ -251,6 +251,10 @@ model ConfiguracionEmpresa {
   // frame de la cámara (en Fichaje.fotoSnapshotEnc) para auditoría.
   // Datos biométricos — RGPD art. 9. Off por defecto.
   faceIdGuardarFoto   Boolean  @default(false) @map("face_id_guardar_foto")
+  // Días de retención del snapshot biométrico. El cron de purga
+  // (`/api/cron/purge-biometrics`) borra fotos con `timestamp` mayor
+  // a este número de días. RGPD art. 5.1.e (minimización).
+  retencionFotosDias  Int      @default(90) @map("retencion_fotos_dias")
   notifAusencias      Boolean  @default(true)
   notifTurnos         Boolean  @default(true)
   notifTareas         Boolean  @default(true)

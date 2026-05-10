@@ -8,6 +8,8 @@ import { getLimit, hasFeature } from "@/lib/tenant/features";
 import { runMigrations } from "@/lib/migrate";
 import { detectDeviceTypeFromUA } from "@/lib/device-ua";
 import { encrypt } from "@/lib/crypto/aes-gcm";
+import { consumeFaceToken } from "@/lib/face/token";
+import { currentTenant } from "@/lib/tenant/context";
 export const GET = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
@@ -101,7 +103,7 @@ export const POST = withTenant(async (request: NextRequest) => {
       distancia,
       metodo = MetodoFichaje.WEB,
       nota,
-      faceVerified,
+      faceVerifyToken,
       fotoSnapshot,
     } = body as {
       tipo: TipoFichaje;
@@ -110,7 +112,8 @@ export const POST = withTenant(async (request: NextRequest) => {
       distancia?: number;
       metodo?: MetodoFichaje;
       nota?: string;
-      faceVerified?: boolean;
+      /** Token HMAC single-use emitido por POST /api/face/verify. TTL 60s. */
+      faceVerifyToken?: string;
       /** Data URL JPEG ≤200 KB. Solo se guarda si el tenant lo activó. */
       fotoSnapshot?: string;
     };
@@ -186,12 +189,16 @@ export const POST = withTenant(async (request: NextRequest) => {
       );
     }
 
-    if (cfg?.faceIdObligatorio) {
+    // Validación Face ID server-side: el cliente debe traer un token
+    // HMAC-firmado emitido por /api/face/verify (TTL 60s, single-use).
+    // Confiar en un boolean del cliente sería trivial de bypassear.
+    let faceVerifiedServer = false;
+    if (cfg?.faceIdObligatorio || faceVerifyToken) {
       const tpl = await prisma.faceTemplate.findUnique({
         where: { userId: userId! },
         select: { id: true },
       });
-      if (!tpl) {
+      if (cfg?.faceIdObligatorio && !tpl) {
         return Response.json(
           {
             error: "Tu empresa exige Face ID para fichar. Regístralo en tu perfil antes de continuar.",
@@ -200,7 +207,21 @@ export const POST = withTenant(async (request: NextRequest) => {
           { status: 400 },
         );
       }
-      if (faceVerified !== true) {
+      if (typeof faceVerifyToken === "string" && faceVerifyToken.length > 0) {
+        const consumed = consumeFaceToken(faceVerifyToken, userId!, currentTenant().slug);
+        if (consumed.ok) {
+          faceVerifiedServer = true;
+        } else if (cfg?.faceIdObligatorio) {
+          return Response.json(
+            {
+              error: "Verificación Face ID inválida o caducada. Vuelve a verificar tu rostro.",
+              code: "face_id_verify_required",
+              reason: consumed.reason,
+            },
+            { status: 400 },
+          );
+        }
+      } else if (cfg?.faceIdObligatorio) {
         return Response.json(
           {
             error: "Necesitas verificar tu rostro con Face ID antes de fichar.",
@@ -212,10 +233,10 @@ export const POST = withTenant(async (request: NextRequest) => {
     }
 
     // Snapshot cifrado: solo cuando el OWNER activó faceIdGuardarFoto y
-    // el fichaje viene del flujo Face ID (faceVerified=true). Aceptamos
-    // hasta 200KB de data URL → ~150KB binarios tras decode.
+    // el fichaje viene del flujo Face ID (token validado server-side).
+    // Aceptamos hasta 200KB de data URL → ~150KB binarios tras decode.
     let fotoEnc: Uint8Array<ArrayBuffer> | null = null;
-    if (cfg?.faceIdGuardarFoto && faceVerified === true && typeof fotoSnapshot === "string") {
+    if (cfg?.faceIdGuardarFoto && faceVerifiedServer && typeof fotoSnapshot === "string") {
       const m = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(fotoSnapshot);
       if (m && fotoSnapshot.length <= 200_000) {
         try {

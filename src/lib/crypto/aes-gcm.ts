@@ -69,7 +69,7 @@ export function decrypt(blob: Uint8Array): Uint8Array<ArrayBuffer> {
   const iv = buf.subarray(0, IV_LENGTH);
   const tag = buf.subarray(buf.length - TAG_LENGTH);
   const ciphertext = buf.subarray(IV_LENGTH, buf.length - TAG_LENGTH);
-  const decipher = createDecipheriv(ALGO, key, iv);
+  const decipher = createDecipheriv(ALGO, key, iv, { authTagLength: TAG_LENGTH });
   decipher.setAuthTag(tag);
   const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
   const ab = new ArrayBuffer(plaintext.byteLength);

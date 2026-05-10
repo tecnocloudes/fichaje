@@ -140,7 +140,7 @@ export const GET = withTenant(async (req: NextRequest) => {
     });
   }
   if (formato === "xlsx") {
-    const buf = generarExcel(payload);
+    const buf = await generarExcel(payload);
     return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {

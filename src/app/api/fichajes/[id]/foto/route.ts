@@ -53,7 +53,7 @@ export const GET = withTenant(async (
       status: 200,
       headers: {
         "Content-Type": "image/jpeg",
-        "Cache-Control": "private, max-age=300",
+        "Cache-Control": "private, no-store",
       },
     });
   } catch (err) {

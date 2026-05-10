@@ -1,4 +1,4 @@
-# Handoff — estado del proyecto a 2026-05-10
+# Handoff — estado del proyecto a 2026-05-10 (post-auditoría)
 
 Documento para retomar el trabajo desde otra cuenta de Claude (o
 máquina). Resume lo que hay en marcha, decisiones recientes y
@@ -57,6 +57,12 @@ Producción ya corre desde esta rama vía Dokploy.
 
 Commits relevantes en `feature/saas-migration` (más reciente arriba):
 
+- **(pendiente push)** auditoría de seguridad — 9 vulnerabilidades
+  cerradas (HIGH×5 + MEDIUM×4): Face ID client-trust → token HMAC
+  single-use, IDOR en tareas/comunicados/articulos, rate limit +
+  lockout en login y face verify, AES-GCM authTagLength, Cache-Control
+  no-store en biometría, cron de purga RGPD, deps (nodemailer fuera +
+  xlsx→exceljs). Detalle en §5.5 abajo.
 - `cfc598d` fix: toggle no se comprime con labels largos (shrink-0).
 - `5394296` feat(face-id): **snapshot cifrado al fichar** (toggle por
   empresa). RGPD art. 9. AES-256-GCM con `IA_ENCRYPTION_KEY`.
@@ -116,6 +122,76 @@ ssh -p 5251 root@185.47.13.172 \
 Lista contenedores con `docker ps`, busca el de Postgres del producto
 (no `dokploy-postgres`).
 
+### 5.5. Auditoría de seguridad (cambios estructurales)
+
+#### Face ID server-side
+- Antes: `POST /api/fichajes` confiaba en `body.faceVerified: boolean`
+  del cliente. Bypasseable enviando `{faceVerified: true}` sin pasar
+  Face ID. Ahora: `POST /api/face/verify` emite `faceVerifyToken`
+  (HMAC-SHA256 firmado con `IA_ENCRYPTION_KEY`, TTL 60s, single-use
+  vía nonce in-memory). El cliente lo manda a `/api/fichajes` que
+  llama `consumeFaceToken(token, userId, slug)`. Si falla, 400.
+- Helpers: `src/lib/face/token.ts` (`issueFaceToken`/`consumeFaceToken`).
+- Single-use sobrevive 90s (margen sobre el TTL 60s) en
+  `globalThis._faceTokenNonces`. Si se escala a varias réplicas,
+  migrar a Redis.
+
+#### Rate limit + lockout
+- `src/lib/rate-limit.ts` — store in-memory en `globalThis`. APIs:
+  `checkRate(key, limit, windowMs)`, `isLocked(key)`,
+  `recordFailure(key, threshold, lockoutMs)`, `clearFailures(key)`.
+- Login (`src/lib/auth.ts` `authorize`): 10 intentos/min por IP +
+  lockout tras 5 fallos en 15 min con key `login:slug:email:ip`
+  (clave compuesta para evitar que un atacante desde otra IP bloquee
+  al usuario legítimo).
+- Face verify: 10 intentos/min por `user:ip`.
+- Limitación: in-memory NO se comparte entre réplicas. Single-replica
+  en Dokploy actual basta. Si se escala horizontalmente, migrar a
+  Redis con la misma API.
+
+#### IDOR cerrado en tareas/comunicados/articulos
+- Antes: PUT/DELETE de `/api/tareas/[id]`, `/api/comunicados/[id]`,
+  `/api/articulos/[id]` solo verificaban autenticación → cualquier
+  EMPLEADO podía editar/borrar recursos ajenos del tenant.
+- Ahora: comunicados y articulos requieren OWNER, MANAGER o
+  `recurso.autorId === userId`. Tareas igual + caso especial: el
+  empleado asignado puede marcar `completada` (y solo eso).
+
+#### Purga biométrica RGPD
+- Endpoint: `POST /api/cron/purge-biometrics` con
+  `Authorization: Bearer ${CRON_SECRET}`. Itera `master.tenants`
+  status=active, para cada uno reanida `runWithTenant` y borra
+  `Fichaje.fotoSnapshotEnc` con `timestamp < now - retencionFotosDias`.
+- Nuevo campo `ConfiguracionEmpresa.retencionFotosDias` (Int default
+  90) — lazy migration en `migrate.ts`. Configurable por tenant en el
+  futuro UI; por ahora 90 días para todos.
+- ESLint whitelist: `/api/cron/` exento de `no-legacy-prisma` y
+  `route-must-use-withTenant` (el patrón es de plataforma, no del
+  tenant — usa `prismaMaster` para iterar tenants).
+- **Acción operativa pendiente**: definir `CRON_SECRET` en Dokploy y
+  programar cron externo (Dokploy/cron-job.org) que llame al endpoint
+  diario. Hasta entonces los snapshots no se purgan.
+
+#### Hardening menor
+- AES-GCM (`src/lib/crypto/aes-gcm.ts`): `createDecipheriv` con
+  `{ authTagLength: 16 }` — defensa en profundidad contra tags
+  acortados.
+- `/api/fichajes/[id]/foto`: `Cache-Control: private, no-store`
+  (antes `max-age=300` permitía caché de navegador 5 min sobre dato
+  biométrico).
+
+#### Deps
+- `nodemailer` y `@types/nodemailer` eliminados — no se usaba (el
+  proyecto envía emails con Resend, ver `src/lib/email.ts`).
+- `xlsx` → `exceljs` en `src/lib/informes/generators.ts`. `xlsx` tenía
+  CVEs sin fix oficial (Prototype Pollution + ReDoS). El uso del
+  proyecto era solo generación, no parsing, así que riesgo real bajo,
+  pero exceljs es mantenido. **`generarExcel` ahora es async** — el
+  caller (`/api/informes/exportar`) ya hace `await`.
+- ExcelJS rechaza nombres de hoja duplicados case-insensitive: si
+  `payload.tipo === "resumen"` la hoja extra de stats se llama
+  "Estadísticas" (no "Resumen") para evitar colisión.
+
 ## 6. Toggles de tenant añadidos (Configuración → General)
 
 - `geoObligatoria` — rechaza fichaje si no hay GPS (RD 8/2019: el
@@ -130,14 +206,37 @@ Lista contenedores con `docker ps`, busca el de Postgres del producto
   solo de su sede).
 - `fichajeMovilActivo` / `fichajeTabletActivo` — gating server-side
   por User-Agent en `POST /api/fichajes`.
+- `retencionFotosDias` (Int, default 90) — días de retención del
+  snapshot biométrico antes de que el cron lo purgue. RGPD
+  art. 5.1.e (minimización). No tiene UI todavía; se cambia con un
+  UPDATE manual a `ConfiguracionEmpresa` por tenant si hace falta.
 
 ## 7. Pendiente (en el momento del handoff)
 
-Nada urgente abierto. Posibles próximos pasos:
+### Operativa post-auditoría
+- **Configurar `CRON_SECRET` en Dokploy** y programar llamada diaria
+  a `POST /api/cron/purge-biometrics`. Hasta entonces los snapshots
+  biométricos no se purgan (incumplimiento RGPD §5.1.e parcial).
+- **Probar Face ID en producción** tras deploy — el contrato cliente
+  cambió: `body.faceVerified` → `body.faceVerifyToken`. Si el
+  navegador tiene cache del JS viejo, el primer fichaje fallará con
+  `code: face_id_verify_required`.
+- **Lazy migrate en tenants existentes**: el campo
+  `retencion_fotos_dias` se añade en el primer request de cada
+  tenant, o forzar con `npm run tenants:migrate -- tecnocloud` y
+  `npm run tenants:migrate -- ucm`.
 
-- Reforzar Face ID: `faceVerified` actualmente es client-trust. Para
-  hacerlo robusto, emitir token corto (single-use, TTL 60 s) en
-  `/api/face/verify` y consumirlo en `/api/fichajes`.
+### Hallazgos de auditoría sin atacar
+- Los 15 errores `no-explicit-any` que reporta ESLint en
+  `src/app/api/fichajes/[id]/route.ts`, `tareas/route.ts`,
+  `fichajes/route.ts` líneas 25-26 — son `(session.user as any).rol`
+  preexistentes. No son regresión. Limpieza tipográfica pendiente.
+- 14 vulns transitivas npm restantes — cadena `next-pwa → workbox →
+  serialize-javascript`, `dompurify`, `fast-uri`, `hono` (vía
+  `@prisma/dev`), `@babel/plugin-transform-modules-systemjs`. Ninguna
+  en el path crítico; se resuelven en upgrades futuros.
+
+### Mejoras opcionales
 - Limpiar `wallet` de tenants existentes en producción (la feature
   fue retirada, ya se borró de tecnocloud + ucm pero ojo si hay
   tenants nuevos):
@@ -148,6 +247,9 @@ Nada urgente abierto. Posibles próximos pasos:
   ```
 - Migrar la lógica lazy de `migrate.ts` a migraciones formales en
   `prisma/migrations-tenant/` cuando haya un momento tranquilo.
+- Migrar `rate-limit.ts` y face token nonces a Redis si se escala
+  horizontalmente (hoy single-replica en Dokploy → in-memory basta).
+- UI para `retencionFotosDias` en Configuración → General.
 
 ## 8. Cómo retomar
 

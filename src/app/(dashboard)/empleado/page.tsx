@@ -304,7 +304,7 @@ export default function EmpleadoPage() {
 
   // Fichar action
   const handleFichar = useCallback(
-    async (tipo: TipoFichaje, opts: { faceVerified?: boolean; fotoSnapshot?: string } = {}) => {
+    async (tipo: TipoFichaje, opts: { faceVerifyToken?: string; fotoSnapshot?: string } = {}) => {
       setLoadingAction(tipo);
       try {
         let lat: number | undefined;
@@ -325,7 +325,7 @@ export default function EmpleadoPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             tipo, latitud: lat, longitud: lon, distancia: dist,
-            ...(opts.faceVerified ? { faceVerified: true } : {}),
+            ...(opts.faceVerifyToken ? { faceVerifyToken: opts.faceVerifyToken } : {}),
             ...(opts.fotoSnapshot ? { fotoSnapshot: opts.fotoSnapshot } : {}),
           }),
         });
@@ -407,7 +407,10 @@ export default function EmpleadoPage() {
         }
         const tipo = pendingFaceTipo;
         setPendingFaceTipo(null);
-        await handleFichar(tipo, { faceVerified: true, fotoSnapshot: snapshot });
+        if (typeof data.faceVerifyToken !== "string") {
+          throw new Error("El servidor no emitió token de verificación.");
+        }
+        await handleFichar(tipo, { faceVerifyToken: data.faceVerifyToken, fotoSnapshot: snapshot });
       } catch (e) {
         setFaceError(e instanceof Error ? e.message : "Error verificando rostro");
       } finally {

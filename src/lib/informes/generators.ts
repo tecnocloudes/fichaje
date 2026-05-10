@@ -14,7 +14,7 @@
  * user/tienda/tipoAusencia) para que las columnas sean planas.
  */
 
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -107,33 +107,35 @@ export function generarCSV(payload: InformePayload): string {
 }
 
 /** Excel — una hoja por tipo de payload con headers + filas. */
-export function generarExcel(payload: InformePayload): Buffer {
+export async function generarExcel(payload: InformePayload): Promise<Buffer> {
   const rows = rowsFromPayload(payload);
   const cols = columnsFromRows(rows);
-  const wb = XLSX.utils.book_new();
+  const wb = new ExcelJS.Workbook();
   const sheetName = String(payload.tipo ?? "Informe").slice(0, 31) || "Informe";
+  const ws = wb.addWorksheet(sheetName);
   if (rows.length === 0) {
-    const ws = XLSX.utils.aoa_to_sheet([["Sin datos para los filtros aplicados"]]);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    ws.addRow(["Sin datos para los filtros aplicados"]);
   } else {
-    const aoa: unknown[][] = [cols];
+    ws.addRow(cols);
     for (const row of rows) {
-      aoa.push(cols.map((c) => row[c] ?? ""));
+      ws.addRow(cols.map((c) => row[c] ?? ""));
     }
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
   }
-  // Hoja extra "Resumen" con stats si existen.
+  // Hoja extra "Resumen" con stats si existen. Si la hoja principal ya
+  // se llama "resumen" (case-insensitive), usa "Estadísticas" para no
+  // chocar — exceljs rechaza nombres duplicados aunque difiera el case.
   if (payload.stats && typeof payload.stats === "object") {
     const stats = payload.stats as Record<string, unknown>;
-    const aoa: unknown[][] = [["Métrica", "Valor"]];
+    const statsSheetName =
+      sheetName.toLowerCase() === "resumen" ? "Estadísticas" : "Resumen";
+    const wsStats = wb.addWorksheet(statsSheetName);
+    wsStats.addRow(["Métrica", "Valor"]);
     for (const [k, v] of Object.entries(stats)) {
-      aoa.push([k, typeof v === "object" ? JSON.stringify(v) : v]);
+      wsStats.addRow([k, typeof v === "object" ? JSON.stringify(v) : v as string | number | boolean | null]);
     }
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Resumen");
   }
-  const arrayBuffer = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
-  return Buffer.from(arrayBuffer);
+  const arrayBuffer = await wb.xlsx.writeBuffer();
+  return Buffer.from(arrayBuffer as ArrayBuffer);
 }
 
 /** PDF — tabla con jspdf-autotable, header + filas. */

@@ -3,11 +3,14 @@
  *
  * El cliente computa un embedding (face-api.js) y lo manda. El backend
  * descifra el template del usuario y calcula similitud cosine. Si
- * supera el umbral, devuelve `match: true` y registra la verificación
- * con éxito; si no, `match: false`.
+ * supera el umbral, devuelve `match: true` + un `faceVerifyToken`
+ * HMAC-firmado con TTL 60s y single-use que el cliente debe enviar
+ * en `POST /api/fichajes` para certificar la verificación.
  *
- * Si se quiere asociar la verificación a un fichaje en curso, el
- * cliente puede pasar `fichajeId` en el body para enlace débil.
+ * Sin token, el handler de fichajes no acepta `faceIdObligatorio` (el
+ * boolean `faceVerified` antiguo era client-trust → eliminado).
+ *
+ * Rate limit: 10 intentos por usuario+IP cada 60s.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -17,6 +20,9 @@ import { prismaApp } from "@/lib/prisma";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { decryptFloat32 } from "@/lib/crypto/aes-gcm";
 import { cosineSimilarity, FACE_MATCH_THRESHOLD } from "@/lib/face/similitud";
+import { issueFaceToken } from "@/lib/face/token";
+import { checkRate } from "@/lib/rate-limit";
+import { currentTenant } from "@/lib/tenant/context";
 
 const schema = z.object({
   embedding: z.array(z.number()).length(128),
@@ -27,6 +33,17 @@ export const POST = withTenant(async (req: NextRequest) => {
   const session = await auth();
   const user = session?.user as { id?: string } | undefined;
   if (!user?.id) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  const fwd = req.headers.get("x-forwarded-for");
+  const ip = fwd ? fwd.split(",")[0]!.trim() : "unknown";
+
+  const rate = checkRate(`face-verify:${user.id}:${ip}`, 10, 60_000);
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: "Demasiadas verificaciones. Espera unos segundos." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) } },
+    );
+  }
 
   const tpl = await prismaApp.faceTemplate.findUnique({
     where: { userId: user.id },
@@ -51,8 +68,6 @@ export const POST = withTenant(async (req: NextRequest) => {
   const score = cosineSimilarity(stored, candidate);
   const match = score >= FACE_MATCH_THRESHOLD;
 
-  const fwd = req.headers.get("x-forwarded-for");
-  const ip = fwd ? fwd.split(",")[0]!.trim() : null;
   const ua = req.headers.get("user-agent");
 
   await prismaApp.faceVerificacion.create({
@@ -60,15 +75,22 @@ export const POST = withTenant(async (req: NextRequest) => {
       templateId: tpl.id,
       score,
       resultado: match ? "match" : "no_match",
-      ip,
+      ip: ip === "unknown" ? null : ip,
       userAgent: ua,
       fichajeId: parsed.data.fichajeId ?? null,
     },
   });
 
+  if (!match) {
+    return NextResponse.json({ match: false, score, threshold: FACE_MATCH_THRESHOLD });
+  }
+
+  const faceVerifyToken = issueFaceToken(user.id, currentTenant().slug);
+
   return NextResponse.json({
-    match,
+    match: true,
     score,
     threshold: FACE_MATCH_THRESHOLD,
+    faceVerifyToken,
   });
 });
