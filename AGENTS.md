@@ -4,6 +4,13 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+# Handoff entre sesiones
+
+Antes de trabajar en una nueva sesión, lee `docs/HANDOFF.md`. Contiene
+el estado del proyecto al cerrar la última conversación: features
+recientes, decisiones operativas, contraseñas/IDs de prod no-secret y
+pendientes abiertos. Mantenlo actualizado al cerrar cambios grandes.
+
 # Desarrollo local multi-tenant (Fase 3)
 
 Tras Fase 3 la app es multi-tenant: cada request necesita un `Host` que
