@@ -329,6 +329,210 @@ export async function runMigrations() {
       END $$;
     `);
 
+    // ── Evaluacion ────────────────────────────────────────────────────────
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."Evaluacion" (
+        "id"           TEXT NOT NULL,
+        "ciclo"        TEXT NOT NULL,
+        "evaluadoAId"  TEXT NOT NULL,
+        "evaluadorId"  TEXT NOT NULL,
+        "preguntas"    JSONB NOT NULL,
+        "respuestas"   JSONB,
+        "comentarios"  TEXT,
+        "estado"       TEXT NOT NULL DEFAULT 'pendiente',
+        "createdAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "completadaAt" TIMESTAMP(3),
+        CONSTRAINT "Evaluacion_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Evaluacion_evaluadoAId_idx" ON ${S}."Evaluacion"("evaluadoAId");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Evaluacion_evaluadorId_idx" ON ${S}."Evaluacion"("evaluadorId");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Evaluacion_ciclo_idx" ON ${S}."Evaluacion"("ciclo");`);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='Evaluacion_evaluadoAId_fkey' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."Evaluacion" ADD CONSTRAINT "Evaluacion_evaluadoAId_fkey" FOREIGN KEY ("evaluadoAId") REFERENCES ${S}."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='Evaluacion_evaluadorId_fkey' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."Evaluacion" ADD CONSTRAINT "Evaluacion_evaluadorId_fkey" FOREIGN KEY ("evaluadorId") REFERENCES ${S}."User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+        END IF;
+      END $$;
+    `);
+
+    // ── Gasto ─────────────────────────────────────────────────────────────
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."Gasto" (
+        "id"          TEXT NOT NULL,
+        "userId"      TEXT NOT NULL,
+        "concepto"    TEXT NOT NULL,
+        "importe"     DECIMAL(10,2) NOT NULL,
+        "moneda"      TEXT NOT NULL DEFAULT 'EUR',
+        "categoria"   TEXT NOT NULL DEFAULT 'varios',
+        "fecha"       TIMESTAMP(3) NOT NULL,
+        "ticketUrl"   TEXT,
+        "notas"       TEXT,
+        "estado"      TEXT NOT NULL DEFAULT 'pendiente',
+        "revisorId"   TEXT,
+        "revisadoAt"  TIMESTAMP(3),
+        "comentarioRevision" TEXT,
+        "createdAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "Gasto_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Gasto_userId_idx" ON ${S}."Gasto"("userId");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Gasto_estado_idx" ON ${S}."Gasto"("estado");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Gasto_fecha_idx" ON ${S}."Gasto"("fecha");`);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='Gasto_userId_fkey' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."Gasto" ADD CONSTRAINT "Gasto_userId_fkey" FOREIGN KEY ("userId") REFERENCES ${S}."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='Gasto_revisorId_fkey' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."Gasto" ADD CONSTRAINT "Gasto_revisorId_fkey" FOREIGN KEY ("revisorId") REFERENCES ${S}."User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+        END IF;
+      END $$;
+    `);
+
+    // ── EspacioReservable + ReservaEspacio ────────────────────────────────
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."EspacioReservable" (
+        "id"          TEXT NOT NULL,
+        "nombre"      TEXT NOT NULL,
+        "descripcion" TEXT,
+        "capacidad"   INTEGER NOT NULL DEFAULT 1,
+        "ubicacion"   TEXT,
+        "activo"      BOOLEAN NOT NULL DEFAULT true,
+        "createdAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "EspacioReservable_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."ReservaEspacio" (
+        "id"        TEXT NOT NULL,
+        "espacioId" TEXT NOT NULL,
+        "userId"    TEXT NOT NULL,
+        "inicio"    TIMESTAMP(3) NOT NULL,
+        "fin"       TIMESTAMP(3) NOT NULL,
+        "motivo"    TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "ReservaEspacio_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ReservaEspacio_espacioId_inicio_idx" ON ${S}."ReservaEspacio"("espacioId","inicio");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ReservaEspacio_userId_idx" ON ${S}."ReservaEspacio"("userId");`);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='ReservaEspacio_espacioId_fkey' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."ReservaEspacio" ADD CONSTRAINT "ReservaEspacio_espacioId_fkey" FOREIGN KEY ("espacioId") REFERENCES ${S}."EspacioReservable"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='ReservaEspacio_userId_fkey' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."ReservaEspacio" ADD CONSTRAINT "ReservaEspacio_userId_fkey" FOREIGN KEY ("userId") REFERENCES ${S}."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+      END $$;
+    `);
+
+    // ── NominaArchivo ─────────────────────────────────────────────────────
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."NominaArchivo" (
+        "id"            TEXT NOT NULL,
+        "empleadoId"    TEXT NOT NULL,
+        "periodo"       TEXT NOT NULL,
+        "pdfUrl"        TEXT NOT NULL,
+        "nombreArchivo" TEXT NOT NULL,
+        "tamañoBytes"   INTEGER NOT NULL DEFAULT 0,
+        "subidoPorId"   TEXT NOT NULL,
+        "vistoAt"       TIMESTAMP(3),
+        "createdAt"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "NominaArchivo_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "NominaArchivo_empleadoId_idx" ON ${S}."NominaArchivo"("empleadoId");`);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='NominaArchivo_empleadoId_periodo_key' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."NominaArchivo" ADD CONSTRAINT "NominaArchivo_empleadoId_periodo_key" UNIQUE ("empleadoId","periodo");
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='NominaArchivo_empleadoId_fkey' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."NominaArchivo" ADD CONSTRAINT "NominaArchivo_empleadoId_fkey" FOREIGN KEY ("empleadoId") REFERENCES ${S}."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='NominaArchivo_subidoPorId_fkey' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."NominaArchivo" ADD CONSTRAINT "NominaArchivo_subidoPorId_fkey" FOREIGN KEY ("subidoPorId") REFERENCES ${S}."User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+        END IF;
+      END $$;
+    `);
+
+    // ── Curso + AsignacionCurso ───────────────────────────────────────────
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."Curso" (
+        "id"           TEXT NOT NULL,
+        "titulo"       TEXT NOT NULL,
+        "descripcion"  TEXT,
+        "contenidoUrl" TEXT,
+        "duracionMin"  INTEGER NOT NULL DEFAULT 60,
+        "creadoPorId"  TEXT NOT NULL,
+        "createdAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "Curso_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."AsignacionCurso" (
+        "id"           TEXT NOT NULL,
+        "cursoId"      TEXT NOT NULL,
+        "empleadoId"   TEXT NOT NULL,
+        "fechaLimite"  TIMESTAMP(3),
+        "completado"   BOOLEAN NOT NULL DEFAULT false,
+        "completadoAt" TIMESTAMP(3),
+        "createdAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "AsignacionCurso_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AsignacionCurso_empleadoId_idx" ON ${S}."AsignacionCurso"("empleadoId");`);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='AsignacionCurso_cursoId_empleadoId_key' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."AsignacionCurso" ADD CONSTRAINT "AsignacionCurso_cursoId_empleadoId_key" UNIQUE ("cursoId","empleadoId");
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='Curso_creadoPorId_fkey' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."Curso" ADD CONSTRAINT "Curso_creadoPorId_fkey" FOREIGN KEY ("creadoPorId") REFERENCES ${S}."User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='AsignacionCurso_cursoId_fkey' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."AsignacionCurso" ADD CONSTRAINT "AsignacionCurso_cursoId_fkey" FOREIGN KEY ("cursoId") REFERENCES ${S}."Curso"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='AsignacionCurso_empleadoId_fkey' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."AsignacionCurso" ADD CONSTRAINT "AsignacionCurso_empleadoId_fkey" FOREIGN KEY ("empleadoId") REFERENCES ${S}."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+      END $$;
+    `);
+
+    // ── Peticion ──────────────────────────────────────────────────────────
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."Peticion" (
+        "id"            TEXT NOT NULL,
+        "solicitanteId" TEXT NOT NULL,
+        "tipo"          TEXT NOT NULL,
+        "titulo"        TEXT NOT NULL,
+        "descripcion"   TEXT NOT NULL,
+        "estado"        TEXT NOT NULL DEFAULT 'pendiente',
+        "respuesta"     TEXT,
+        "gestorId"      TEXT,
+        "resueltaAt"    TIMESTAMP(3),
+        "createdAt"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "Peticion_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Peticion_solicitanteId_idx" ON ${S}."Peticion"("solicitanteId");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Peticion_estado_idx" ON ${S}."Peticion"("estado");`);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='Peticion_solicitanteId_fkey' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."Peticion" ADD CONSTRAINT "Peticion_solicitanteId_fkey" FOREIGN KEY ("solicitanteId") REFERENCES ${S}."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE c.conname='Peticion_gestorId_fkey' AND n.nspname='tenant_${slug}') THEN
+          ALTER TABLE ${S}."Peticion" ADD CONSTRAINT "Peticion_gestorId_fkey" FOREIGN KEY ("gestorId") REFERENCES ${S}."User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+        END IF;
+      END $$;
+    `);
+
     MIGRATED.add(slug);
   } catch (err) {
     // Log but don't crash — if DB isn't ready yet it'll retry on next request

@@ -13,6 +13,7 @@ import {
   BookOpen, FolderOpen, Rocket, Timer, Search, Pen,
   ChevronDown, Sparkles, ShieldAlert, Network,
   Bot, ScanFace, Target, MessageSquare,
+  Star, CreditCard, Building2, Send, GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -84,6 +85,18 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
             { label: "Organigrama", href: "/admin/organigrama", icon: Network, feature: "organigrama" },
             { label: "Objetivos (OKRs)", href: "/admin/objetivos", icon: Target, feature: "objetivos" },
             { label: "Encuestas de clima", href: "/admin/encuestas", icon: MessageSquare, feature: "encuestas_clima" },
+            { label: "Evaluaciones", href: "/admin/evaluaciones", icon: Star, feature: "evaluaciones" },
+            { label: "Formación", href: "/admin/formacion", icon: GraduationCap, feature: "formacion" },
+          ],
+        },
+        {
+          key: "operaciones",
+          label: "OPERACIONES",
+          items: [
+            { label: "Control de gastos", href: "/admin/control-gastos", icon: CreditCard, feature: "control_gastos" },
+            { label: "Reserva de espacios", href: "/admin/reserva-espacios", icon: Building2, feature: "reserva_espacios" },
+            { label: "Envío de nóminas", href: "/admin/envio-nominas", icon: Send, feature: "envio_nominas" },
+            { label: "Peticiones", href: "/admin/custom-requests", icon: ClipboardList, feature: "custom_requests" },
           ],
         },
         {

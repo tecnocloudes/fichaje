@@ -136,6 +136,23 @@ model User {
   // Encuestas de clima: encuestas creadas + respuestas dadas.
   encuestasCreadas         Encuesta[]                @relation("EncuestaCreador")
   respuestasEncuesta       RespuestaEncuesta[]       @relation("RespuestaEncuestaUser")
+  // Evaluaciones del desempeño: como evaluado, como evaluador.
+  evaluacionesRecibidas    Evaluacion[]              @relation("EvaluacionEvaluado")
+  evaluacionesARealizar    Evaluacion[]              @relation("EvaluacionEvaluador")
+  // Control de gastos: tickets registrados.
+  gastos                   Gasto[]
+  gastosRevisados          Gasto[]                   @relation("GastoRevisor")
+  // Reserva de espacios: mis reservas.
+  reservasEspacios         ReservaEspacio[]
+  // Envío de nóminas: archivos subidos a cada empleado.
+  nominasArchivos          NominaArchivo[]           @relation("NominaArchivoEmpleado")
+  nominasArchivosSubidos   NominaArchivo[]           @relation("NominaArchivoSubidoPor")
+  // Formación LMS: cursos creados, asignaciones recibidas.
+  cursosCreados            Curso[]                   @relation("CursoCreador")
+  cursosAsignados          AsignacionCurso[]         @relation("AsignacionCursoEmpleado")
+  // Custom requests: peticiones del empleado, gestionadas por OWNER/MANAGER.
+  peticiones               Peticion[]                @relation("PeticionSolicitante")
+  peticionesGestionadas    Peticion[]                @relation("PeticionGestor")
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
 
@@ -713,6 +730,150 @@ model MensajeIA {
 // con AES-256-GCM (misma clave maestra que IA). Es irreversible: con el
 // embedding solo se puede comparar (cosine similarity) contra otro
 // embedding nuevo, no reconstruir la imagen original.
+
+/// Evaluación de desempeño 1:1 (evaluador → evaluado) en un ciclo.
+/// Feature: `evaluaciones`. Pro+Enterprise.
+model Evaluacion {
+  id            String    @id @default(cuid())
+  ciclo         String    // "2026-H1", "2026-Q1", etc.
+  evaluadoAId   String
+  evaluadoA     User      @relation("EvaluacionEvaluado", fields: [evaluadoAId], references: [id])
+  evaluadorId   String
+  evaluador     User      @relation("EvaluacionEvaluador", fields: [evaluadorId], references: [id])
+  /// [{ idx, texto, tipo: "escala_1_5" | "texto" }]
+  preguntas     Json
+  /// [{ preguntaIdx, valor: number | string }] | null antes de completar
+  respuestas    Json?
+  comentarios   String?
+  estado        String    @default("pendiente") // pendiente | completada
+  createdAt     DateTime  @default(now())
+  completadaAt  DateTime?
+
+  @@index([evaluadoAId])
+  @@index([evaluadorId])
+  @@index([ciclo])
+}
+
+/// Gasto que el empleado registra para reembolso. Feature: `control_gastos`.
+model Gasto {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  concepto     String
+  importe      Decimal   @db.Decimal(10, 2)
+  moneda       String    @default("EUR")
+  categoria    String    @default("varios") // dietas | transporte | hotel | material | varios
+  fecha        DateTime
+  ticketUrl    String?   // URL/data del ticket subido (data URL pequeño OK)
+  notas        String?
+  estado       String    @default("pendiente") // pendiente | aprobado | rechazado
+  revisorId    String?
+  revisor      User?     @relation("GastoRevisor", fields: [revisorId], references: [id])
+  revisadoAt   DateTime?
+  comentarioRevision String?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@index([estado])
+  @@index([fecha])
+}
+
+/// Espacio reservable. Feature: `reserva_espacios`.
+model EspacioReservable {
+  id          String           @id @default(cuid())
+  nombre      String
+  descripcion String?
+  capacidad   Int              @default(1)
+  ubicacion   String?
+  activo      Boolean          @default(true)
+  reservas    ReservaEspacio[]
+  createdAt   DateTime         @default(now())
+}
+
+model ReservaEspacio {
+  id         String            @id @default(cuid())
+  espacioId  String
+  espacio    EspacioReservable @relation(fields: [espacioId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User              @relation(fields: [userId], references: [id])
+  inicio     DateTime
+  fin        DateTime
+  motivo     String?
+  createdAt  DateTime          @default(now())
+
+  @@index([espacioId, inicio])
+  @@index([userId])
+}
+
+/// Archivo de nómina enviado a un empleado. Feature: `envio_nominas`.
+model NominaArchivo {
+  id          String    @id @default(cuid())
+  empleadoId  String
+  empleado    User      @relation("NominaArchivoEmpleado", fields: [empleadoId], references: [id])
+  /// "2026-04", "2026-05", etc. (mes de la nómina)
+  periodo     String
+  /// Data URL del PDF o URL externa. En MVP guardamos data URL.
+  pdfUrl      String
+  nombreArchivo String
+  tamañoBytes Int       @default(0)
+  subidoPorId String
+  subidoPor   User      @relation("NominaArchivoSubidoPor", fields: [subidoPorId], references: [id])
+  /// Marca de visualización por el empleado.
+  vistoAt     DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([empleadoId, periodo], name: "empleado_periodo_uniq")
+  @@index([empleadoId])
+}
+
+/// Curso de formación. Feature: `formacion`.
+model Curso {
+  id          String              @id @default(cuid())
+  titulo      String
+  descripcion String?
+  /// URL externa al contenido (vídeo, PDF, web). Sin player propio en MVP.
+  contenidoUrl String?
+  duracionMin Int                 @default(60)
+  creadoPorId String
+  creadoPor   User                @relation("CursoCreador", fields: [creadoPorId], references: [id])
+  asignaciones AsignacionCurso[]
+  createdAt   DateTime            @default(now())
+}
+
+model AsignacionCurso {
+  id           String   @id @default(cuid())
+  cursoId      String
+  curso        Curso    @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  empleadoId   String
+  empleado     User     @relation("AsignacionCursoEmpleado", fields: [empleadoId], references: [id])
+  fechaLimite  DateTime?
+  completado   Boolean  @default(false)
+  completadoAt DateTime?
+  createdAt    DateTime @default(now())
+
+  @@unique([cursoId, empleadoId], name: "curso_empleado_uniq")
+  @@index([empleadoId])
+}
+
+/// Petición personalizada del empleado (carta, certificado, anticipo, etc.).
+/// Feature: `custom_requests`.
+model Peticion {
+  id              String    @id @default(cuid())
+  solicitanteId   String
+  solicitante     User      @relation("PeticionSolicitante", fields: [solicitanteId], references: [id])
+  tipo            String    // "certificado_empresa" | "anticipo" | "cambio_datos" | "otro"
+  titulo          String
+  descripcion     String
+  estado          String    @default("pendiente") // pendiente | en_proceso | resuelta | rechazada
+  respuesta       String?
+  gestorId        String?
+  gestor          User?     @relation("PeticionGestor", fields: [gestorId], references: [id])
+  resueltaAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([solicitanteId])
+  @@index([estado])
+}
 
 /// Encuesta de clima laboral. Feature: `encuestas_clima`. Pro+Enterprise.
 ///

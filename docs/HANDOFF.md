@@ -317,14 +317,17 @@ el handler real, no solo el toggle local en `ConfiguracionEmpresa`.
   serialize-javascript`, `dompurify`, `fast-uri`, `hono` (vía
   `@prisma/dev`), `@babel/plugin-transform-modules-systemjs`. Ninguna
   en el path crítico; se resuelven en upgrades futuros.
-- Marketing-only features (12 tras reactivar `objetivos` y
-  `encuestas_clima`): `evaluaciones`, `formacion`, `control_gastos`,
-  `retribucion_flex`, `envio_nominas`, `prenomina`, `multi_empresa`,
-  y los placeholders `chat`/`whatsapp_bot`/`marketplace`/
-  `custom_requests`/`reserva_espacios`. En BD están a `false` en
-  TODOS los planes desde la sesión 2026-05-11 (saneamiento del
-  pricing). Las páginas siguen existiendo con UI `<ComingSoon>` /
-  `<ProximamenteCard>` por si alguien navega manualmente.
+- Marketing-only features (6 restantes tras batch sesión
+  2026-05-11): `retribucion_flex`, `prenomina`, `multi_empresa`,
+  `chat`, `whatsapp_bot`, `marketplace`. En BD están a `false`
+  en TODOS los planes. Se quedan así porque:
+  - `chat` y `whatsapp_bot` requieren infraestructura realtime /
+    WhatsApp Business API (costes externos).
+  - `marketplace` requiere catálogo de integraciones (esfuerzo
+    grande sin demanda comprobada).
+  - `multi_empresa` cambio estructural (modelo Tenant → Empresas).
+  - `prenomina` y `retribucion_flex` requieren conocimiento fiscal
+    específico de España + conexión con software de nómina externo.
 - 1 ⚠️ gate sin cerrar: `sso_saml` (Fase 9, sin endpoints).
 
 ### Pendiente externo
