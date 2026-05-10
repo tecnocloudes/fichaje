@@ -71,8 +71,8 @@ export function ProximamenteCard({
           <p className="text-[var(--color-text-body,#475569)]">
             <strong className="text-[var(--color-text-dark,#0F172A)]">Disponibilidad:</strong>{" "}
             {plan === "Todos los planes"
-              ? "Disponible en todos los planes"
-              : `Incluido en plan ${plan} y superiores`}
+              ? "Cuando esté disponible, se incluirá en todos los planes"
+              : `Cuando esté disponible, se incluirá en plan ${plan} y superiores`}
             .
           </p>
         </div>
