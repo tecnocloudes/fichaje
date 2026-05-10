@@ -322,11 +322,12 @@ el handler real, no solo el toggle local en `ConfiguracionEmpresa`.
 - 1 ⚠️ gate sin cerrar: `sso_saml` (Fase 9, sin endpoints).
 
 ### Pendiente externo
-- **Landing Astro** (`~/Claude Code/Proyectos Claude/empleaia-landing`)
-  — repositorio aparte. Si tiene textos públicos que prometen las 13
-  features marketing-only, hay que limpiarlos también para alinearlos
-  con `plan-pricing.ts`. Fuera del scope de este repo; abrir el
-  segundo proyecto cuando toque.
+- ✅ **Landing Astro** alineada — commit `16170d7` en
+  `tecnocloudes/empleaia-landing` saneó `src/components/Precios.astro`
+  con los mismos bullets que `plan-pricing.ts`. Dokploy auto-pull
+  desplegará `empleaia.es` con la versión correcta. El resto del
+  repo (Funcionalidades, Soluciones, Hero, FAQ, legales) NO tenía
+  menciones a features latentes — verificado por grep.
 
 ### Mejoras opcionales
 - Limpiar `wallet` de tenants existentes en producción (la feature
