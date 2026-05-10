@@ -86,14 +86,14 @@ const EVENTOS_NOTIF = [
 
 function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
-      <span className="text-sm text-slate-700">{label}</span>
+    <div className="flex items-center justify-between gap-4 py-3 border-b border-slate-50 last:border-0">
+      <span className="text-sm text-slate-700 flex-1 min-w-0">{label}</span>
       <button
         type="button"
         onClick={() => onChange(!value)}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${value ? "bg-[var(--primary)]" : "bg-slate-200"}`}
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${value ? "bg-[var(--primary)]" : "bg-slate-200"}`}
       >
-        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${value ? "translate-x-6" : "translate-x-1"}`} />
+        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${value ? "translate-x-6" : "translate-x-1"}`} />
       </button>
     </div>
   );
