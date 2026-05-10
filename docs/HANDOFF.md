@@ -57,6 +57,9 @@ Producción ya corre desde esta rama vía Dokploy.
 
 Commits relevantes en `feature/saas-migration` (más reciente arriba):
 
+- `b972fc6` feat(plans): cerrar 4 gates de plan que usaban toggles
+  locales en lugar de `hasFeature()`. Detalle en §5.6 abajo.
+- `386c70c` docs(handoff): cerrar auditoría (cron de purga activo).
 - `f48c093` chore(deploy): trigger redeploy para inyectar
   `CRON_SECRET` (commit empty para forzar build con env nuevo en
   Dokploy).
@@ -195,6 +198,46 @@ Lista contenedores con `docker ps`, busca el de Postgres del producto
   `payload.tipo === "resumen"` la hoja extra de stats se llama
   "Estadísticas" (no "Resumen") para evitar colisión.
 
+### 5.6. Gating de planes — feature en BD vs toggle local
+
+Hay **dos capas de gating** distintas y no intercambiables:
+
+1. **Feature de plan** (`master.features` + `master.plan_features`):
+   controla qué módulos están disponibles según el plan contratado.
+   Se consulta con `hasFeature("key")` o `withFeature("key", handler)`.
+   Si el plan no la incluye → el módulo NO existe para ese tenant.
+2. **Toggle local** (`ConfiguracionEmpresa.<flag>`): controla
+   *comportamiento* dentro de un módulo ya contratado. P.ej., un
+   OWNER del plan pro puede activar `faceIdObligatorio` para forzar
+   Face ID en todos los empleados; otro OWNER del plan pro puede
+   tenerlo apagado.
+
+**Regla**: el toggle local SOLO debe respetarse si la feature del
+plan está ON. Si la feature está OFF, el toggle se ignora (la UI lo
+oculta y el backend hace como si estuviera apagado).
+
+Auditoría 2026-05-11 encontró 4 features con módulo implementado
+pero **sin chequeo de `hasFeature`** — un cliente "starter" podía
+usarlas sin pagar. Fixed en `b972fc6`:
+
+| Feature | Gate añadido |
+|---|---|
+| `face_id` | `withFeature("face_id")` en `/api/face/verify` y `/api/face/enroll`. `/api/face/status` devuelve `featureEnabled: false` si el plan no la tiene (no 402 — la pantalla de fichaje debe cargar). `/api/face/template/[userId]` DELETE permanece sin gate (derecho RGPD a borrar datos biométricos). En `/api/fichajes` el toggle `faceIdObligatorio` y `faceIdGuardarFoto` se ignoran si la feature está OFF. |
+| `fichaje_movil` | En `/api/fichajes`: el toggle `fichajeMovilActivo=false` solo rechaza si `hasFeature("fichaje_movil")`. Sin feature, cualquier canal acepta el fichaje (RD 8/2019). |
+| `fichaje_tablet` | Idem con `fichajeTabletActivo`. |
+| `tareas` | `withFeature("tareas")` en `/api/tareas` (GET/POST) y `/api/tareas/[id]` (PUT/DELETE). |
+
+Quedan dos ⚠️ identificadas en la auditoría:
+- `informes_avanzados`: el módulo `/admin/informes` no chequea
+  `hasFeature("informes_avanzados")`. Decisión deferida — el feature
+  cubre TODO el módulo de informes y necesita revisión de qué partes
+  son "avanzadas" vs básicas.
+- `sso_saml`: deferred a Fase 9 (no hay endpoints aún).
+
+**Patrón aprendido** — cuando añadas una feature nueva al catálogo
+master, comprueba SIEMPRE que su gate `hasFeature("...")` aparece en
+el handler real, no solo el toggle local en `ConfiguracionEmpresa`.
+
 ## 6. Toggles de tenant añadidos (Configuración → General)
 
 - `geoObligatoria` — rechaza fichaje si no hay GPS (RD 8/2019: el
@@ -229,11 +272,13 @@ Lista contenedores con `docker ps`, busca el de Postgres del producto
 - ✅ **Lazy migrate aplicada** en tecnocloud + ucm — la primera
   llamada al cron disparó `runMigrations()` por cada tenant y añadió
   `retencion_fotos_dias` con defecto 90.
-- ⚠️ **Probar Face ID en producción**: pendiente. El contrato cliente
-  cambió de `body.faceVerified: boolean` a `body.faceVerifyToken`. Si
-  algún usuario tiene cache del JS antiguo, el primer fichaje con
-  `faceIdObligatorio=true` fallará con `code: face_id_verify_required`
-  hasta hacer hard refresh (Cmd+Shift+R / Ctrl+F5).
+- ✅ **Face ID en producción verificado** — sesión 2026-05-10 con
+  el usuario dueño: `/api/face/verify` emite token, `/api/fichajes`
+  lo consume, snapshot cifrado guardado. Score 0.94, fichaje
+  `cmp0b47pj000307nxj95wyvwx`.
+- ✅ **Gates de plan cerrados** (commit `b972fc6`): 4 features que
+  estaban "abiertas" para todos los planes ahora respetan el
+  contrato. Detalle en §5.6.
 - ⚠️ **Detalle Dokploy a recordar**: si en el futuro se crean
   schedules vía SQL directo (no UI), hay que crear manualmente el
   `script.sh` en `/etc/dokploy/schedules/<appName>/`. La UI lo
@@ -241,14 +286,25 @@ Lista contenedores con `docker ps`, busca el de Postgres del producto
   schedule de purga.
 
 ### Hallazgos de auditoría sin atacar
-- Los 15 errores `no-explicit-any` que reporta ESLint en
+- Los ~21 errores `no-explicit-any` que reporta ESLint en
   `src/app/api/fichajes/[id]/route.ts`, `tareas/route.ts`,
-  `fichajes/route.ts` líneas 25-26 — son `(session.user as any).rol`
+  `fichajes/route.ts` y otros — son `(session.user as any).rol`
   preexistentes. No son regresión. Limpieza tipográfica pendiente.
 - 14 vulns transitivas npm restantes — cadena `next-pwa → workbox →
   serialize-javascript`, `dompurify`, `fast-uri`, `hono` (vía
   `@prisma/dev`), `@babel/plugin-transform-modules-systemjs`. Ninguna
   en el path crítico; se resuelven en upgrades futuros.
+- Marketing-only features (10): `evaluaciones`, `objetivos`,
+  `encuestas_clima`, `formacion`, `control_gastos`, `retribucion_flex`,
+  `envio_nominas`, `prenomina`, `multi_empresa`, y los placeholders
+  `chat`/`whatsapp_bot`/`marketplace`/`custom_requests`/`reserva_espacios`.
+  Están en BD pero el módulo no funciona (página de "próximamente").
+  Si las pones en el pricing público, declara "próximamente" para no
+  generar churn. Cuadro completo de features fue construido en sesión
+  2026-05-11; ver commit del HANDOFF si necesitas regenerarlo.
+- 2 ⚠️ gates sin cerrar: `informes_avanzados` (cubre todo el módulo
+  de informes, requiere decisión sobre qué es "básico" vs "avanzado"),
+  `sso_saml` (Fase 9). Detalle en §5.6.
 
 ### Mejoras opcionales
 - Limpiar `wallet` de tenants existentes en producción (la feature
