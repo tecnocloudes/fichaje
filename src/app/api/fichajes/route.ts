@@ -7,6 +7,7 @@ import { withTenant } from "@/lib/tenant/with-tenant";
 import { getLimit, hasFeature } from "@/lib/tenant/features";
 import { runMigrations } from "@/lib/migrate";
 import { detectDeviceTypeFromUA } from "@/lib/device-ua";
+import { encrypt } from "@/lib/crypto/aes-gcm";
 export const GET = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
@@ -101,6 +102,7 @@ export const POST = withTenant(async (request: NextRequest) => {
       metodo = MetodoFichaje.WEB,
       nota,
       faceVerified,
+      fotoSnapshot,
     } = body as {
       tipo: TipoFichaje;
       latitud?: number;
@@ -109,6 +111,8 @@ export const POST = withTenant(async (request: NextRequest) => {
       metodo?: MetodoFichaje;
       nota?: string;
       faceVerified?: boolean;
+      /** Data URL JPEG ≤200 KB. Solo se guarda si el tenant lo activó. */
+      fotoSnapshot?: string;
     };
 
     if (!tipo || !Object.values(TipoFichaje).includes(tipo)) {
@@ -151,6 +155,7 @@ export const POST = withTenant(async (request: NextRequest) => {
       select: {
         geoObligatoria: true,
         faceIdObligatorio: true,
+        faceIdGuardarFoto: true,
         fichajeMovilActivo: true,
         fichajeTabletActivo: true,
       },
@@ -206,6 +211,22 @@ export const POST = withTenant(async (request: NextRequest) => {
       }
     }
 
+    // Snapshot cifrado: solo cuando el OWNER activó faceIdGuardarFoto y
+    // el fichaje viene del flujo Face ID (faceVerified=true). Aceptamos
+    // hasta 200KB de data URL → ~150KB binarios tras decode.
+    let fotoEnc: Uint8Array<ArrayBuffer> | null = null;
+    if (cfg?.faceIdGuardarFoto && faceVerified === true && typeof fotoSnapshot === "string") {
+      const m = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(fotoSnapshot);
+      if (m && fotoSnapshot.length <= 200_000) {
+        try {
+          const bin = Buffer.from(m[2], "base64");
+          fotoEnc = encrypt(new Uint8Array(bin));
+        } catch (err) {
+          console.warn("[/api/fichajes] no se pudo cifrar snapshot:", err);
+        }
+      }
+    }
+
     const fichaje = await prisma.fichaje.create({
       data: {
         userId: userId!,
@@ -217,6 +238,7 @@ export const POST = withTenant(async (request: NextRequest) => {
         metodo,
         nota,
         ip,
+        ...(fotoEnc ? { fotoSnapshotEnc: fotoEnc } : {}),
       },
       include: {
         user: {

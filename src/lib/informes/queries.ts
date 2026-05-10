@@ -151,13 +151,38 @@ async function informeFichajes(
 ): Promise<InformePayload> {
   const fichajes = await prisma.fichaje.findMany({
     where: { ...roleFilter, timestamp: { gte: inicio, lte: fin } },
-    include: {
+    select: {
+      id: true,
+      timestamp: true,
+      tipo: true,
+      latitud: true,
+      longitud: true,
+      distancia: true,
+      metodo: true,
+      nota: true,
+      tiendaId: true,
+      // No exponemos `fotoSnapshotEnc` (binario cifrado, no necesario en
+      // respuesta JSON). El cliente sabe que hay foto si `tieneFoto=true`.
       user: { select: { id: true, nombre: true, apellidos: true, email: true, foto: true } },
       tienda: { select: { id: true, nombre: true } },
+      fotoSnapshotEnc: false,
     },
     orderBy: [{ userId: "asc" }, { timestamp: "asc" }],
   });
-  return { tipo: "fichajes", data: fichajes, total: fichajes.length };
+  // Indica si hay foto sin enviar el blob completo. Bandera ligera.
+  const data = fichajes.map((f) => ({ ...f }));
+  // Lee solo la presencia (length > 0) en una segunda query agregada.
+  const conFoto = await prisma.fichaje.findMany({
+    where: {
+      ...roleFilter,
+      timestamp: { gte: inicio, lte: fin },
+      fotoSnapshotEnc: { not: null },
+    },
+    select: { id: true },
+  });
+  const fotoSet = new Set(conFoto.map((f) => f.id));
+  const enriched = data.map((f) => ({ ...f, tieneFoto: fotoSet.has(f.id) }));
+  return { tipo: "fichajes", data: enriched, total: enriched.length };
 }
 
 async function informeAusencias(

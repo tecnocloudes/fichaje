@@ -27,12 +27,18 @@ declare global {
 }
 
 interface Props {
-  onCapture: (embedding: number[]) => void;
+  onCapture: (embedding: number[], snapshot?: string) => void;
   cta: string;
   pending?: boolean;
+  /**
+   * Si true, además del embedding extraemos un snapshot del frame en
+   * el que se confirmó el rostro y lo entregamos como data URL JPEG
+   * comprimido (~150x150, calidad 0.7). Útil para auditoría server-side.
+   */
+  captureSnapshot?: boolean;
 }
 
-export function FaceCapture({ onCapture, cta, pending }: Props) {
+export function FaceCapture({ onCapture, cta, pending, captureSnapshot }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "capturing" | "captured" | "error">("loading");
@@ -147,11 +153,28 @@ export function FaceCapture({ onCapture, cta, pending }: Props) {
           clearInterval(interval);
           setPhase("captured");
           setHint("¡Listo! Rostro capturado.");
-          // Stop la cámara, ya no la necesitamos.
+
+          // Extrae snapshot opcional ANTES de parar la cámara.
+          let snapshot: string | undefined;
+          if (captureSnapshot && canvasRef.current && videoRef.current) {
+            try {
+              const c = canvasRef.current;
+              c.width = 150;
+              c.height = 150;
+              const ctx = c.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(videoRef.current, 0, 0, 150, 150);
+                snapshot = c.toDataURL("image/jpeg", 0.7);
+              }
+            } catch {
+              // No bloqueante — si no hay snapshot, seguimos sin él.
+            }
+          }
+
           if (streamRef.current) {
             streamRef.current.getTracks().forEach((t) => t.stop());
           }
-          onCapture(Array.from(desc));
+          onCapture(Array.from(desc), snapshot);
           return;
         }
         setHint(`Sigue así… (${stableRef.current + 1}/${STABLE_FRAMES})`);

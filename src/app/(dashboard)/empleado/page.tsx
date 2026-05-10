@@ -164,6 +164,7 @@ export default function EmpleadoPage() {
 
   // Política de Face ID del tenant + estado del template del usuario.
   const [faceRequired, setFaceRequired] = useState<boolean>(false);
+  const [faceSavePhoto, setFaceSavePhoto] = useState<boolean>(false);
   const [hasFaceTemplate, setHasFaceTemplate] = useState<boolean | null>(null);
   // Cuando el usuario pulsa fichar y Face ID es obligatorio, abrimos
   // un modal de captura. Tras match, ejecutamos el fichaje real.
@@ -228,6 +229,7 @@ export default function EmpleadoPage() {
     ]).then(([cfg, st]) => {
       if (cancelled) return;
       setFaceRequired(!!cfg?.faceIdObligatorio);
+      setFaceSavePhoto(!!cfg?.faceIdGuardarFoto);
       setHasFaceTemplate(!!st?.hasTemplate);
     });
     return () => { cancelled = true; };
@@ -302,7 +304,7 @@ export default function EmpleadoPage() {
 
   // Fichar action
   const handleFichar = useCallback(
-    async (tipo: TipoFichaje, opts: { faceVerified?: boolean } = {}) => {
+    async (tipo: TipoFichaje, opts: { faceVerified?: boolean; fotoSnapshot?: string } = {}) => {
       setLoadingAction(tipo);
       try {
         let lat: number | undefined;
@@ -324,6 +326,7 @@ export default function EmpleadoPage() {
           body: JSON.stringify({
             tipo, latitud: lat, longitud: lon, distancia: dist,
             ...(opts.faceVerified ? { faceVerified: true } : {}),
+            ...(opts.fotoSnapshot ? { fotoSnapshot: opts.fotoSnapshot } : {}),
           }),
         });
 
@@ -387,7 +390,7 @@ export default function EmpleadoPage() {
   );
 
   const handleFaceCapture = useCallback(
-    async (embedding: number[]) => {
+    async (embedding: number[], snapshot?: string) => {
       if (!pendingFaceTipo) return;
       setFaceVerifying(true);
       setFaceError(null);
@@ -404,7 +407,7 @@ export default function EmpleadoPage() {
         }
         const tipo = pendingFaceTipo;
         setPendingFaceTipo(null);
-        await handleFichar(tipo, { faceVerified: true });
+        await handleFichar(tipo, { faceVerified: true, fotoSnapshot: snapshot });
       } catch (e) {
         setFaceError(e instanceof Error ? e.message : "Error verificando rostro");
       } finally {
@@ -758,8 +761,15 @@ export default function EmpleadoPage() {
             <FaceCapture
               cta="Verificar y fichar"
               pending={faceVerifying}
-              onCapture={(emb) => void handleFaceCapture(emb)}
+              captureSnapshot={faceSavePhoto}
+              onCapture={(emb, snap) => void handleFaceCapture(emb, snap)}
             />
+            {faceSavePhoto && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                Tu empresa guarda una foto cifrada del momento del fichaje para auditoría.
+                Solo accede personal autorizado.
+              </p>
+            )}
             {faceError && (
               <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
                 {faceError}

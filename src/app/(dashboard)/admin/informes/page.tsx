@@ -39,6 +39,7 @@ interface FichajeDetalle {
   nota: string | null;
   user: { id: string; nombre: string; apellidos: string; foto: string | null };
   tienda: { id: string; nombre: string } | null;
+  tieneFoto?: boolean;
 }
 
 const TIPO_LABEL: Record<FichajeDetalle["tipo"], string> = {
@@ -400,7 +401,7 @@ export default function AdminInformesPage() {
                 <table className="w-full">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      {["Fecha", "Hora", "Tipo", "Método", "Sede", "Localización", "Nota"].map(h => (
+                      {["Fecha", "Hora", "Tipo", "Método", "Sede", "Localización", "Foto", "Nota"].map(h => (
                         <th key={h} className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 px-4 py-3">{h}</th>
                       ))}
                     </tr>
@@ -448,6 +449,21 @@ export default function AdminInformesPage() {
                               </a>
                             ) : (
                               <span className="text-slate-400 text-xs">Sin ubicación</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {f.tieneFoto ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <a href={`/api/fichajes/${f.id}/foto`} target="_blank" rel="noopener noreferrer" title="Ver foto del fichaje">
+                                <img
+                                  src={`/api/fichajes/${f.id}/foto`}
+                                  alt="Snapshot Face ID"
+                                  className="h-10 w-10 rounded-md object-cover border border-slate-200 hover:scale-110 transition-transform"
+                                  loading="lazy"
+                                />
+                              </a>
+                            ) : (
+                              <span className="text-slate-300 text-xs">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-sm text-slate-600 max-w-[200px] truncate" title={f.nota ?? ""}>

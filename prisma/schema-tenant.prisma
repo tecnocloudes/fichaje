@@ -152,6 +152,10 @@ model Fichaje {
   editadoPor String?
   editadoEn  DateTime?
   ip         String?
+  // Snapshot del rostro cifrado (AES-256-GCM, key IA_ENCRYPTION_KEY).
+  // Solo se rellena cuando ConfiguracionEmpresa.faceIdGuardarFoto=true
+  // y el fichaje viene del flujo Face ID.
+  fotoSnapshotEnc Bytes?     @map("foto_snapshot_enc")
   createdAt  DateTime      @default(now())
 
   @@index([userId])
@@ -243,6 +247,10 @@ model ConfiguracionEmpresa {
   // Si true, los empleados con Face ID registrado deben verificarlo
   // al fichar (no se permite fichar sin Face ID si lo tienen).
   faceIdObligatorio   Boolean  @default(false) @map("face_id_obligatorio")
+  // Si true, al fichar con Face ID guardamos un snapshot cifrado del
+  // frame de la cámara (en Fichaje.fotoSnapshotEnc) para auditoría.
+  // Datos biométricos — RGPD art. 9. Off por defecto.
+  faceIdGuardarFoto   Boolean  @default(false) @map("face_id_guardar_foto")
   notifAusencias      Boolean  @default(true)
   notifTurnos         Boolean  @default(true)
   notifTareas         Boolean  @default(true)

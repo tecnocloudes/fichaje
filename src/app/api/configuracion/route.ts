@@ -30,6 +30,7 @@ export const GET = withTenant(async () => {
         geofencingActivo: config.geofencingActivo,
         geoObligatoria: config.geoObligatoria,
         faceIdObligatorio: config.faceIdObligatorio,
+        faceIdGuardarFoto: config.faceIdGuardarFoto,
         fichajeMovilActivo: config.fichajeMovilActivo,
         fichajeTabletActivo: config.fichajeTabletActivo,
       });
@@ -60,7 +61,7 @@ export const PUT = withTenant(async (request: NextRequest) => {
       "nombre", "appNombre",
       "horasJornadaDiaria", "horasSemanales", "toleranciaFichaje",
       "geofencingActivo", "fichajeMovilActivo", "fichajeTabletActivo",
-      "geoObligatoria", "faceIdObligatorio",
+      "geoObligatoria", "faceIdObligatorio", "faceIdGuardarFoto",
       "notifAusencias", "notifTurnos", "notifTareas", "notifFichajes", "notifComunicados",
       "emailActivo", "emailHost", "emailPort", "emailSecure", "emailUser", "emailPassword", "emailFrom",
       "pushActivo", "pushVapidPublicKey",
