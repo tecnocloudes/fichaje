@@ -249,6 +249,12 @@ Estado tras commits `82269cc` + `1a21efc`:
   - UI: banner "Análisis avanzado disponible en plan Pro" cuando OFF.
     Bloques de stats/chart/tabla resumen ocultos; tabla plana de
     fichajes en su lugar.
+  - **Afinamiento BD (2026-05-11)**: `plan_features.informes_avanzados`
+    era `true` en starter por error histórico — el código gate-aba
+    igual por TIPOS_AVANZADOS, pero el UI no sabía que iba a recibir
+    402 y mostraba bloques avanzados rotos. Cambiado a `false` en
+    starter (`true` en pro+enterprise). Ahora flag y comportamiento
+    coinciden.
 - `sso_saml`: deferred a Fase 9 (no hay endpoints aún).
 
 **Patrón aprendido** — cuando añadas una feature nueva al catálogo
