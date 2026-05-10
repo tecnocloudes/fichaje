@@ -81,6 +81,7 @@ export const PLAN_PRICING: Record<PlanKey, PlanPricing> = {
       "Geolocalización y geofencing",
       "Face ID con snapshot biométrico",
       "Onboarding y offboarding",
+      "Objetivos (OKRs)",
       "Notificaciones push",
       "Reclutamiento avanzado",
       "Documentos (6 GB)",
