@@ -130,6 +130,9 @@ model User {
   faceTemplate             FaceTemplate?             @relation("FaceTemplateUser")
   preferenciasNotificacion PreferenciasNotificacion?
   pushSubscripciones       PushSubscripcion[]
+  // OKRs: objetivos asignados / creados por el usuario.
+  objetivosAsignados       Objetivo[]                @relation("ObjetivoAsignado")
+  objetivosCreados         Objetivo[]                @relation("ObjetivoCreado")
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
 
@@ -707,6 +710,37 @@ model MensajeIA {
 // con AES-256-GCM (misma clave maestra que IA). Es irreversible: con el
 // embedding solo se puede comparar (cosine similarity) contra otro
 // embedding nuevo, no reconstruir la imagen original.
+
+/// Objetivos / OKRs. Feature: `objetivos`. Pro+Enterprise.
+///
+/// Modelo simple: cada objetivo tiene un % de progreso (0-100) que se
+/// actualiza manualmente. Key Results detallados (con valor actual /
+/// objetivo / unidad) son una iteración futura.
+///
+/// Si `asignadoAId` es null, el objetivo es de empresa (afecta a toda
+/// la organización). Si tiene valor, es individual del usuario.
+model Objetivo {
+  id          String   @id @default(cuid())
+  titulo      String
+  descripcion String?
+  asignadoAId String?
+  asignadoA   User?    @relation("ObjetivoAsignado", fields: [asignadoAId], references: [id])
+  /// Free text: "2026-Q1", "2026", "Mayo 2026", etc.
+  periodo     String
+  /// Free text con set conocido: "activo" | "completado" | "cancelado".
+  estado      String   @default("activo")
+  /// 0-100. Avance manual del objetivo.
+  progreso    Int      @default(0)
+  creadoPorId String
+  creadoPor   User     @relation("ObjetivoCreado", fields: [creadoPorId], references: [id])
+  fechaCierre DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([asignadoAId])
+  @@index([estado])
+  @@index([periodo])
+}
 
 model FaceTemplate {
   id                String   @id @default(cuid())

@@ -180,6 +180,63 @@ export async function runMigrations() {
       CREATE INDEX IF NOT EXISTS "PushSubscripcion_userId_idx" ON ${S}."PushSubscripcion"("userId");
     `);
 
+    // ── Objetivo (OKRs) table ──────────────────────────────────────────────
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."Objetivo" (
+        "id"           TEXT NOT NULL,
+        "titulo"       TEXT NOT NULL,
+        "descripcion"  TEXT,
+        "asignadoAId"  TEXT,
+        "periodo"      TEXT NOT NULL,
+        "estado"       TEXT NOT NULL DEFAULT 'activo',
+        "progreso"     INTEGER NOT NULL DEFAULT 0,
+        "creadoPorId"  TEXT NOT NULL,
+        "fechaCierre"  TIMESTAMP(3),
+        "createdAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "Objetivo_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "Objetivo_asignadoAId_idx" ON ${S}."Objetivo"("asignadoAId");
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "Objetivo_estado_idx" ON ${S}."Objetivo"("estado");
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "Objetivo_periodo_idx" ON ${S}."Objetivo"("periodo");
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+            JOIN pg_namespace n ON n.oid = c.connamespace
+          WHERE c.conname = 'Objetivo_asignadoAId_fkey'
+            AND n.nspname = 'tenant_${slug}'
+        ) THEN
+          ALTER TABLE ${S}."Objetivo"
+            ADD CONSTRAINT "Objetivo_asignadoAId_fkey"
+            FOREIGN KEY ("asignadoAId") REFERENCES ${S}."User"("id")
+            ON DELETE SET NULL ON UPDATE CASCADE;
+        END IF;
+      END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+            JOIN pg_namespace n ON n.oid = c.connamespace
+          WHERE c.conname = 'Objetivo_creadoPorId_fkey'
+            AND n.nspname = 'tenant_${slug}'
+        ) THEN
+          ALTER TABLE ${S}."Objetivo"
+            ADD CONSTRAINT "Objetivo_creadoPorId_fkey"
+            FOREIGN KEY ("creadoPorId") REFERENCES ${S}."User"("id")
+            ON DELETE RESTRICT ON UPDATE CASCADE;
+        END IF;
+      END $$;
+    `);
+
     MIGRATED.add(slug);
   } catch (err) {
     // Log but don't crash — if DB isn't ready yet it'll retry on next request

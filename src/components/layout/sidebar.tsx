@@ -12,7 +12,7 @@ import {
   Bell, ChevronLeft, ChevronRight, UserCheck, CheckSquare, Megaphone,
   BookOpen, FolderOpen, Rocket, Timer, Search, Pen,
   ChevronDown, Sparkles, ShieldAlert, Network,
-  Bot, ScanFace,
+  Bot, ScanFace, Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -82,6 +82,7 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
             { label: "Incorporaciones y bajas", href: "/admin/onboarding", icon: Rocket, feature: "onboarding_offboarding" },
             { label: "Reclutamiento", href: "/admin/reclutamiento", icon: Search, feature: "reclutamiento" },
             { label: "Organigrama", href: "/admin/organigrama", icon: Network, feature: "organigrama" },
+            { label: "Objetivos (OKRs)", href: "/admin/objetivos", icon: Target, feature: "objetivos" },
           ],
         },
         {
