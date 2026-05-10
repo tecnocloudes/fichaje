@@ -18,6 +18,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prismaApp } from "@/lib/prisma";
 import { withTenant } from "@/lib/tenant/with-tenant";
+import { withFeature } from "@/lib/feature-guard/with-feature";
 import { decryptFloat32 } from "@/lib/crypto/aes-gcm";
 import { cosineSimilarity, FACE_MATCH_THRESHOLD } from "@/lib/face/similitud";
 import { issueFaceToken } from "@/lib/face/token";
@@ -29,7 +30,7 @@ const schema = z.object({
   fichajeId: z.string().optional(),
 });
 
-export const POST = withTenant(async (req: NextRequest) => {
+export const POST = withTenant(withFeature("face_id", async (req: NextRequest) => {
   const session = await auth();
   const user = session?.user as { id?: string } | undefined;
   if (!user?.id) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -93,4 +94,4 @@ export const POST = withTenant(async (req: NextRequest) => {
     threshold: FACE_MATCH_THRESHOLD,
     faceVerifyToken,
   });
-});
+}));

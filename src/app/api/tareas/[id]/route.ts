@@ -4,7 +4,8 @@ import { Rol } from "@/generated/prisma-tenant/client";
 import { NextRequest, NextResponse } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
-export const PUT = withTenant(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+import { withFeature } from "@/lib/feature-guard/with-feature";
+export const PUT = withTenant(withFeature("tareas", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -54,9 +55,9 @@ export const PUT = withTenant(async (req: NextRequest, { params }: { params: Pro
     console.error("PUT /api/tareas/[id] error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
-});
+}));
 
-export const DELETE = withTenant(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const DELETE = withTenant(withFeature("tareas", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -82,4 +83,4 @@ export const DELETE = withTenant(async (req: NextRequest, { params }: { params: 
     console.error("DELETE /api/tareas/[id] error:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
-});
+}));

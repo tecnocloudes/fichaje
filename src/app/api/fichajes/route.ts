@@ -167,15 +167,26 @@ export const POST = withTenant(async (request: NextRequest) => {
     // Si el OWNER apaga el fichaje desde móvil/tablet, rechazamos
     // requests cuyo UA encaje. Detección por UA (heurística — no
     // perfecta pero coherente con el gating cliente-side).
+    // Plan Fase 5 §6.1 + RD 8/2019: el toggle local solo aplica si el
+    // plan tiene la feature correspondiente. Sin la feature, el toggle
+    // no existe (UI lo oculta) y aceptamos el fichaje siempre.
     const ua = request.headers.get("user-agent") || "";
     const dev = detectDeviceTypeFromUA(ua);
-    if (dev === "mobile" && cfg?.fichajeMovilActivo === false) {
+    if (
+      hasFeature("fichaje_movil") &&
+      dev === "mobile" &&
+      cfg?.fichajeMovilActivo === false
+    ) {
       return Response.json(
         { error: "El fichaje desde móvil está deshabilitado por tu empresa." },
         { status: 400 },
       );
     }
-    if (dev === "tablet" && cfg?.fichajeTabletActivo === false) {
+    if (
+      hasFeature("fichaje_tablet") &&
+      dev === "tablet" &&
+      cfg?.fichajeTabletActivo === false
+    ) {
       return Response.json(
         { error: "El fichaje desde tablet está deshabilitado por tu empresa." },
         { status: 400 },
@@ -192,13 +203,19 @@ export const POST = withTenant(async (request: NextRequest) => {
     // Validación Face ID server-side: el cliente debe traer un token
     // HMAC-firmado emitido por /api/face/verify (TTL 60s, single-use).
     // Confiar en un boolean del cliente sería trivial de bypassear.
+    // Plan Fase 5 §6.1: si el plan no tiene la feature `face_id`, los
+    // toggles `faceIdObligatorio`/`faceIdGuardarFoto` se ignoran (el UI
+    // los oculta, y aquí actuamos como si estuvieran apagados). Esto
+    // evita que un cliente "starter" use Face ID sin pagar el plan.
+    const faceIdFeatureOn = hasFeature("face_id");
+    const enforceFaceId = faceIdFeatureOn && cfg?.faceIdObligatorio;
     let faceVerifiedServer = false;
-    if (cfg?.faceIdObligatorio || faceVerifyToken) {
+    if (enforceFaceId || (faceIdFeatureOn && faceVerifyToken)) {
       const tpl = await prisma.faceTemplate.findUnique({
         where: { userId: userId! },
         select: { id: true },
       });
-      if (cfg?.faceIdObligatorio && !tpl) {
+      if (enforceFaceId && !tpl) {
         return Response.json(
           {
             error: "Tu empresa exige Face ID para fichar. Regístralo en tu perfil antes de continuar.",
@@ -211,7 +228,7 @@ export const POST = withTenant(async (request: NextRequest) => {
         const consumed = consumeFaceToken(faceVerifyToken, userId!, currentTenant().slug);
         if (consumed.ok) {
           faceVerifiedServer = true;
-        } else if (cfg?.faceIdObligatorio) {
+        } else if (enforceFaceId) {
           return Response.json(
             {
               error: "Verificación Face ID inválida o caducada. Vuelve a verificar tu rostro.",
@@ -221,7 +238,7 @@ export const POST = withTenant(async (request: NextRequest) => {
             { status: 400 },
           );
         }
-      } else if (cfg?.faceIdObligatorio) {
+      } else if (enforceFaceId) {
         return Response.json(
           {
             error: "Necesitas verificar tu rostro con Face ID antes de fichar.",
@@ -232,11 +249,12 @@ export const POST = withTenant(async (request: NextRequest) => {
       }
     }
 
-    // Snapshot cifrado: solo cuando el OWNER activó faceIdGuardarFoto y
-    // el fichaje viene del flujo Face ID (token validado server-side).
-    // Aceptamos hasta 200KB de data URL → ~150KB binarios tras decode.
+    // Snapshot cifrado: solo cuando el plan tiene la feature face_id,
+    // el OWNER activó faceIdGuardarFoto y el fichaje viene del flujo
+    // Face ID (token validado server-side). Aceptamos hasta 200KB de
+    // data URL → ~150KB binarios tras decode.
     let fotoEnc: Uint8Array<ArrayBuffer> | null = null;
-    if (cfg?.faceIdGuardarFoto && faceVerifiedServer && typeof fotoSnapshot === "string") {
+    if (faceIdFeatureOn && cfg?.faceIdGuardarFoto && faceVerifiedServer && typeof fotoSnapshot === "string") {
       const m = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(fotoSnapshot);
       if (m && fotoSnapshot.length <= 200_000) {
         try {

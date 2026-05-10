@@ -16,6 +16,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prismaApp } from "@/lib/prisma";
 import { withTenant } from "@/lib/tenant/with-tenant";
+import { withFeature } from "@/lib/feature-guard/with-feature";
 import { encryptFloat32 } from "@/lib/crypto/aes-gcm";
 
 const schema = z.object({
@@ -23,7 +24,7 @@ const schema = z.object({
   consentimiento: z.literal(true),
 });
 
-export const POST = withTenant(async (req: NextRequest) => {
+export const POST = withTenant(withFeature("face_id", async (req: NextRequest) => {
   const session = await auth();
   const user = session?.user as { id?: string } | undefined;
   if (!user?.id) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -67,4 +68,4 @@ export const POST = withTenant(async (req: NextRequest) => {
   });
 
   return NextResponse.json({ template: tpl }, { status: 201 });
-});
+}));
