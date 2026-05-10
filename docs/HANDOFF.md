@@ -317,8 +317,8 @@ el handler real, no solo el toggle local en `ConfiguracionEmpresa`.
   serialize-javascript`, `dompurify`, `fast-uri`, `hono` (vía
   `@prisma/dev`), `@babel/plugin-transform-modules-systemjs`. Ninguna
   en el path crítico; se resuelven en upgrades futuros.
-- Marketing-only features (13 tras reactivar `objetivos`):
-  `evaluaciones`, `encuestas_clima`, `formacion`, `control_gastos`,
+- Marketing-only features (12 tras reactivar `objetivos` y
+  `encuestas_clima`): `evaluaciones`, `formacion`, `control_gastos`,
   `retribucion_flex`, `envio_nominas`, `prenomina`, `multi_empresa`,
   y los placeholders `chat`/`whatsapp_bot`/`marketplace`/
   `custom_requests`/`reserva_espacios`. En BD están a `false` en

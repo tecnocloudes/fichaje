@@ -133,6 +133,9 @@ model User {
   // OKRs: objetivos asignados / creados por el usuario.
   objetivosAsignados       Objetivo[]                @relation("ObjetivoAsignado")
   objetivosCreados         Objetivo[]                @relation("ObjetivoCreado")
+  // Encuestas de clima: encuestas creadas + respuestas dadas.
+  encuestasCreadas         Encuesta[]                @relation("EncuestaCreador")
+  respuestasEncuesta       RespuestaEncuesta[]       @relation("RespuestaEncuestaUser")
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
 
@@ -710,6 +713,55 @@ model MensajeIA {
 // con AES-256-GCM (misma clave maestra que IA). Es irreversible: con el
 // embedding solo se puede comparar (cosine similarity) contra otro
 // embedding nuevo, no reconstruir la imagen original.
+
+/// Encuesta de clima laboral. Feature: `encuestas_clima`. Pro+Enterprise.
+///
+/// Preguntas y respuestas se guardan como JSONB para evitar el costo
+/// relacional de un esquema multitabla (Pregunta + Opcion + Respuesta
+/// + Item) — para el caso de uso "encuesta pulse" con N preguntas
+/// por encuesta, JSONB es mucho más simple sin perder consultabilidad.
+///
+/// Pregunta shape:
+///   { idx: number, texto: string, tipo: "escala_1_5" | "texto" | "opcion", opciones?: string[] }
+///
+/// Si `anonima=true`, `RespuestaEncuesta.userId` se almacena como null;
+/// el cliente no debe enviarlo y el backend lo fuerza a null. Sin esta
+/// garantía, "encuesta anónima" sería una mentira.
+model Encuesta {
+  id          String              @id @default(cuid())
+  titulo      String
+  descripcion String?
+  /// Array JSON de preguntas (orden según `idx`).
+  preguntas   Json
+  /// Si `true`, las respuestas no llevan `userId`. Inmutable tras crear.
+  anonima     Boolean             @default(true)
+  /// "borrador" | "abierta" | "cerrada".
+  estado      String              @default("abierta")
+  /// Fecha tope para responder. Tras esa fecha la encuesta queda cerrada.
+  cierraAt    DateTime?
+  creadoPorId String
+  creadoPor   User                @relation("EncuestaCreador", fields: [creadoPorId], references: [id])
+  respuestas  RespuestaEncuesta[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([estado])
+}
+
+model RespuestaEncuesta {
+  id          String   @id @default(cuid())
+  encuestaId  String
+  encuesta    Encuesta @relation(fields: [encuestaId], references: [id], onDelete: Cascade)
+  /// Null si la encuesta es anónima. Si la encuesta es nominal, FK al usuario.
+  userId      String?
+  user        User?    @relation("RespuestaEncuestaUser", fields: [userId], references: [id], onDelete: SetNull)
+  /// Array JSON: [{ preguntaIdx: number, valor: number | string }].
+  respuestas  Json
+  createdAt   DateTime @default(now())
+
+  @@unique([encuestaId, userId], name: "encuesta_user_uniq")
+  @@index([encuestaId])
+}
 
 /// Objetivos / OKRs. Feature: `objetivos`. Pro+Enterprise.
 ///

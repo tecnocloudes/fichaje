@@ -82,6 +82,7 @@ export const PLAN_PRICING: Record<PlanKey, PlanPricing> = {
       "Face ID con snapshot biométrico",
       "Onboarding y offboarding",
       "Objetivos (OKRs)",
+      "Encuestas de clima laboral",
       "Notificaciones push",
       "Reclutamiento avanzado",
       "Documentos (6 GB)",

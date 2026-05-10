@@ -237,6 +237,98 @@ export async function runMigrations() {
       END $$;
     `);
 
+    // ── Encuesta + RespuestaEncuesta (clima laboral) ───────────────────────
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."Encuesta" (
+        "id"          TEXT NOT NULL,
+        "titulo"      TEXT NOT NULL,
+        "descripcion" TEXT,
+        "preguntas"   JSONB NOT NULL,
+        "anonima"     BOOLEAN NOT NULL DEFAULT true,
+        "estado"      TEXT NOT NULL DEFAULT 'abierta',
+        "cierraAt"    TIMESTAMP(3),
+        "creadoPorId" TEXT NOT NULL,
+        "createdAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "Encuesta_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "Encuesta_estado_idx" ON ${S}."Encuesta"("estado");
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+            JOIN pg_namespace n ON n.oid = c.connamespace
+          WHERE c.conname = 'Encuesta_creadoPorId_fkey'
+            AND n.nspname = 'tenant_${slug}'
+        ) THEN
+          ALTER TABLE ${S}."Encuesta"
+            ADD CONSTRAINT "Encuesta_creadoPorId_fkey"
+            FOREIGN KEY ("creadoPorId") REFERENCES ${S}."User"("id")
+            ON DELETE RESTRICT ON UPDATE CASCADE;
+        END IF;
+      END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."RespuestaEncuesta" (
+        "id"         TEXT NOT NULL,
+        "encuestaId" TEXT NOT NULL,
+        "userId"     TEXT,
+        "respuestas" JSONB NOT NULL,
+        "createdAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "RespuestaEncuesta_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "RespuestaEncuesta_encuestaId_idx" ON ${S}."RespuestaEncuesta"("encuestaId");
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+            JOIN pg_namespace n ON n.oid = c.connamespace
+          WHERE c.conname = 'RespuestaEncuesta_encuestaId_fkey'
+            AND n.nspname = 'tenant_${slug}'
+        ) THEN
+          ALTER TABLE ${S}."RespuestaEncuesta"
+            ADD CONSTRAINT "RespuestaEncuesta_encuestaId_fkey"
+            FOREIGN KEY ("encuestaId") REFERENCES ${S}."Encuesta"("id")
+            ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+      END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+            JOIN pg_namespace n ON n.oid = c.connamespace
+          WHERE c.conname = 'RespuestaEncuesta_userId_fkey'
+            AND n.nspname = 'tenant_${slug}'
+        ) THEN
+          ALTER TABLE ${S}."RespuestaEncuesta"
+            ADD CONSTRAINT "RespuestaEncuesta_userId_fkey"
+            FOREIGN KEY ("userId") REFERENCES ${S}."User"("id")
+            ON DELETE SET NULL ON UPDATE CASCADE;
+        END IF;
+      END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+            JOIN pg_namespace n ON n.oid = c.connamespace
+          WHERE c.conname = 'RespuestaEncuesta_encuestaId_userId_key'
+            AND n.nspname = 'tenant_${slug}'
+        ) THEN
+          ALTER TABLE ${S}."RespuestaEncuesta"
+            ADD CONSTRAINT "RespuestaEncuesta_encuestaId_userId_key"
+            UNIQUE ("encuestaId", "userId");
+        END IF;
+      END $$;
+    `);
+
     MIGRATED.add(slug);
   } catch (err) {
     // Log but don't crash — if DB isn't ready yet it'll retry on next request

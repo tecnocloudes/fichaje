@@ -12,7 +12,7 @@ import {
   Bell, ChevronLeft, ChevronRight, UserCheck, CheckSquare, Megaphone,
   BookOpen, FolderOpen, Rocket, Timer, Search, Pen,
   ChevronDown, Sparkles, ShieldAlert, Network,
-  Bot, ScanFace, Target,
+  Bot, ScanFace, Target, MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -83,6 +83,7 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
             { label: "Reclutamiento", href: "/admin/reclutamiento", icon: Search, feature: "reclutamiento" },
             { label: "Organigrama", href: "/admin/organigrama", icon: Network, feature: "organigrama" },
             { label: "Objetivos (OKRs)", href: "/admin/objetivos", icon: Target, feature: "objetivos" },
+            { label: "Encuestas de clima", href: "/admin/encuestas", icon: MessageSquare, feature: "encuestas_clima" },
           ],
         },
         {
@@ -170,6 +171,7 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
         items: [
           { label: "Comunicados", href: "/empleado/comunicados", icon: Megaphone },
           { label: "Artículos", href: "/empleado/articulos", icon: BookOpen },
+          { label: "Encuestas", href: "/empleado/encuestas", icon: MessageSquare, feature: "encuestas_clima" },
         ],
       },
       {
