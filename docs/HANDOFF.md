@@ -57,11 +57,14 @@ Producción ya corre desde esta rama vía Dokploy.
 
 Commits relevantes en `feature/saas-migration` (más reciente arriba):
 
-- **(pendiente push)** auditoría de seguridad — 9 vulnerabilidades
-  cerradas (HIGH×5 + MEDIUM×4): Face ID client-trust → token HMAC
-  single-use, IDOR en tareas/comunicados/articulos, rate limit +
-  lockout en login y face verify, AES-GCM authTagLength, Cache-Control
-  no-store en biometría, cron de purga RGPD, deps (nodemailer fuera +
+- `f48c093` chore(deploy): trigger redeploy para inyectar
+  `CRON_SECRET` (commit empty para forzar build con env nuevo en
+  Dokploy).
+- `0bfcc87` chore(seguridad): auditoría — 9 vulnerabilidades cerradas
+  (HIGH×5 + MEDIUM×4). Face ID client-trust → token HMAC single-use,
+  IDOR en tareas/comunicados/articulos, rate limit + lockout en login
+  y face verify, AES-GCM authTagLength, Cache-Control no-store en
+  biometría, cron de purga RGPD, deps (nodemailer fuera +
   xlsx→exceljs). Detalle en §5.5 abajo.
 - `cfc598d` fix: toggle no se comprime con labels largos (shrink-0).
 - `5394296` feat(face-id): **snapshot cifrado al fichar** (toggle por
@@ -213,18 +216,29 @@ Lista contenedores con `docker ps`, busca el de Postgres del producto
 
 ## 7. Pendiente (en el momento del handoff)
 
-### Operativa post-auditoría
-- **Configurar `CRON_SECRET` en Dokploy** y programar llamada diaria
-  a `POST /api/cron/purge-biometrics`. Hasta entonces los snapshots
-  biométricos no se purgan (incumplimiento RGPD §5.1.e parcial).
-- **Probar Face ID en producción** tras deploy — el contrato cliente
-  cambió: `body.faceVerified` → `body.faceVerifyToken`. Si el
-  navegador tiene cache del JS viejo, el primer fichaje fallará con
-  `code: face_id_verify_required`.
-- **Lazy migrate en tenants existentes**: el campo
-  `retencion_fotos_dias` se añade en el primer request de cada
-  tenant, o forzar con `npm run tenants:migrate -- tecnocloud` y
-  `npm run tenants:migrate -- ucm`.
+### Operativa post-auditoría (estado final)
+- ✅ **`CRON_SECRET` configurado en Dokploy** (env var de
+  `empleaia-app`). Backup del env pre-cambio en local:
+  `/tmp/dokploy-backups/empleaia-app-env-pre-cron-secret.txt`.
+- ✅ **Schedule `purge-biometrics-rgpd` activo en Dokploy**
+  (`scheduleId=8RYAH18d1o88zy41`, cron `0 3 * * *` Europe/Madrid,
+  type `dokploy-server`). Ejecuta el `script.sh` en
+  `/etc/dokploy/schedules/empleaia-app/script.sh` (un curl con Bearer
+  al endpoint de purga). Verificado manualmente: log produce
+  `{"ok":true,"tenantsProcesados":2,"totalPurgado":0,...}`.
+- ✅ **Lazy migrate aplicada** en tecnocloud + ucm — la primera
+  llamada al cron disparó `runMigrations()` por cada tenant y añadió
+  `retencion_fotos_dias` con defecto 90.
+- ⚠️ **Probar Face ID en producción**: pendiente. El contrato cliente
+  cambió de `body.faceVerified: boolean` a `body.faceVerifyToken`. Si
+  algún usuario tiene cache del JS antiguo, el primer fichaje con
+  `faceIdObligatorio=true` fallará con `code: face_id_verify_required`
+  hasta hacer hard refresh (Cmd+Shift+R / Ctrl+F5).
+- ⚠️ **Detalle Dokploy a recordar**: si en el futuro se crean
+  schedules vía SQL directo (no UI), hay que crear manualmente el
+  `script.sh` en `/etc/dokploy/schedules/<appName>/`. La UI lo
+  regenera al guardar; el SQL puro no. Comprobado al insertar el
+  schedule de purga.
 
 ### Hallazgos de auditoría sin atacar
 - Los 15 errores `no-explicit-any` que reporta ESLint en
