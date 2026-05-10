@@ -57,6 +57,18 @@ Producción ya corre desde esta rama vía Dokploy.
 
 Commits relevantes en `feature/saas-migration` (más reciente arriba):
 
+- `1a21efc` feat(objetivos): implementar módulo OKRs (pro+enterprise).
+  Modelo `Objetivo` + endpoints + UI grid de cards con slider de
+  progreso. Lazy migration añade tabla. Reactiva la feature `objetivos`
+  en BD para pro+enterprise.
+- `82269cc` feat(informes): split básico/avanzado gateado por
+  `informes_avanzados`. Listado de fichajes en todos los planes (RD
+  8/2019); resumen + gráficos + ausencias/turnos solo pro+.
+- `d13df5d` chore(pricing): saneamiento de la pricing table —
+  `plan-pricing.ts` ahora solo promete features que funcionan
+  (eliminadas las 14 latentes).
+- `cf9a154` docs(handoff): documentar gating de planes y cierre de 4
+  gates.
 - `b972fc6` feat(plans): cerrar 4 gates de plan que usaban toggles
   locales en lugar de `hasFeature()`. Detalle en §5.6 abajo.
 - `386c70c` docs(handoff): cerrar auditoría (cron de purga activo).
@@ -227,11 +239,16 @@ usarlas sin pagar. Fixed en `b972fc6`:
 | `fichaje_tablet` | Idem con `fichajeTabletActivo`. |
 | `tareas` | `withFeature("tareas")` en `/api/tareas` (GET/POST) y `/api/tareas/[id]` (PUT/DELETE). |
 
-Quedan dos ⚠️ identificadas en la auditoría:
-- `informes_avanzados`: el módulo `/admin/informes` no chequea
-  `hasFeature("informes_avanzados")`. Decisión deferida — el feature
-  cubre TODO el módulo de informes y necesita revisión de qué partes
-  son "avanzadas" vs básicas.
+Estado tras commits `82269cc` + `1a21efc`:
+- `informes_avanzados`: **✅ cerrado** (`82269cc`). Split:
+  - **Básico (todos los planes)**: `tipo=fichajes` + `tipo=presencia`.
+    Cubre RD 8/2019.
+  - **Avanzado (pro+enterprise)**: `tipo=resumen`, `tipo=ausencias`,
+    `tipo=turnos`, `tipo=presencia-global`. Devuelven 402 en `/api/
+    informes` y `/api/informes/exportar` si la feature está OFF.
+  - UI: banner "Análisis avanzado disponible en plan Pro" cuando OFF.
+    Bloques de stats/chart/tabla resumen ocultos; tabla plana de
+    fichajes en su lugar.
 - `sso_saml`: deferred a Fase 9 (no hay endpoints aún).
 
 **Patrón aprendido** — cuando añadas una feature nueva al catálogo
@@ -294,17 +311,22 @@ el handler real, no solo el toggle local en `ConfiguracionEmpresa`.
   serialize-javascript`, `dompurify`, `fast-uri`, `hono` (vía
   `@prisma/dev`), `@babel/plugin-transform-modules-systemjs`. Ninguna
   en el path crítico; se resuelven en upgrades futuros.
-- Marketing-only features (10): `evaluaciones`, `objetivos`,
-  `encuestas_clima`, `formacion`, `control_gastos`, `retribucion_flex`,
-  `envio_nominas`, `prenomina`, `multi_empresa`, y los placeholders
-  `chat`/`whatsapp_bot`/`marketplace`/`custom_requests`/`reserva_espacios`.
-  Están en BD pero el módulo no funciona (página de "próximamente").
-  Si las pones en el pricing público, declara "próximamente" para no
-  generar churn. Cuadro completo de features fue construido en sesión
-  2026-05-11; ver commit del HANDOFF si necesitas regenerarlo.
-- 2 ⚠️ gates sin cerrar: `informes_avanzados` (cubre todo el módulo
-  de informes, requiere decisión sobre qué es "básico" vs "avanzado"),
-  `sso_saml` (Fase 9). Detalle en §5.6.
+- Marketing-only features (13 tras reactivar `objetivos`):
+  `evaluaciones`, `encuestas_clima`, `formacion`, `control_gastos`,
+  `retribucion_flex`, `envio_nominas`, `prenomina`, `multi_empresa`,
+  y los placeholders `chat`/`whatsapp_bot`/`marketplace`/
+  `custom_requests`/`reserva_espacios`. En BD están a `false` en
+  TODOS los planes desde la sesión 2026-05-11 (saneamiento del
+  pricing). Las páginas siguen existiendo con UI `<ComingSoon>` /
+  `<ProximamenteCard>` por si alguien navega manualmente.
+- 1 ⚠️ gate sin cerrar: `sso_saml` (Fase 9, sin endpoints).
+
+### Pendiente externo
+- **Landing Astro** (`~/Claude Code/Proyectos Claude/empleaia-landing`)
+  — repositorio aparte. Si tiene textos públicos que prometen las 13
+  features marketing-only, hay que limpiarlos también para alinearlos
+  con `plan-pricing.ts`. Fuera del scope de este repo; abrir el
+  segundo proyecto cuando toque.
 
 ### Mejoras opcionales
 - Limpiar `wallet` de tenants existentes en producción (la feature
