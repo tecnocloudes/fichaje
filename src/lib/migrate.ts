@@ -103,17 +103,17 @@ export async function runMigrations() {
       );
     `);
 
+    // Nota: usamos EXCEPTION WHEN duplicate_table porque el nombre puede
+    // existir como índice creado por una migración formal anterior, sin
+    // entrada en pg_constraint. El check IF NOT EXISTS sobre pg_constraint
+    // no lo detectaba y el ALTER fallaba con "relation already exists".
     await prisma.$executeRawUnsafe(`
       DO $$ BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint c
-            JOIN pg_namespace n ON n.oid = c.connamespace
-          WHERE c.conname = 'PreferenciasNotificacion_userId_key'
-            AND n.nspname = 'tenant_${slug}'
-        ) THEN
-          ALTER TABLE ${S}."PreferenciasNotificacion"
-            ADD CONSTRAINT "PreferenciasNotificacion_userId_key" UNIQUE ("userId");
-        END IF;
+        ALTER TABLE ${S}."PreferenciasNotificacion"
+          ADD CONSTRAINT "PreferenciasNotificacion_userId_key" UNIQUE ("userId");
+      EXCEPTION
+        WHEN duplicate_object THEN NULL;
+        WHEN duplicate_table THEN NULL;
       END $$;
     `);
 
@@ -148,15 +148,11 @@ export async function runMigrations() {
 
     await prisma.$executeRawUnsafe(`
       DO $$ BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint c
-            JOIN pg_namespace n ON n.oid = c.connamespace
-          WHERE c.conname = 'PushSubscripcion_endpoint_key'
-            AND n.nspname = 'tenant_${slug}'
-        ) THEN
-          ALTER TABLE ${S}."PushSubscripcion"
-            ADD CONSTRAINT "PushSubscripcion_endpoint_key" UNIQUE ("endpoint");
-        END IF;
+        ALTER TABLE ${S}."PushSubscripcion"
+          ADD CONSTRAINT "PushSubscripcion_endpoint_key" UNIQUE ("endpoint");
+      EXCEPTION
+        WHEN duplicate_object THEN NULL;
+        WHEN duplicate_table THEN NULL;
       END $$;
     `);
 
