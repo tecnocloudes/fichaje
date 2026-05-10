@@ -39,6 +39,17 @@ const FORMATO_TO_FEATURE: Record<string, string> = {
   pdf: "export_pdf",
 };
 
+/**
+ * Tipos de informe que requieren la feature `informes_avanzados` para
+ * exportarse. Coherente con el gate de `/api/informes` (GET).
+ */
+const TIPOS_AVANZADOS: ReadonlySet<InformeTipo> = new Set<InformeTipo>([
+  "ausencias",
+  "turnos",
+  "resumen",
+  "presencia-global",
+]);
+
 function secondsUntil(date: Date, now: Date = new Date()): number {
   return Math.max(1, Math.ceil((date.getTime() - now.getTime()) / 1000));
 }
@@ -77,6 +88,18 @@ export const GET = withTenant(async (req: NextRequest) => {
     );
   }
 
+  const tipo = (searchParams.get("tipo") as InformeTipo) ?? "fichajes";
+  if (TIPOS_AVANZADOS.has(tipo) && !hasFeature("informes_avanzados")) {
+    return NextResponse.json(
+      {
+        error: "feature_required",
+        feature_key: "informes_avanzados",
+        upgrade_url: `/admin/planes?upgrade=informes_avanzados`,
+      },
+      { status: 402 },
+    );
+  }
+
   const consumeResult = await consumeQuota("exports_mes", 1);
   if (!consumeResult.ok) {
     if (consumeResult.reason === "period_unavailable") {
@@ -106,7 +129,7 @@ export const GET = withTenant(async (req: NextRequest) => {
   // runtime porque dev.localhost no resuelve igual que el navegador.
   // Ver convención AGENTS.md "no fetch interno entre rutas Next".
   const dataResult = await getInformeData({
-    tipo: (searchParams.get("tipo") as InformeTipo) ?? "fichajes",
+    tipo,
     fechaInicio: searchParams.get("fechaInicio"),
     fechaFin: searchParams.get("fechaFin"),
     tiendaId: searchParams.get("tiendaId"),

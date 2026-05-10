@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { FileSpreadsheet, FileText, BarChart2, MapPin, Smartphone, Tablet, Globe, ScanFace, Search } from "lucide-react";
+import Link from "next/link";
+import { FileSpreadsheet, FileText, BarChart2, MapPin, Smartphone, Tablet, Globe, ScanFace, Search, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FeatureGateClient } from "@/components/feature-gate-client";
+import { useFeatures } from "@/lib/hooks/use-features";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,6 +66,13 @@ function MetodoIcon({ m }: { m: FichajeDetalle["metodo"] }) {
 
 export default function AdminInformesPage() {
   const { toast } = useToast();
+  const { data: features } = useFeatures();
+  // Análisis avanzado (resumen agregado, gráficos, estadísticas) requiere
+  // plan Pro o superior. Sin la feature mostramos solo el listado de
+  // fichajes (RD 8/2019 obliga a que el OWNER pueda consultarlo siempre).
+  // `null` mientras carga: tratamos como avanzado para evitar el flash
+  // del estado básico antes de saber el plan real.
+  const hasAdvanced = features == null || features.booleans?.informes_avanzados === true;
 
   const [fechaInicio, setFechaInicio] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"));
   const [fechaFin, setFechaFin] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -126,24 +135,32 @@ export default function AdminInformesPage() {
       if (tiendaId !== "todas") baseParams.set("tiendaId", tiendaId);
       if (empleadoId !== "todos") baseParams.set("userId", empleadoId);
 
-      // Resumen agregado siempre.
-      const resResumen = await fetch(`/api/informes?${baseParams}&tipo=resumen`);
-      const dataResumen = await resResumen.json();
-      setDatos(dataResumen.empleados || []);
-      setStats(dataResumen.stats || null);
+      if (hasAdvanced) {
+        // Plan con análisis avanzado: resumen + (si toca) detalle.
+        const resResumen = await fetch(`/api/informes?${baseParams}&tipo=resumen`);
+        const dataResumen = await resResumen.json();
+        setDatos(dataResumen.empleados || []);
+        setStats(dataResumen.stats || null);
 
-      // Si hay empleado seleccionado → fichajes detallados.
-      if (empleadoId !== "todos") {
+        if (empleadoId !== "todos") {
+          const resF = await fetch(`/api/informes?${baseParams}&tipo=fichajes`);
+          const dataF = await resF.json();
+          setFichajes((dataF?.data ?? []) as FichajeDetalle[]);
+        } else {
+          setFichajes([]);
+        }
+      } else {
+        // Plan básico: solo listado de fichajes, sin agregaciones.
+        setDatos([]);
+        setStats(null);
         const resF = await fetch(`/api/informes?${baseParams}&tipo=fichajes`);
         const dataF = await resF.json();
         setFichajes((dataF?.data ?? []) as FichajeDetalle[]);
-      } else {
-        setFichajes([]);
       }
     } finally {
       setLoading(false);
     }
-  }, [fechaInicio, fechaFin, tiendaId, empleadoId]);
+  }, [fechaInicio, fechaFin, tiendaId, empleadoId, hasAdvanced]);
 
   useEffect(() => { fetchInformes(); }, [fetchInformes]);
 
@@ -261,6 +278,27 @@ export default function AdminInformesPage() {
         </CardContent>
       </Card>
 
+      {!hasAdvanced && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="pt-4 pb-4 flex items-start gap-3">
+            <Lock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-900">
+                Análisis avanzado disponible en plan Pro y superiores
+              </p>
+              <p className="text-sm text-amber-800 mt-0.5">
+                Tu plan actual incluye el listado de fichajes (obligatorio por
+                RD 8/2019). Para ver resumen agregado, gráficos de horas,
+                detección de horas extra y ausencias, actualiza tu plan.
+              </p>
+            </div>
+            <Link href="/admin/planes" className="shrink-0">
+              <Button size="sm" variant="default">Ver planes</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
@@ -279,8 +317,8 @@ export default function AdminInformesPage() {
         </div>
       )}
 
-      {/* ─── Vista resumen (sin empleado seleccionado) ───────────────────── */}
-      {empleadoId === "todos" && (
+      {/* ─── Vista resumen (sin empleado seleccionado) — requiere informes_avanzados ─── */}
+      {empleadoId === "todos" && hasAdvanced && (
         <>
           {chartData.length > 0 && (
             <Card>
@@ -360,6 +398,53 @@ export default function AdminInformesPage() {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {/* ─── Vista plana de fichajes (plan básico, sin agregaciones) ────── */}
+      {!hasAdvanced && empleadoId === "todos" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Listado de fichajes</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="p-4 space-y-2">{[1, 2, 3, 4].map(i => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}</div>
+            ) : fichajes.length === 0 ? (
+              <p className="text-center py-8 text-slate-400">No hay fichajes en el periodo seleccionado</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      {["Fecha", "Hora", "Empleado", "Tipo", "Método", "Sede"].map(h => (
+                        <th key={h} className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 px-4 py-3">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {fichajes.map(f => {
+                      const d = new Date(f.timestamp);
+                      return (
+                        <tr key={f.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{format(d, "dd/MM/yyyy")}</td>
+                          <td className="px-4 py-3 text-sm font-mono text-slate-900 whitespace-nowrap">{format(d, "HH:mm:ss")}</td>
+                          <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{f.user.nombre} {f.user.apellidos}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${TIPO_CLS[f.tipo]}`}>
+                              {TIPO_LABEL[f.tipo]}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-500"><MetodoIcon m={f.metodo} /></td>
+                          <td className="px-4 py-3 text-sm text-slate-600">{f.tienda?.nombre ?? "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* ─── Vista detalle de un empleado ───────────────────────────────── */}

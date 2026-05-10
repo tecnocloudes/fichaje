@@ -12,10 +12,24 @@ import { prismaApp } from "@/lib/prisma";
 import type { Rol } from "@/generated/prisma-tenant/client";
 import { type NextRequest, NextResponse } from "next/server";
 import { withTenant } from "@/lib/tenant/with-tenant";
+import { hasFeature } from "@/lib/tenant/features";
 import {
   getInformeData,
   type InformeTipo,
 } from "@/lib/informes/queries";
+
+/**
+ * Tipos de informe que requieren la feature `informes_avanzados`.
+ * Los básicos (`fichajes`, `presencia`) están disponibles en todos los
+ * planes — necesarios para cumplir RD 8/2019 y mostrar el estado
+ * actual de la plantilla.
+ */
+const TIPOS_AVANZADOS: ReadonlySet<InformeTipo> = new Set<InformeTipo>([
+  "ausencias",
+  "turnos",
+  "resumen",
+  "presencia-global",
+]);
 
 export const GET = withTenant(async (request: NextRequest) => {
   try {
@@ -24,8 +38,21 @@ export const GET = withTenant(async (request: NextRequest) => {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     const { searchParams } = request.nextUrl;
+    const tipo = (searchParams.get("tipo") as InformeTipo) ?? "fichajes";
+
+    if (TIPOS_AVANZADOS.has(tipo) && !hasFeature("informes_avanzados")) {
+      return NextResponse.json(
+        {
+          error: "feature_required",
+          feature_key: "informes_avanzados",
+          upgrade_url: `/admin/planes?upgrade=informes_avanzados`,
+        },
+        { status: 402 },
+      );
+    }
+
     const result = await getInformeData({
-      tipo: (searchParams.get("tipo") as InformeTipo) ?? "fichajes",
+      tipo,
       fechaInicio: searchParams.get("fechaInicio"),
       fechaFin: searchParams.get("fechaFin"),
       tiendaId: searchParams.get("tiendaId"),
