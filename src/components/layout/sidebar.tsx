@@ -14,6 +14,7 @@ import {
   ChevronDown, Sparkles, ShieldAlert, Network,
   Bot, ScanFace, Target, MessageSquare,
   Star, CreditCard, Building2, Send, GraduationCap,
+  Building, Boxes, MessageCircle, Calculator, Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -96,7 +97,19 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
             { label: "Control de gastos", href: "/admin/control-gastos", icon: CreditCard, feature: "control_gastos" },
             { label: "Reserva de espacios", href: "/admin/reserva-espacios", icon: Building2, feature: "reserva_espacios" },
             { label: "Envío de nóminas", href: "/admin/envio-nominas", icon: Send, feature: "envio_nominas" },
+            { label: "Prenómina", href: "/admin/nominas", icon: Calculator, feature: "prenomina" },
+            { label: "Retribución flexible", href: "/admin/retribucion", icon: Wallet, feature: "retribucion_flex" },
             { label: "Peticiones", href: "/admin/custom-requests", icon: ClipboardList, feature: "custom_requests" },
+          ],
+        },
+        {
+          key: "plataforma",
+          label: "PLATAFORMA",
+          items: [
+            { label: "Chat", href: "/admin/chat", icon: MessageCircle, feature: "chat" },
+            { label: "WhatsApp Bot", href: "/admin/whatsapp-bot", icon: MessageSquare, feature: "whatsapp_bot" },
+            { label: "Marketplace", href: "/admin/marketplace", icon: Boxes, feature: "marketplace" },
+            { label: "Grupo empresarial", href: "/admin/grupo", icon: Building, feature: "multi_empresa" },
           ],
         },
         {
@@ -185,6 +198,7 @@ function getSidebarConfig(rol: string, pendingAusencias = 0): SidebarConfig {
           { label: "Comunicados", href: "/empleado/comunicados", icon: Megaphone },
           { label: "Artículos", href: "/empleado/articulos", icon: BookOpen },
           { label: "Encuestas", href: "/empleado/encuestas", icon: MessageSquare, feature: "encuestas_clima" },
+          { label: "Chat", href: "/admin/chat", icon: MessageCircle, feature: "chat" },
         ],
       },
       {

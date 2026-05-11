@@ -69,6 +69,12 @@ Commits relevantes en `feature/saas-migration` (más reciente arriba):
   (eliminadas las 14 latentes).
 - `cf9a154` docs(handoff): documentar gating de planes y cierre de 4
   gates.
+- **(pendiente push)** feat(latentes): MVP funcional para las 6
+  features marketing-only restantes — `chat` (polling), `whatsapp_bot`
+  (cola + config Cloud API), `marketplace` (catálogo + activación),
+  `multi_empresa` (Empresa+CIF, etiquetado), `prenomina` (agregado de
+  Fichaje), `retribucion_flex` (4 conceptos con ahorro IRPF estimado).
+  56 features → 100 % activas.
 - `b972fc6` feat(plans): cerrar 4 gates de plan que usaban toggles
   locales en lugar de `hasFeature()`. Detalle en §5.6 abajo.
 - `386c70c` docs(handoff): cerrar auditoría (cron de purga activo).
@@ -369,17 +375,28 @@ el handler real, no solo el toggle local en `ConfiguracionEmpresa`.
   serialize-javascript`, `dompurify`, `fast-uri`, `hono` (vía
   `@prisma/dev`), `@babel/plugin-transform-modules-systemjs`. Ninguna
   en el path crítico; se resuelven en upgrades futuros.
-- Marketing-only features (6 restantes tras batch sesión
-  2026-05-11): `retribucion_flex`, `prenomina`, `multi_empresa`,
-  `chat`, `whatsapp_bot`, `marketplace`. En BD están a `false`
-  en TODOS los planes. Se quedan así porque:
-  - `chat` y `whatsapp_bot` requieren infraestructura realtime /
-    WhatsApp Business API (costes externos).
-  - `marketplace` requiere catálogo de integraciones (esfuerzo
-    grande sin demanda comprobada).
-  - `multi_empresa` cambio estructural (modelo Tenant → Empresas).
-  - `prenomina` y `retribucion_flex` requieren conocimiento fiscal
-    específico de España + conexión con software de nómina externo.
+- Marketing-only features: **0 restantes**. Todas implementadas con
+  MVP funcional (sesión 2026-05-11 batch final). Limitaciones MVP
+  documentadas:
+  - `chat`: polling cada 4s (no realtime websockets/SSE).
+  - `whatsapp_bot`: encola mensajes en `MensajeWhatsapp` pero el
+    envío real requiere worker externo contra WhatsApp Cloud API.
+    Configurar credenciales en `/admin/whatsapp-bot`.
+  - `marketplace`: catálogo seedeado con 8 integraciones (Slack,
+    Google Workspace, Microsoft 365, Sage Nóminas, A3, Zoom,
+    Factorial, Holded). La activación marca como "instalada" en
+    `IntegracionInstalada`. Sincronización real con cada servicio
+    queda pendiente.
+  - `multi_empresa`: tabla `Empresa` con CIF + `User.empresaId`.
+    Los datos siguen en el mismo schema tenant — es etiquetado +
+    filtrado, no aislamiento por CIF.
+  - `prenomina`: agregado on-the-fly de Fichaje (no tabla
+    propia). Exporta CSV listo para Sage/A3/etc.
+  - `retribucion_flex`: tabla `DeclaracionFlex` con 4 conceptos
+    (tickets restaurante, guardería, transporte, seguro médico).
+    Cálculo de ahorro IRPF estimado al 30 %. Sin emisión real
+    de tickets — la integración con Cobee/Pluxee/Edenred queda
+    fuera del MVP.
 - 1 ⚠️ gate sin cerrar: `sso_saml` (Fase 9, sin endpoints).
 
 ### Pendiente externo

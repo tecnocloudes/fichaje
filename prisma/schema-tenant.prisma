@@ -153,6 +153,14 @@ model User {
   // Custom requests: peticiones del empleado, gestionadas por OWNER/MANAGER.
   peticiones               Peticion[]                @relation("PeticionSolicitante")
   peticionesGestionadas    Peticion[]                @relation("PeticionGestor")
+  // Chat: participaciones + mensajes enviados.
+  conversaciones           ParticipanteConversacion[]
+  mensajesEnviados         Mensaje[]                 @relation("MensajeAutor")
+  // Multi-empresa: el usuario puede asociarse a una empresa concreta.
+  empresaId                String?
+  empresa                  Empresa?                  @relation(fields: [empresaId], references: [id])
+  // Retribución flexible: declaraciones mensuales del empleado.
+  declaracionesFlex        DeclaracionFlex[]
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
 
@@ -730,6 +738,149 @@ model MensajeIA {
 // con AES-256-GCM (misma clave maestra que IA). Es irreversible: con el
 // embedding solo se puede comparar (cosine similarity) contra otro
 // embedding nuevo, no reconstruir la imagen original.
+
+/// Chat interno. Feature: `chat`. MVP basado en polling (sin realtime).
+///
+/// `Conversacion` representa una conversación 1:1 (`tipo="directo"`)
+/// o grupal (`tipo="grupo"`). Participantes en `ParticipanteConversacion`.
+/// Mensajes ordenados por createdAt.
+model Conversacion {
+  id            String                      @id @default(cuid())
+  nombre        String?
+  tipo          String                      @default("directo") // directo | grupo
+  creadoPorId   String?
+  participantes ParticipanteConversacion[]
+  mensajes      Mensaje[]
+  createdAt     DateTime                    @default(now())
+  updatedAt     DateTime                    @updatedAt
+}
+
+model ParticipanteConversacion {
+  id              String       @id @default(cuid())
+  conversacionId  String
+  conversacion    Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ultimoLeidoAt   DateTime?
+  createdAt       DateTime     @default(now())
+
+  @@unique([conversacionId, userId])
+  @@index([userId])
+}
+
+model Mensaje {
+  id              String       @id @default(cuid())
+  conversacionId  String
+  conversacion    Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  autorId         String
+  autor           User         @relation("MensajeAutor", fields: [autorId], references: [id])
+  texto           String
+  createdAt       DateTime     @default(now())
+
+  @@index([conversacionId, createdAt])
+}
+
+/// Configuración WhatsApp Business (singleton). Feature: `whatsapp_bot`.
+///
+/// MVP: solo almacena las credenciales y registra mensajes a enviar en
+/// `MensajeWhatsapp`. Sin envío real — un worker externo recogerá la
+/// cola cuando se implemente la integración con WhatsApp Cloud API.
+/// El token va cifrado con `IA_ENCRYPTION_KEY`.
+model WhatsappConfig {
+  id              String   @id @default("singleton")
+  phoneNumberId   String?
+  /// Token cifrado AES-GCM (mismo schema que IAConfiguracion.apiKeyEnc).
+  tokenEnc        Bytes?
+  numeroEmpresa   String?
+  activo          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model MensajeWhatsapp {
+  id                    String   @id @default(cuid())
+  destinatarioTelefono  String
+  texto                 String
+  estado                String   @default("pendiente") // pendiente | enviado | fallido
+  motivoError           String?
+  enviadoAt             DateTime?
+  createdAt             DateTime @default(now())
+
+  @@index([estado])
+  @@index([createdAt])
+}
+
+/// Catálogo de integraciones del marketplace. Feature: `marketplace`.
+///
+/// Las integraciones son metadatos estáticos seedeados; cada tenant
+/// activa las que quiera con su configuración propia. No hay ejecución
+/// real — solo registro de que el tenant ha "conectado" la integración.
+model Integracion {
+  id            String                @id @default(cuid())
+  slug          String                @unique
+  nombre        String
+  descripcion   String
+  categoria     String                // "comunicacion" | "nominas" | "calendario" | etc.
+  logoUrl       String?
+  esquemaConfig Json?                 // JSON Schema de los campos config
+  instalaciones IntegracionInstalada[]
+  createdAt     DateTime              @default(now())
+}
+
+model IntegracionInstalada {
+  id              String      @id @default(cuid())
+  integracionId   String
+  integracion     Integracion @relation(fields: [integracionId], references: [id], onDelete: Cascade)
+  configuracion   Json
+  activa          Boolean     @default(true)
+  activadaPorId   String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([integracionId])
+}
+
+/// Empresa dentro del tenant. Feature: `multi_empresa`. MVP: etiquetado.
+///
+/// Permite agrupar empleados/sedes bajo varios CIFs del mismo grupo
+/// empresarial. Los datos siguen viviendo en el mismo schema tenant,
+/// el `empresaId` es solo un campo de agrupación + filtrado en informes.
+model Empresa {
+  id           String   @id @default(cuid())
+  nombre       String
+  cif          String   @unique
+  direccion    String?
+  codigoPostal String?
+  ciudad       String?
+  pais         String?  @default("España")
+  telefono     String?
+  email        String?
+  activa       Boolean  @default(true)
+  usuarios     User[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+/// Declaración mensual de retribución flexible. Feature: `retribucion_flex`.
+///
+/// El empleado declara importes en cada concepto (tickets restaurante,
+/// guardería, transporte, seguro médico). El sistema calcula el ahorro
+/// fiscal estimado con tablas internas. Sin emisión real de tickets —
+/// la integración con proveedores (Cobee, Pluxee, Edenred) queda fuera.
+model DeclaracionFlex {
+  id          String   @id @default(cuid())
+  empleadoId  String
+  empleado    User     @relation(fields: [empleadoId], references: [id], onDelete: Cascade)
+  periodo     String   // "2026-05"
+  concepto    String   // tickets_restaurante | guarderia | transporte | seguro_medico
+  importe     Decimal  @db.Decimal(10, 2)
+  notas       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([empleadoId, periodo, concepto], name: "empleado_periodo_concepto_uniq")
+  @@index([empleadoId, periodo])
+}
 
 /// Evaluación de desempeño 1:1 (evaluador → evaluado) en un ciclo.
 /// Feature: `evaluaciones`. Pro+Enterprise.

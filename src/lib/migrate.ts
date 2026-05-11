@@ -529,6 +529,208 @@ export async function runMigrations() {
       END $$;
     `);
 
+    // ── Empresa (multi_empresa) ────────────────────────────────────────────
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."Empresa" (
+        "id"           TEXT NOT NULL,
+        "nombre"       TEXT NOT NULL,
+        "cif"          TEXT NOT NULL,
+        "direccion"    TEXT,
+        "codigoPostal" TEXT,
+        "ciudad"       TEXT,
+        "pais"         TEXT DEFAULT 'España',
+        "telefono"     TEXT,
+        "email"        TEXT,
+        "activa"       BOOLEAN NOT NULL DEFAULT true,
+        "createdAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "Empresa_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        ALTER TABLE ${S}."Empresa" ADD CONSTRAINT "Empresa_cif_key" UNIQUE ("cif");
+      EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE ${S}."User" ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        ALTER TABLE ${S}."User" ADD CONSTRAINT "User_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES ${S}."Empresa"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; END $$;
+    `);
+
+    // ── Chat: Conversacion + ParticipanteConversacion + Mensaje ───────────
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."Conversacion" (
+        "id"          TEXT NOT NULL,
+        "nombre"      TEXT,
+        "tipo"        TEXT NOT NULL DEFAULT 'directo',
+        "creadoPorId" TEXT,
+        "createdAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "Conversacion_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."ParticipanteConversacion" (
+        "id"             TEXT NOT NULL,
+        "conversacionId" TEXT NOT NULL,
+        "userId"         TEXT NOT NULL,
+        "ultimoLeidoAt"  TIMESTAMP(3),
+        "createdAt"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "ParticipanteConversacion_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ParticipanteConversacion_userId_idx" ON ${S}."ParticipanteConversacion"("userId");`);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        ALTER TABLE ${S}."ParticipanteConversacion" ADD CONSTRAINT "ParticipanteConversacion_conversacionId_userId_key" UNIQUE ("conversacionId","userId");
+      EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        ALTER TABLE ${S}."ParticipanteConversacion" ADD CONSTRAINT "ParticipanteConversacion_conversacionId_fkey" FOREIGN KEY ("conversacionId") REFERENCES ${S}."Conversacion"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        ALTER TABLE ${S}."ParticipanteConversacion" ADD CONSTRAINT "ParticipanteConversacion_userId_fkey" FOREIGN KEY ("userId") REFERENCES ${S}."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."Mensaje" (
+        "id"             TEXT NOT NULL,
+        "conversacionId" TEXT NOT NULL,
+        "autorId"        TEXT NOT NULL,
+        "texto"          TEXT NOT NULL,
+        "createdAt"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "Mensaje_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Mensaje_conversacionId_createdAt_idx" ON ${S}."Mensaje"("conversacionId","createdAt");`);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        ALTER TABLE ${S}."Mensaje" ADD CONSTRAINT "Mensaje_conversacionId_fkey" FOREIGN KEY ("conversacionId") REFERENCES ${S}."Conversacion"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        ALTER TABLE ${S}."Mensaje" ADD CONSTRAINT "Mensaje_autorId_fkey" FOREIGN KEY ("autorId") REFERENCES ${S}."User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; END $$;
+    `);
+
+    // ── WhatsappConfig + MensajeWhatsapp ──────────────────────────────────
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."WhatsappConfig" (
+        "id"            TEXT NOT NULL DEFAULT 'singleton',
+        "phoneNumberId" TEXT,
+        "tokenEnc"      BYTEA,
+        "numeroEmpresa" TEXT,
+        "activo"        BOOLEAN NOT NULL DEFAULT false,
+        "createdAt"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "WhatsappConfig_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."MensajeWhatsapp" (
+        "id"                   TEXT NOT NULL,
+        "destinatarioTelefono" TEXT NOT NULL,
+        "texto"                TEXT NOT NULL,
+        "estado"               TEXT NOT NULL DEFAULT 'pendiente',
+        "motivoError"          TEXT,
+        "enviadoAt"            TIMESTAMP(3),
+        "createdAt"            TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "MensajeWhatsapp_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MensajeWhatsapp_estado_idx" ON ${S}."MensajeWhatsapp"("estado");`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MensajeWhatsapp_createdAt_idx" ON ${S}."MensajeWhatsapp"("createdAt");`);
+
+    // ── Integracion + IntegracionInstalada (marketplace) ──────────────────
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."Integracion" (
+        "id"           TEXT NOT NULL,
+        "slug"         TEXT NOT NULL,
+        "nombre"       TEXT NOT NULL,
+        "descripcion"  TEXT NOT NULL,
+        "categoria"    TEXT NOT NULL,
+        "logoUrl"      TEXT,
+        "esquemaConfig" JSONB,
+        "createdAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "Integracion_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        ALTER TABLE ${S}."Integracion" ADD CONSTRAINT "Integracion_slug_key" UNIQUE ("slug");
+      EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."IntegracionInstalada" (
+        "id"            TEXT NOT NULL,
+        "integracionId" TEXT NOT NULL,
+        "configuracion" JSONB NOT NULL,
+        "activa"        BOOLEAN NOT NULL DEFAULT true,
+        "activadaPorId" TEXT,
+        "createdAt"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "IntegracionInstalada_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        ALTER TABLE ${S}."IntegracionInstalada" ADD CONSTRAINT "IntegracionInstalada_integracionId_key" UNIQUE ("integracionId");
+      EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        ALTER TABLE ${S}."IntegracionInstalada" ADD CONSTRAINT "IntegracionInstalada_integracionId_fkey" FOREIGN KEY ("integracionId") REFERENCES ${S}."Integracion"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; END $$;
+    `);
+    // Seed básico del catálogo (idempotente).
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO ${S}."Integracion" ("id","slug","nombre","descripcion","categoria","logoUrl")
+      VALUES
+        ('intg_slack','slack','Slack','Notifica eventos a tus canales de Slack.','comunicacion',NULL),
+        ('intg_gworkspace','google-workspace','Google Workspace','Sincroniza usuarios y calendarios.','calendario',NULL),
+        ('intg_microsoft','microsoft-365','Microsoft 365','Sincroniza con Outlook y Teams.','calendario',NULL),
+        ('intg_sage','sage-nominas','Sage Nóminas','Exporta horas trabajadas a Sage.','nominas',NULL),
+        ('intg_a3','a3-nom','A3 Nóminas','Exporta horas trabajadas a A3.','nominas',NULL),
+        ('intg_zoom','zoom','Zoom','Crea reuniones desde turnos.','comunicacion',NULL),
+        ('intg_factorial','factorial','Factorial','Importa datos de empleados.','rrhh',NULL),
+        ('intg_holded','holded','Holded','Sincroniza facturas y gastos.','contabilidad',NULL)
+      ON CONFLICT ("slug") DO NOTHING;
+    `);
+
+    // ── DeclaracionFlex (retribucion_flex) ────────────────────────────────
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS ${S}."DeclaracionFlex" (
+        "id"         TEXT NOT NULL,
+        "empleadoId" TEXT NOT NULL,
+        "periodo"    TEXT NOT NULL,
+        "concepto"   TEXT NOT NULL,
+        "importe"    DECIMAL(10,2) NOT NULL,
+        "notas"      TEXT,
+        "createdAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "DeclaracionFlex_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "DeclaracionFlex_empleadoId_periodo_idx" ON ${S}."DeclaracionFlex"("empleadoId","periodo");`);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        ALTER TABLE ${S}."DeclaracionFlex" ADD CONSTRAINT "DeclaracionFlex_empleadoId_periodo_concepto_key" UNIQUE ("empleadoId","periodo","concepto");
+      EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; END $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        ALTER TABLE ${S}."DeclaracionFlex" ADD CONSTRAINT "DeclaracionFlex_empleadoId_fkey" FOREIGN KEY ("empleadoId") REFERENCES ${S}."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; END $$;
+    `);
+
     MIGRATED.add(slug);
   } catch (err) {
     // Log but don't crash — if DB isn't ready yet it'll retry on next request
