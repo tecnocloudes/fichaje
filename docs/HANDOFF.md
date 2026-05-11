@@ -114,6 +114,58 @@ cualificar** con `"tenant_<slug>"."Tabla"`. Ver `src/lib/migrate.ts`.
 Búsquedas en `pg_constraint` deben filtrar por `nspname` para no
 pisar entre tenants.
 
+**Trampa idempotencia detectada 2026-05-11**: el patrón
+`IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname=...)`
+falla cuando el nombre existe como **índice** (`pg_class`) pero NO
+como constraint (`pg_constraint`). Sucede si la migración formal
+inicial creó la columna con `@unique` Prisma: Prisma genera un
+índice unique con ese nombre sin entrada en `pg_constraint`. Cuando
+la lazy migration intenta hacer `ALTER TABLE ADD CONSTRAINT` con el
+mismo nombre, choca con el índice existente. El error queda
+silenciado por el `try/catch` general de `runMigrations` y **NINGUNA
+migración posterior se aplica** (la BD queda en estado intermedio).
+
+Patrón correcto para UNIQUE constraints en lazy migrations:
+
+```sql
+DO $$ BEGIN
+  ALTER TABLE schema."Tabla" ADD CONSTRAINT "name_key" UNIQUE ("col");
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN duplicate_table THEN NULL;
+END $$;
+```
+
+Para FK (`pg_constraint` siempre los registra) el patrón
+`IF NOT EXISTS` sí funciona. Fix aplicado en commit `06b1527`.
+
+### 5.1.b. Verificación obligatoria tras deploy con modelos nuevos
+**Síntoma observado 2026-05-11**: Dokploy reportó `status: done` en
+los commits `1a21efc` (objetivos), `34db7d0` (encuestas) y `16e6592`
+(6 features batch), pero las 11 tablas correspondientes NO existían
+en `tenant_tecnocloud` porque la lazy migration estaba bloqueada
+por el bug de §5.1. El producto compilaba y servía la UI, pero
+cualquier query a las nuevas features fallaba en runtime con
+`relation does not exist`.
+
+**Procedimiento**: tras desplegar un commit que añade modelos al
+schema, verificar con:
+
+```bash
+ssh -p 5251 root@185.47.13.172 \
+  "docker exec empleaia-empleaia-xwe3vi.1.<id> \
+   psql -U empleaia -d empleaia -c \
+   \"SELECT table_name FROM information_schema.tables \
+     WHERE table_schema='tenant_<slug>' \
+       AND table_name IN ('Modelo1','Modelo2',...);\""
+```
+
+Si NO aparecen, mirar logs del servicio (`docker service logs
+empleaia-empleaiaapp-apdwzc | grep migrate`) para detectar el error
+silenciado. Forzar las migraciones llamando a un endpoint que las
+dispare (`curl /api/<feature>` aunque devuelva 401, `runMigrations`
+se ejecuta antes del check de auth).
+
 ### 5.2. Endpoints que devuelven arrays
 Varios GET (`/api/ausencias`, `/api/ausencias/tipos`, etc.) devuelven
 `Response.json(array)` directo, no `{items:[...]}`. El cliente debe
