@@ -69,12 +69,19 @@ Commits relevantes en `feature/saas-migration` (más reciente arriba):
   (eliminadas las 14 latentes).
 - `cf9a154` docs(handoff): documentar gating de planes y cierre de 4
   gates.
-- **(pendiente push)** feat(latentes): MVP funcional para las 6
-  features marketing-only restantes — `chat` (polling), `whatsapp_bot`
-  (cola + config Cloud API), `marketplace` (catálogo + activación),
-  `multi_empresa` (Empresa+CIF, etiquetado), `prenomina` (agregado de
-  Fichaje), `retribucion_flex` (4 conceptos con ahorro IRPF estimado).
-  56 features → 100 % activas.
+- `54c3fcd` feat(latentes): MVP funcional para las 6 features
+  marketing-only restantes — `chat` (polling 4s), `whatsapp_bot`
+  (cola + config Cloud API sin worker), `marketplace` (8
+  integraciones seedeadas, activación lógica), `multi_empresa`
+  (Empresa+CIF, etiquetado), `prenomina` (agregado on-the-fly de
+  Fichaje, CSV), `retribucion_flex` (4 conceptos con ahorro IRPF
+  estimado 30 %). Activadas en pro+enterprise (whatsapp_bot solo
+  enterprise). Catálogo 56 features → 55 activas + 1 deferred
+  (`sso_saml` Fase 9). **PENDIENTE verificar deploy**: 9 tablas
+  nuevas (Conversacion, ParticipanteConversacion, Mensaje,
+  WhatsappConfig, MensajeWhatsapp, Integracion, IntegracionInstalada,
+  Empresa, DeclaracionFlex) deben aparecer en `tenant_tecnocloud`
+  tras auto-pull Dokploy. Procedimiento §5.1.b.
 - `b972fc6` feat(plans): cerrar 4 gates de plan que usaban toggles
   locales en lugar de `hasFeature()`. Detalle en §5.6 abajo.
 - `386c70c` docs(handoff): cerrar auditoría (cron de purga activo).
