@@ -429,6 +429,120 @@ el handler real, no solo el toggle local en `ConfiguracionEmpresa`.
   horizontalmente (hoy single-replica en Dokploy → in-memory basta).
 - UI para `retencionFotosDias` en Configuración → General.
 
+## 7.bis. Cutover wildcard `*.empleaia.es` (2026-05-12)
+
+**Problema previo**: dar de alta un tenant requería crear manualmente
+un Domain en Dokploy con su cert HTTP-01. Subdominios sin entrada
+(p. ej. `pepe.empleaia.es`) devolvían 404 aunque el wildcard DNS en
+IONOS resolvía la IP, porque Traefik no tenía router para ese host.
+
+**Solución desplegada**: cert wildcard `*.empleaia.es` vía DNS-01
+con IONOS + router `HostRegexp` catch-all en Traefik. A partir de ya
+**cualquier slug nuevo funciona sin tocar Dokploy** — el subdominio
+responde con cert válido en cuanto el tenant existe en `master.tenants`.
+
+### Componentes añadidos
+
+1. **API Key IONOS** (`Developer Portal`, nombre `empleaia`,
+   prefijo `81ccb10895434e338bf530cad09b61fa`). Permisos: DNS
+   read/write (heredados del usuario IONOS dueño de la zona). Vive
+   solo en el VPS: `/etc/dokploy/ionos.env` (modo 600). Renovación:
+   no caduca, Traefik renueva certs cada 60 días con la misma key.
+
+2. **Resolver `ionos` en `/etc/dokploy/traefik/traefik.yml`**
+   (convive con `letsencrypt` HTTP-01 existente):
+
+   ```yaml
+   certificatesResolvers:
+     letsencrypt:   # se mantiene para routers Host() existentes
+       acme:
+         email: dansanch@agentesia.madrid
+         storage: /etc/dokploy/traefik/dynamic/acme.json
+         httpChallenge: { entryPoint: web }
+     ionos:         # nuevo, DNS-01 para wildcard
+       acme:
+         email: dansanch@agentesia.madrid
+         storage: /etc/dokploy/traefik/dynamic/acme-ionos.json
+         dnsChallenge:
+           provider: ionos
+           resolvers: ["1.1.1.1:53", "8.8.8.8:53"]
+           propagation:
+             delayBeforeChecks: 30s
+   ```
+
+3. **Router catch-all en `/etc/dokploy/traefik/dynamic/empleaia-tenant-wildcard.yml`**:
+
+   ```yaml
+   http:
+     routers:
+       empleaia-tenant-catchall-https:
+         rule: "HostRegexp(`^[a-z0-9-]+\\.empleaia\\.es$`)"
+         service: empleaia-tenant-service
+         entryPoints: [websecure]
+         tls:
+           certResolver: ionos
+           domains: [{ main: empleaia.es, sans: ["*.empleaia.es"] }]
+       empleaia-tenant-catchall-http:
+         rule: "HostRegexp(`^[a-z0-9-]+\\.empleaia\\.es$`)"
+         service: empleaia-tenant-service
+         middlewares: [redirect-to-https]
+         entryPoints: [web]
+     services:
+       empleaia-tenant-service:
+         loadBalancer:
+           servers: [{ url: "http://empleaia-empleaiaapp-apdwzc:3000" }]
+           passHostHeader: true
+   ```
+
+4. **Contenedor `dokploy-traefik` recreado** con `--env-file
+   /etc/dokploy/ionos.env`. Networks: `bridge` + `dokploy-network`.
+   Ports 80, 443/tcp, 443/udp.
+
+### Convivencia y prioridad
+
+Traefik prioriza `Host()` exacto sobre `HostRegexp`, así que:
+- `app.empleaia.es`, `admin.empleaia.es`, `tecnocloud.empleaia.es`,
+  `manolo.empleaia.es`, `ucm.empleaia.es`, `dev.empleaia.es`, y el
+  landing `empleaia.es` / `www.empleaia.es` → siguen con su cert
+  HTTP-01 R12/R13 en `acme.json`. **No se han tocado.**
+- Cualquier otro `<slug>.empleaia.es` → cae en el catch-all,
+  cert wildcard de `acme-ionos.json` (SAN `DNS:*.empleaia.es`).
+
+Limpieza opcional posterior (no urgente): borrar los Domains
+individuales de `tecnocloud`, `manolo`, `ucm`, `dev` desde la UI
+de Dokploy. Quedarían cubiertos por el wildcard. `app` y `admin`
+**no** se deberían borrar — son entradas funcionales con cert
+propio que NextAuth/Stripe usan como canónicas (NEXTAUTH_URL).
+
+### Rollback
+
+Si algo falla con el wildcard:
+
+```bash
+ssh -p 5251 root@185.47.13.172
+rm /etc/dokploy/traefik/dynamic/empleaia-tenant-wildcard.yml
+cp /etc/dokploy/traefik/backups/traefik.yml.20260512-155556 \
+   /etc/dokploy/traefik/traefik.yml
+docker restart dokploy-traefik
+```
+
+Vuelve al estado pre-cutover. El cert wildcard queda huérfano en
+`acme-ionos.json` (no estorba). Los Domains individuales en Dokploy
+seguían existiendo durante todo el cutover, así que no hay
+regresión.
+
+### Verificación rápida
+
+```bash
+# Subdominio cualquiera (tenant inexistente) → la app responde 404
+# con cert válido del wildcard:
+curl -kIs https://aleatorio.empleaia.es/ | head -3
+openssl s_client -servername x.empleaia.es -connect empleaia.es:443 \
+  </dev/null 2>/dev/null | openssl x509 -noout -text \
+  | grep -A1 'Subject Alt'
+# debe mostrar: DNS:*.empleaia.es, DNS:empleaia.es
+```
+
 ## 8. Cómo retomar
 
 1. `cd "/Users/dani/Claude Code/Proyectos Claude/fichaje"`.
