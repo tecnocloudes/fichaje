@@ -68,6 +68,12 @@ export const PUT = withTenant(async (request: NextRequest) => {
       "colorPrimario", "colorSidebar",
       // Fase 6 §3.1: configuración general por tenant.
       "zonaHoraria", "diasLaborables", "ausenciasDefaults",
+      // Reglas de cálculo de prenómina (Enterprise-ready).
+      "nominaJornadaSemanal", "nominaHoraExtraFactor",
+      "nominaPlusNocturnidadActivo", "nominaNocturnidadDesde", "nominaNocturnidadHasta",
+      "nominaPlusNocturnidadFactor",
+      "nominaPlusFestivoActivo", "nominaPlusFestivoFactor",
+      "nominaSalarioBaseDefault", "nominaMoneda",
     ];
     for (const key of allowed) {
       if (key in body) data[key] = body[key];

@@ -58,6 +58,17 @@ interface Configuracion {
   // Fase 6 §3: configuración general por tenant.
   zonaHoraria: string;
   diasLaborables: number[];
+  // Reglas de cálculo de prenómina (Enterprise-ready).
+  nominaJornadaSemanal?: number;
+  nominaHoraExtraFactor?: number;
+  nominaPlusNocturnidadActivo?: boolean;
+  nominaNocturnidadDesde?: string;
+  nominaNocturnidadHasta?: string;
+  nominaPlusNocturnidadFactor?: number;
+  nominaPlusFestivoActivo?: boolean;
+  nominaPlusFestivoFactor?: number;
+  nominaSalarioBaseDefault?: number;
+  nominaMoneda?: string;
 }
 
 interface TipoAusencia {
@@ -101,7 +112,7 @@ function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: bool
 
 // ── Tab type ─────────────────────────────────────────────────────────────────
 
-type Tab = "general" | "ausencias" | "notificaciones" | "branding" | "calendario" | "dominio";
+type Tab = "general" | "ausencias" | "notificaciones" | "branding" | "calendario" | "dominio" | "nomina";
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -136,6 +147,16 @@ export default function ConfiguracionPage() {
     appNombre: "empleaIA", logo: null, favicon: null,
     colorPrimario: "#5B5FE9", colorSidebar: "#1e1b4b",
     zonaHoraria: "Europe/Madrid", diasLaborables: [1, 2, 3, 4, 5],
+    nominaJornadaSemanal: 40,
+    nominaHoraExtraFactor: 1.75,
+    nominaPlusNocturnidadActivo: false,
+    nominaNocturnidadDesde: "22:00",
+    nominaNocturnidadHasta: "06:00",
+    nominaPlusNocturnidadFactor: 1.25,
+    nominaPlusFestivoActivo: false,
+    nominaPlusFestivoFactor: 1.75,
+    nominaSalarioBaseDefault: 0,
+    nominaMoneda: "EUR",
   };
 
   const fetchData = useCallback(async () => {
@@ -373,7 +394,7 @@ export default function ConfiguracionPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-200">
-        {(["general", "ausencias", "notificaciones", "branding", "calendario", "dominio"] as Tab[]).map((t) => {
+        {(["general", "ausencias", "notificaciones", "branding", "calendario", "dominio", "nomina"] as Tab[]).map((t) => {
           const labels: Record<Tab, string> = {
             general: "General",
             ausencias: "Tipos de ausencia",
@@ -381,6 +402,7 @@ export default function ConfiguracionPage() {
             branding: "Branding",
             calendario: "Calendario",
             dominio: "Dominio",
+            nomina: "Nómina",
           };
           return (
             <button
@@ -917,6 +939,188 @@ export default function ConfiguracionPage() {
 
       {/* ── TAB: Dominio ──────────────────────────────────────────────────────── */}
       {tab === "dominio" && <DominioTab />}
+
+      {/* ── TAB: Nómina (reglas de cálculo de prenómina) ─────────────────────── */}
+      {tab === "nomina" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Reglas de cálculo de prenómina</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-slate-500 -mt-2">
+                Estos valores se aplican al calcular la prenómina mensual. Las
+                horas trabajadas por encima de la jornada mensual cuentan como
+                extras. Plus de nocturnidad y festivos son opcionales.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Jornada semanal (horas)</Label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    className="mt-1"
+                    value={config.nominaJornadaSemanal ?? 40}
+                    onChange={(e) =>
+                      setConfig({ ...config, nominaJornadaSemanal: parseFloat(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Salario base mensual por defecto (€)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="mt-1"
+                    value={config.nominaSalarioBaseDefault ?? 0}
+                    onChange={(e) =>
+                      setConfig({ ...config, nominaSalarioBaseDefault: parseFloat(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Factor hora extra (×)</Label>
+                  <Input
+                    type="number"
+                    step="0.05"
+                    className="mt-1"
+                    value={config.nominaHoraExtraFactor ?? 1.75}
+                    onChange={(e) =>
+                      setConfig({ ...config, nominaHoraExtraFactor: parseFloat(e.target.value) || 1 })
+                    }
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Multiplicador sobre el precio/hora.</p>
+                </div>
+                <div>
+                  <Label>Moneda</Label>
+                  <Input
+                    className="mt-1"
+                    value={config.nominaMoneda ?? "EUR"}
+                    onChange={(e) =>
+                      setConfig({ ...config, nominaMoneda: e.target.value.toUpperCase().slice(0, 3) })
+                    }
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Plus de nocturnidad</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Toggle
+                value={config.nominaPlusNocturnidadActivo ?? false}
+                onChange={(v) => setConfig({ ...config, nominaPlusNocturnidadActivo: v })}
+                label="Aplicar plus de nocturnidad"
+              />
+              {(config.nominaPlusNocturnidadActivo ?? false) && (
+                <div className="grid grid-cols-3 gap-3 mt-4">
+                  <div>
+                    <Label>Desde</Label>
+                    <Input
+                      type="time"
+                      className="mt-1"
+                      value={config.nominaNocturnidadDesde ?? "22:00"}
+                      onChange={(e) => setConfig({ ...config, nominaNocturnidadDesde: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Hasta</Label>
+                    <Input
+                      type="time"
+                      className="mt-1"
+                      value={config.nominaNocturnidadHasta ?? "06:00"}
+                      onChange={(e) => setConfig({ ...config, nominaNocturnidadHasta: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Factor (×)</Label>
+                    <Input
+                      type="number"
+                      step="0.05"
+                      className="mt-1"
+                      value={config.nominaPlusNocturnidadFactor ?? 1.25}
+                      onChange={(e) =>
+                        setConfig({ ...config, nominaPlusNocturnidadFactor: parseFloat(e.target.value) || 1 })
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Plus de festivos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Toggle
+                value={config.nominaPlusFestivoActivo ?? false}
+                onChange={(v) => setConfig({ ...config, nominaPlusFestivoActivo: v })}
+                label="Aplicar plus por trabajar en festivo"
+              />
+              {(config.nominaPlusFestivoActivo ?? false) && (
+                <div className="mt-4 max-w-xs">
+                  <Label>Factor (×)</Label>
+                  <Input
+                    type="number"
+                    step="0.05"
+                    className="mt-1"
+                    value={config.nominaPlusFestivoFactor ?? 1.75}
+                    onChange={(e) =>
+                      setConfig({ ...config, nominaPlusFestivoFactor: parseFloat(e.target.value) || 1 })
+                    }
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Multiplicador sobre el precio/hora cuando el día está marcado como festivo en el calendario.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={async () => {
+                if (!config) return;
+                setSaving(true);
+                try {
+                  const res = await fetch("/api/configuracion", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      nominaJornadaSemanal: config.nominaJornadaSemanal,
+                      nominaHoraExtraFactor: config.nominaHoraExtraFactor,
+                      nominaPlusNocturnidadActivo: config.nominaPlusNocturnidadActivo,
+                      nominaNocturnidadDesde: config.nominaNocturnidadDesde,
+                      nominaNocturnidadHasta: config.nominaNocturnidadHasta,
+                      nominaPlusNocturnidadFactor: config.nominaPlusNocturnidadFactor,
+                      nominaPlusFestivoActivo: config.nominaPlusFestivoActivo,
+                      nominaPlusFestivoFactor: config.nominaPlusFestivoFactor,
+                      nominaSalarioBaseDefault: config.nominaSalarioBaseDefault,
+                      nominaMoneda: config.nominaMoneda,
+                    }),
+                  });
+                  if (!res.ok) throw new Error();
+                  toast({ title: "Reglas de nómina guardadas" });
+                } catch {
+                  toast({ title: "Error al guardar", variant: "destructive" });
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              disabled={saving}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {saving ? "Guardando..." : "Guardar reglas"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ── Dialogs ───────────────────────────────────────────────────────────── */}
 

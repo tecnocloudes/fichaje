@@ -1,14 +1,13 @@
 /**
  * GET /api/prenomina?periodo=YYYY-MM
- *   Agrega horas trabajadas por empleado en ese mes, calculadas desde
- *   los pares ENTRADA/SALIDA del modelo Fichaje, restando pausas.
- *   Devuelve también horas extra (sobre las horas teóricas mensuales)
- *   y conteo de ausencias.
+ *   Lista las prenominas persistidas del periodo. Si todavía no se
+ *   han calculado, devuelve `empleados: []` con `calculadaAt: null`.
  *
- * Sin tabla nueva — todo se calcula on-the-fly. Pensado para exportar
- * a software externo de nóminas o copiar/pegar.
+ * POST /api/prenomina/calcular?periodo=YYYY-MM
+ *   Recalcula y persiste todas las prenominas BORRADOR del periodo.
+ *   Las que estén CERRADAS o ENVIADAS se respetan (no se sobrescriben).
  *
- * Feature: `prenomina` (pro+enterprise). OWNER/MANAGER.
+ * Feature: `prenomina` (Pro+Enterprise). OWNER/MANAGER.
  */
 
 import { auth } from "@/lib/auth";
@@ -17,135 +16,276 @@ import { Rol, TipoFichaje } from "@/generated/prisma-tenant/client";
 import { type NextRequest, NextResponse } from "next/server";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
+import {
+  calcularPrenomina,
+  aplicarImportes,
+  type ReglasNomina,
+} from "@/lib/prenomina/calculo";
 
-export const GET = withTenant(withFeature("prenomina", async (req: NextRequest) => {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  const userRol = (session.user as { rol?: Rol }).rol;
-  if (userRol !== Rol.OWNER && userRol !== Rol.MANAGER) {
+function assertOwnerOrManager(rol: Rol | undefined) {
+  if (rol !== Rol.OWNER && rol !== Rol.MANAGER) {
     return NextResponse.json({ error: "Solo OWNER/MANAGER" }, { status: 403 });
   }
+  return null;
+}
 
-  const periodo = req.nextUrl.searchParams.get("periodo");
-  if (!periodo || !/^\d{4}-\d{2}$/.test(periodo)) {
-    return NextResponse.json({ error: "Parámetro periodo requerido (YYYY-MM)" }, { status: 400 });
-  }
+function parsePeriodo(periodo: string | null) {
+  if (!periodo || !/^\d{4}-\d{2}$/.test(periodo)) return null;
   const [yy, mm] = periodo.split("-").map(Number);
   const inicio = new Date(Date.UTC(yy, mm - 1, 1, 0, 0, 0));
   const fin = new Date(Date.UTC(yy, mm, 0, 23, 59, 59));
+  return { yy, mm, inicio, fin };
+}
 
-  const cfg = await prisma.configuracionEmpresa.findUnique({
-    where: { id: "singleton" },
-    select: { horasJornadaDiaria: true, horasSemanales: true },
-  });
-  const horasDia = cfg?.horasJornadaDiaria ?? 8;
-  // Días laborables aproximados del mes (lunes-viernes).
-  let diasLab = 0;
-  for (let d = new Date(inicio); d <= fin; d.setUTCDate(d.getUTCDate() + 1)) {
-    const day = d.getUTCDay();
-    if (day !== 0 && day !== 6) diasLab++;
-  }
-  const horasTeoricas = diasLab * horasDia;
+export const GET = withTenant(
+  withFeature("prenomina", async (req: NextRequest) => {
+    const session = await auth();
+    if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    const userRol = (session.user as { rol?: Rol }).rol;
+    const guard = assertOwnerOrManager(userRol);
+    if (guard) return guard;
 
-  const fichajes = await prisma.fichaje.findMany({
-    where: { timestamp: { gte: inicio, lte: fin } },
-    orderBy: [{ userId: "asc" }, { timestamp: "asc" }],
-    select: { userId: true, tipo: true, timestamp: true, user: { select: { id: true, nombre: true, apellidos: true, email: true, dni: true } } },
-  });
-
-  const ausencias = await prisma.ausencia.findMany({
-    where: {
-      OR: [
-        { fechaInicio: { lte: fin }, fechaFin: { gte: inicio } },
-      ],
-      estado: "APROBADA",
-    },
-    select: { userId: true, fechaInicio: true, fechaFin: true },
-  });
-  const ausPorUser = new Map<string, number>();
-  for (const a of ausencias) {
-    const s = a.fechaInicio < inicio ? inicio : a.fechaInicio;
-    const e = a.fechaFin > fin ? fin : a.fechaFin;
-    const diasAus = Math.max(0, Math.round((e.getTime() - s.getTime()) / 86_400_000) + 1);
-    ausPorUser.set(a.userId, (ausPorUser.get(a.userId) ?? 0) + diasAus);
-  }
-
-  // Agregación por usuario.
-  type Row = { userId: string; nombre: string; apellidos: string; email: string; dni: string | null; horasTotales: number; horasExtra: number; diasTrabajados: number; ausencias: number };
-  const rows = new Map<string, Row>();
-  let activoDesde: Date | null = null;
-  let pausaDesde: Date | null = null;
-  let pausaAcumMs = 0;
-  let lastUserId: string | null = null;
-  const diasSet = new Map<string, Set<string>>();
-
-  const finalizarSesion = (userId: string, hasta: Date) => {
-    if (!activoDesde) return;
-    const dur = hasta.getTime() - activoDesde.getTime() - pausaAcumMs;
-    if (dur > 0) {
-      const row = rows.get(userId);
-      if (row) row.horasTotales += dur / 3_600_000;
-      const set = diasSet.get(userId) ?? new Set<string>();
-      set.add(activoDesde.toISOString().slice(0, 10));
-      diasSet.set(userId, set);
+    const periodo = req.nextUrl.searchParams.get("periodo");
+    const p = parsePeriodo(periodo);
+    if (!p) {
+      return NextResponse.json(
+        { error: "Parámetro periodo requerido (YYYY-MM)" },
+        { status: 400 },
+      );
     }
-    activoDesde = null; pausaDesde = null; pausaAcumMs = 0;
-  };
 
-  for (const f of fichajes) {
-    if (lastUserId !== f.userId) {
-      // Cerrar sesión del user anterior si quedó abierta.
-      if (lastUserId && activoDesde) finalizarSesion(lastUserId, fin);
-      lastUserId = f.userId;
+    const cfg = await prisma.configuracionEmpresa.findUnique({
+      where: { id: "singleton" },
+      select: {
+        horasJornadaDiaria: true,
+        nominaJornadaSemanal: true,
+        nominaMoneda: true,
+      },
+    });
+    // Días laborables aproximados del mes (L-V).
+    let diasLab = 0;
+    for (let d = new Date(p.inicio); d <= p.fin; d.setUTCDate(d.getUTCDate() + 1)) {
+      const day = d.getUTCDay();
+      if (day !== 0 && day !== 6) diasLab++;
     }
-    if (!rows.has(f.userId)) {
-      rows.set(f.userId, {
+    const horasTeoricas = diasLab * (cfg?.horasJornadaDiaria ?? 8);
+
+    const prenominas = await prisma.prenomina.findMany({
+      where: { periodo: periodo! },
+      include: {
+        empleado: { select: { id: true, nombre: true, apellidos: true, email: true, dni: true } },
+        conceptos: true,
+        cerradaPor: { select: { nombre: true, apellidos: true } },
+      },
+      orderBy: { empleado: { apellidos: "asc" } },
+    });
+
+    return NextResponse.json({
+      periodo,
+      horasTeoricas,
+      diasLaborables: diasLab,
+      moneda: cfg?.nominaMoneda ?? "EUR",
+      jornadaSemanal: cfg?.nominaJornadaSemanal ? Number(cfg.nominaJornadaSemanal) : 40,
+      empleados: prenominas.map((pr) => ({
+        id: pr.id,
+        empleadoId: pr.empleadoId,
+        nombre: pr.empleado.nombre,
+        apellidos: pr.empleado.apellidos,
+        email: pr.empleado.email,
+        dni: pr.empleado.dni,
+        estado: pr.estado,
+        horasTrabajadas: Number(pr.horasTrabajadas),
+        horasOrdinarias: Number(pr.horasOrdinarias),
+        horasExtras: Number(pr.horasExtras),
+        horasNocturnas: Number(pr.horasNocturnas),
+        horasFestivas: Number(pr.horasFestivas),
+        diasTrabajados: pr.diasTrabajados,
+        diasAusenciaPagada: pr.diasAusenciaPagada,
+        diasAusenciaNoPagada: pr.diasAusenciaNoPagada,
+        salarioBase: Number(pr.salarioBase),
+        importeHorasExtras: Number(pr.importeHorasExtras),
+        importeNocturnidad: Number(pr.importeNocturnidad),
+        importeFestivos: Number(pr.importeFestivos),
+        importeConceptos: Number(pr.importeConceptos),
+        totalBruto: Number(pr.totalBruto),
+        moneda: pr.moneda,
+        comentario: pr.comentario,
+        calculadaAt: pr.calculadaAt,
+        cerradaAt: pr.cerradaAt,
+        cerradaPor: pr.cerradaPor ? `${pr.cerradaPor.nombre} ${pr.cerradaPor.apellidos}` : null,
+        enviadaAt: pr.enviadaAt,
+        conceptos: pr.conceptos.map((c) => ({
+          id: c.id,
+          tipo: c.tipo,
+          descripcion: c.descripcion,
+          cantidad: c.cantidad === null ? null : Number(c.cantidad),
+          importe: Number(c.importe),
+          notas: c.notas,
+        })),
+      })),
+    });
+  }),
+);
+
+export const POST = withTenant(
+  withFeature("prenomina", async (req: NextRequest) => {
+    const session = await auth();
+    if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    const userRol = (session.user as { rol?: Rol }).rol;
+    const guard = assertOwnerOrManager(userRol);
+    if (guard) return guard;
+
+    const periodo = req.nextUrl.searchParams.get("periodo");
+    const p = parsePeriodo(periodo);
+    if (!p) {
+      return NextResponse.json(
+        { error: "Parámetro periodo requerido (YYYY-MM)" },
+        { status: 400 },
+      );
+    }
+
+    const cfg = await prisma.configuracionEmpresa.findUnique({
+      where: { id: "singleton" },
+    });
+    if (!cfg) {
+      return NextResponse.json({ error: "Configuración no encontrada" }, { status: 500 });
+    }
+    const reglas: ReglasNomina = {
+      jornadaSemanal: Number(cfg.nominaJornadaSemanal),
+      horaExtraFactor: Number(cfg.nominaHoraExtraFactor),
+      plusNocturnidadActivo: cfg.nominaPlusNocturnidadActivo,
+      nocturnidadDesde: cfg.nominaNocturnidadDesde,
+      nocturnidadHasta: cfg.nominaNocturnidadHasta,
+      plusNocturnidadFactor: Number(cfg.nominaPlusNocturnidadFactor),
+      plusFestivoActivo: cfg.nominaPlusFestivoActivo,
+      plusFestivoFactor: Number(cfg.nominaPlusFestivoFactor),
+      salarioBaseDefault: Number(cfg.nominaSalarioBaseDefault),
+      moneda: cfg.nominaMoneda,
+    };
+
+    let diasLab = 0;
+    for (let d = new Date(p.inicio); d <= p.fin; d.setUTCDate(d.getUTCDate() + 1)) {
+      const day = d.getUTCDay();
+      if (day !== 0 && day !== 6) diasLab++;
+    }
+    const horasTeoricasMes = diasLab * (cfg.horasJornadaDiaria ?? 8);
+
+    // Datos crudos.
+    const empleados = await prisma.user.findMany({
+      where: { activo: true },
+      select: { id: true },
+    });
+    const empleadosIds = empleados.map((e) => e.id);
+
+    const fichajes = await prisma.fichaje.findMany({
+      where: { timestamp: { gte: p.inicio, lte: p.fin } },
+      orderBy: [{ userId: "asc" }, { timestamp: "asc" }],
+      select: { userId: true, tipo: true, timestamp: true },
+    });
+
+    const ausenciasRaw = await prisma.ausencia.findMany({
+      where: {
+        estado: "APROBADA",
+        fechaInicio: { lte: p.fin },
+        fechaFin: { gte: p.inicio },
+      },
+      select: {
+        userId: true,
+        fechaInicio: true,
+        fechaFin: true,
+        tipoAusencia: { select: { pagada: true } },
+      },
+    });
+    const ausencias = ausenciasRaw.map((a) => ({
+      userId: a.userId,
+      fechaInicio: a.fechaInicio,
+      fechaFin: a.fechaFin,
+      pagada: a.tipoAusencia?.pagada ?? true,
+    }));
+
+    const festivosDb = await prisma.festivo.findMany({
+      where: { fecha: { gte: p.inicio, lte: p.fin } },
+      select: { fecha: true },
+    }).catch(() => [] as Array<{ fecha: Date }>);
+
+    const calculos = calcularPrenomina(
+      empleadosIds,
+      fichajes.map((f) => ({
         userId: f.userId,
-        nombre: f.user.nombre, apellidos: f.user.apellidos,
-        email: f.user.email, dni: f.user.dni,
-        horasTotales: 0, horasExtra: 0, diasTrabajados: 0,
-        ausencias: ausPorUser.get(f.userId) ?? 0,
-      });
-    }
-    if (f.tipo === TipoFichaje.ENTRADA) {
-      activoDesde = f.timestamp; pausaAcumMs = 0; pausaDesde = null;
-    } else if (f.tipo === TipoFichaje.PAUSA) {
-      pausaDesde = f.timestamp;
-    } else if (f.tipo === TipoFichaje.VUELTA_PAUSA) {
-      if (pausaDesde) { pausaAcumMs += f.timestamp.getTime() - pausaDesde.getTime(); pausaDesde = null; }
-    } else if (f.tipo === TipoFichaje.SALIDA) {
-      // Si quedó pausa abierta al cerrar, contarla.
-      if (pausaDesde) { pausaAcumMs += f.timestamp.getTime() - pausaDesde.getTime(); pausaDesde = null; }
-      finalizarSesion(f.userId, f.timestamp);
-    }
-  }
-  if (lastUserId && activoDesde) finalizarSesion(lastUserId, fin);
+        tipo: f.tipo as TipoFichaje,
+        timestamp: f.timestamp,
+      })),
+      ausencias,
+      festivosDb,
+      reglas,
+      p.inicio,
+      p.fin,
+      horasTeoricasMes,
+    );
 
-  for (const [uid, set] of diasSet) {
-    const r = rows.get(uid);
-    if (r) {
-      r.diasTrabajados = set.size;
-      r.horasExtra = Math.max(0, r.horasTotales - horasTeoricas);
-      r.horasTotales = Math.round(r.horasTotales * 100) / 100;
-      r.horasExtra = Math.round(r.horasExtra * 100) / 100;
-    }
-  }
-  // Añadir filas para users con ausencias pero sin fichajes.
-  for (const [uid, diasAus] of ausPorUser) {
-    if (!rows.has(uid)) {
-      const ausencia = ausencias.find((a) => a.userId === uid);
-      if (!ausencia) continue;
-      const usr = await prisma.user.findUnique({ where: { id: uid }, select: { nombre: true, apellidos: true, email: true, dni: true } });
-      if (!usr) continue;
-      rows.set(uid, {
-        userId: uid, nombre: usr.nombre, apellidos: usr.apellidos, email: usr.email, dni: usr.dni,
-        horasTotales: 0, horasExtra: 0, diasTrabajados: 0, ausencias: diasAus,
-      });
-    }
-  }
+    const ahora = new Date();
+    let creadas = 0;
+    let actualizadas = 0;
+    let saltadas = 0;
 
-  return NextResponse.json({
-    periodo, horasTeoricas, diasLaborables: diasLab,
-    empleados: Array.from(rows.values()).sort((a, b) => a.apellidos.localeCompare(b.apellidos)),
-  });
-}));
+    for (const [uid, calc] of calculos) {
+      const salarioBase = reglas.salarioBaseDefault;
+      aplicarImportes(calc, salarioBase, horasTeoricasMes, reglas);
+
+      // Buscar prenómina existente.
+      const existing = await prisma.prenomina.findUnique({
+        where: { periodo_empleadoId: { periodo: periodo!, empleadoId: uid } },
+        select: { id: true, estado: true, importeConceptos: true },
+      });
+      if (existing && existing.estado !== "BORRADOR") {
+        saltadas++;
+        continue;
+      }
+      const totalBruto =
+        Math.round(
+          (salarioBase +
+            calc.importeHorasExtras +
+            calc.importeNocturnidad +
+            calc.importeFestivos +
+            (existing ? Number(existing.importeConceptos) : 0)) *
+            100,
+        ) / 100;
+
+      const data = {
+        estado: "BORRADOR" as const,
+        horasTrabajadas: calc.horasTrabajadas,
+        horasOrdinarias: calc.horasOrdinarias,
+        horasExtras: calc.horasExtras,
+        horasNocturnas: calc.horasNocturnas,
+        horasFestivas: calc.horasFestivas,
+        diasTrabajados: calc.diasTrabajados,
+        diasAusenciaPagada: calc.diasAusenciaPagada,
+        diasAusenciaNoPagada: calc.diasAusenciaNoPagada,
+        salarioBase,
+        importeHorasExtras: calc.importeHorasExtras,
+        importeNocturnidad: calc.importeNocturnidad,
+        importeFestivos: calc.importeFestivos,
+        totalBruto,
+        moneda: reglas.moneda,
+        calculadaAt: ahora,
+      };
+      if (existing) {
+        await prisma.prenomina.update({ where: { id: existing.id }, data });
+        actualizadas++;
+      } else {
+        await prisma.prenomina.create({
+          data: { ...data, periodo: periodo!, empleadoId: uid },
+        });
+        creadas++;
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      periodo,
+      creadas,
+      actualizadas,
+      saltadas,
+    });
+  }),
+);

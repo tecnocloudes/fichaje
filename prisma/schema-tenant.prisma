@@ -59,6 +59,22 @@ enum EstadoTurno {
   PUBLICADO
 }
 
+enum EstadoPrenomina {
+  BORRADOR
+  CERRADA
+  ENVIADA
+}
+
+enum TipoConceptoPrenomina {
+  DIETA
+  KILOMETRAJE
+  COMISION
+  PLUS
+  BONUS
+  DEDUCCION
+  OTRO
+}
+
 // ─── Modelos del producto ──────────────────────────────────────────────────────
 
 model Tienda {
@@ -161,6 +177,9 @@ model User {
   empresa                  Empresa?                  @relation(fields: [empresaId], references: [id])
   // Retribución flexible: declaraciones mensuales del empleado.
   declaracionesFlex        DeclaracionFlex[]
+  // Prenómina: snapshots mensuales del empleado + cierres realizados.
+  prenominas               Prenomina[]               @relation("PrenominaEmpleado")
+  prenominasCerradas       Prenomina[]               @relation("PrenominaCerrador")
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
 
@@ -309,6 +328,17 @@ model ConfiguracionEmpresa {
   zonaHoraria         String   @default("Europe/Madrid")
   diasLaborables      Int[]    @default([1, 2, 3, 4, 5])
   ausenciasDefaults   Json?
+  // Reglas de cálculo de prenómina (feature `prenomina`, Enterprise-ready).
+  nominaJornadaSemanal       Decimal @default(40.00) @db.Decimal(5, 2)
+  nominaHoraExtraFactor      Decimal @default(1.75)  @db.Decimal(4, 2)
+  nominaPlusNocturnidadActivo Boolean @default(false)
+  nominaNocturnidadDesde     String  @default("22:00")
+  nominaNocturnidadHasta     String  @default("06:00")
+  nominaPlusNocturnidadFactor Decimal @default(1.25) @db.Decimal(4, 2)
+  nominaPlusFestivoActivo    Boolean @default(false)
+  nominaPlusFestivoFactor    Decimal @default(1.75)  @db.Decimal(4, 2)
+  nominaSalarioBaseDefault   Decimal @default(0.00)  @db.Decimal(10, 2)
+  nominaMoneda               String  @default("EUR")
   updatedAt           DateTime @updatedAt
 }
 
@@ -1163,4 +1193,62 @@ model Candidato {
   @@index([ofertaId])
   @@index([estado])
   @@index([email])
+}
+
+/// Prenómina persistida: snapshot mensual por empleado con cifras
+/// calculadas (horas/extras/ausencias/importes), conceptos manuales
+/// editables y workflow de cierre (BORRADOR → CERRADA → ENVIADA).
+/// Feature: `prenomina` (Pro+Enterprise).
+model Prenomina {
+  id                   String                @id @default(cuid())
+  periodo              String                // "YYYY-MM"
+  empleadoId           String
+  empleado             User                  @relation("PrenominaEmpleado", fields: [empleadoId], references: [id], onDelete: Cascade)
+  estado               EstadoPrenomina       @default(BORRADOR)
+  horasTrabajadas      Decimal               @default(0) @db.Decimal(7, 2)
+  horasOrdinarias      Decimal               @default(0) @db.Decimal(7, 2)
+  horasExtras          Decimal               @default(0) @db.Decimal(7, 2)
+  horasNocturnas       Decimal               @default(0) @db.Decimal(7, 2)
+  horasFestivas        Decimal               @default(0) @db.Decimal(7, 2)
+  diasTrabajados       Int                   @default(0)
+  diasAusenciaPagada   Int                   @default(0)
+  diasAusenciaNoPagada Int                   @default(0)
+  salarioBase          Decimal               @default(0) @db.Decimal(10, 2)
+  importeHorasExtras   Decimal               @default(0) @db.Decimal(10, 2)
+  importeNocturnidad   Decimal               @default(0) @db.Decimal(10, 2)
+  importeFestivos      Decimal               @default(0) @db.Decimal(10, 2)
+  importeConceptos     Decimal               @default(0) @db.Decimal(10, 2)
+  totalBruto           Decimal               @default(0) @db.Decimal(10, 2)
+  moneda               String                @default("EUR")
+  comentario           String?
+  calculadaAt          DateTime?
+  cerradaAt            DateTime?
+  cerradaPorId         String?
+  cerradaPor           User?                 @relation("PrenominaCerrador", fields: [cerradaPorId], references: [id], onDelete: SetNull)
+  enviadaAt            DateTime?
+  conceptos            PrenominaConcepto[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@unique([periodo, empleadoId])
+  @@index([periodo])
+  @@index([empleadoId])
+  @@index([estado])
+}
+
+/// Concepto manual añadido a una Prenomina (dieta, kilometraje,
+/// comisión, plus, bonus, deducción o "otro"). Se suma a
+/// `Prenomina.importeConceptos` al guardar.
+model PrenominaConcepto {
+  id           String                 @id @default(cuid())
+  prenominaId  String
+  prenomina    Prenomina              @relation(fields: [prenominaId], references: [id], onDelete: Cascade)
+  tipo         TipoConceptoPrenomina
+  descripcion  String
+  cantidad     Decimal?               @db.Decimal(8, 2)
+  importe      Decimal                @db.Decimal(10, 2)
+  notas        String?
+  createdAt    DateTime               @default(now())
+
+  @@index([prenominaId])
 }
