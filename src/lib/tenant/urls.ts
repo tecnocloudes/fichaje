@@ -26,3 +26,12 @@ export function tenantBaseUrl(slug: string): string {
 export function buildSetPasswordUrl(slug: string, token: string): string {
   return `${tenantBaseUrl(slug)}/set-password?token=${token}`;
 }
+
+/**
+ * Link al flujo "olvidé contraseña". Mismo destino que set-password
+ * (la página acepta cualquier token vigente), pero token con TTL=1h
+ * en lugar de 7d. Lo usa el email de reset.
+ */
+export function buildResetPasswordUrl(slug: string, token: string): string {
+  return `${tenantBaseUrl(slug)}/set-password?token=${token}`;
+}

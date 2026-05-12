@@ -89,6 +89,15 @@ export function TenantLoginForm({ action, initialEmail = "" }: Props) {
           )}
           {pending ? "Entrando…" : "Iniciar sesión"}
         </button>
+
+        <div className="text-center pt-1">
+          <a
+            href="/recuperar-password"
+            className="text-sm text-slate-500 hover:text-[var(--primary)] hover:underline transition-colors"
+          >
+            ¿Olvidaste tu contraseña?
+          </a>
+        </div>
       </form>
     </>
   );

@@ -468,6 +468,47 @@ export function ausenciaCreadaTemplate(p: AusenciaEmailParams): string {
   });
 }
 
+interface ResetPasswordParams {
+  nombre: string;
+  apellidos: string;
+  empresa: string;
+  colorPrimario: string;
+  colorSidebar: string;
+  logo?: string | null;
+  resetUrl: string;
+}
+
+export function resetPasswordTemplate(p: ResetPasswordParams): string {
+  const body = `
+    <p style="margin:0 0 8px;font-size:18px;font-weight:700;color:#0f172a;">
+      Hola, ${escapeHtml(p.nombre)} ${escapeHtml(p.apellidos)} 👋
+    </p>
+    <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.6;">
+      Has solicitado restablecer tu contraseña en <strong style="color:#0f172a;">${escapeHtml(p.empresa)}</strong>.
+      Haz clic en el botón para crear una nueva contraseña.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+      style="background:rgba(245,158,11,0.06);border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;margin-bottom:8px;">
+      <tr>
+        <td style="padding:12px 16px;">
+          <p style="margin:0;font-size:13px;color:#475569;line-height:1.5;">
+            ⏰ <strong>Este enlace caduca en 1 hora.</strong> Si no fuiste tú quien lo solicitó, ignora este mensaje — tu contraseña no se cambiará.
+          </p>
+        </td>
+      </tr>
+    </table>`;
+  return shellLayout({
+    empresa: p.empresa,
+    colorPrimario: p.colorPrimario,
+    colorSidebar: p.colorSidebar,
+    logo: p.logo,
+    headerTitulo: "Restablece tu contraseña",
+    headerSubtitulo: "Crea una nueva contraseña para tu cuenta",
+    body,
+    cta: { label: "Restablecer contraseña", url: p.resetUrl },
+  });
+}
+
 export function ausenciaResueltaTemplate(p: AusenciaEmailParams): string {
   const aprobada = p.estado === "APROBADA";
   const titulo = aprobada ? "Solicitud aprobada" : "Solicitud rechazada";
