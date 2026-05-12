@@ -429,6 +429,42 @@ el handler real, no solo el toggle local en `ConfiguracionEmpresa`.
   horizontalmente (hoy single-replica en Dokploy → in-memory basta).
 - UI para `retencionFotosDias` en Configuración → General.
 
+## 7.ter. Consolidación de lazy migrations a formales (2026-05-12)
+
+`src/lib/migrate.ts` queda como **no-op** desde commit `b940025`. Todo
+lo que vivía allí (740 líneas de ALTER/CREATE TABLE para empresaId,
+Conversacion, WhatsappConfig, Integracion + seed de 8 integraciones,
+DeclaracionFlex, PreferenciasNotificacion, PushSubscripcion, Objetivo,
+Encuesta, RespuestaEncuesta, Evaluacion, Gasto, EspacioReservable,
+ReservaEspacio, NominaArchivo, Curso, AsignacionCurso, Peticion y
+columnas extra de ConfiguracionEmpresa) se ha movido a una sola
+migración formal:
+
+```
+prisma/migrations-tenant/20260512170000_sprint3_lazy_to_formal/
+  migration.sql   (~450 líneas, idempotente con IF NOT EXISTS +
+                   DO $$ EXCEPTION WHEN duplicate_object)
+```
+
+`provisionTenantSchema` la aplica automáticamente al crear cada tenant
+nuevo. Ya marcada como aplicada en `tenant_template._prisma_migrations_tenant`.
+
+**Por qué importaba**: el alta de "mobileshop" (12-may) se atascó con
+`ColumnNotFound: empresaId` porque las lazy migrations sólo se aplicaban
+en el primer request de cada tenant, pero el webhook
+`checkout.session.completed` hacía el primer INSERT del OWNER user
+*antes* del primer request. Detalle del incidente y rescate manual en
+commits `d2d1759` (fix temporal: añadir `runMigrations()` dentro del
+provisioning) y `b940025` (fix permanente: migración formal).
+
+**Limpieza pendiente** (no urgente): los ~11 archivos que aún
+`import { runMigrations } from "@/lib/migrate"` pueden simplificarse
+(la función es no-op). No es regresión funcional dejarlos como están.
+
+Test E2E: schema fresco aplicado las 8 migraciones formales en orden
+produce 18 cols en `User` (incluyendo `empresaId`) + 51 tablas
+(+ `_prisma_migrations_tenant` = 52, idéntico a template).
+
 ## 7.bis. Cutover wildcard `*.empleaia.es` (2026-05-12)
 
 **Problema previo**: dar de alta un tenant requería crear manualmente
