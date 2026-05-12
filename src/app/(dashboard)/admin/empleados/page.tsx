@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, Edit2, UserX, UserCheck, Trash2, Send } from "lucide-react";
+import Link from "next/link";
+import { Plus, Search, Edit2, UserX, UserCheck, Trash2, Send, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -283,6 +284,11 @@ export default function EmpleadosPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1">
+                            <Link href={`/admin/empleados/${emp.id}`}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Ver ficha completa">
+                                <FileText className="h-3.5 w-3.5 text-slate-500" />
+                              </Button>
+                            </Link>
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => abrirEditar(emp)} title="Editar">
                               <Edit2 className="h-3.5 w-3.5" />
                             </Button>
