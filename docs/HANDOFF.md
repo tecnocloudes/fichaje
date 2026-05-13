@@ -1,4 +1,4 @@
-# Handoff — estado del proyecto a 2026-05-13 (sesión maratón 12-may)
+# Handoff — estado del proyecto a 2026-05-13 (post-sesión Sprint 4)
 
 Documento para retomar el trabajo desde otra cuenta de Claude (o
 máquina). Resume lo que hay en marcha, decisiones recientes y
@@ -53,7 +53,65 @@ Producción ya corre desde esta rama vía Dokploy.
   `withTenant`, pages usan `withTenantPage`, no `fetch` interno entre
   rutas, etc.).
 
-## 4.bis. Lo último que hicimos (sesión maratón 2026-05-12)
+## 4.0. Lo último que hicimos (sesión Sprint 4 — 2026-05-13)
+
+3 commits en `feature/saas-migration` cierran todos los pendientes
+🟢 + 🟣 que quedaban abiertos del §7.0 anterior (todo menos Stripe LIVE):
+
+- `6b3399e` **feat(mvp): chat SSE, WhatsApp worker, multi_empresa, Slack/Google, Cobee**.
+  Bloque de los MVPs grandes — ver §7.cua y §7.qui.
+- `a81709b` **feat(prenomina): salario por empleado, marcar enviada, export Sage/A3**.
+  Cierra las 3 mejoras Enterprise pendientes — ver §7.qua (actualizado).
+  Nueva migración formal `20260513120000_user_salario_y_prenomina_enviada`.
+- `f21fd8f` **chore(tech-debt): retirar runMigrations + UI retencionFotosDias**.
+  `src/lib/migrate.ts` eliminado; 17 callsites de `import { runMigrations }`
+  y sus llamadas (no-ops) limpiadas. Configuración → General ahora tiene
+  input para `retencionFotosDias` cuando `faceIdGuardarFoto` está ON.
+
+### Estado al cerrar 2026-05-13
+
+- ✅ Sprint 4 desplegado (auto-pull Dokploy al push). El entrypoint
+  aplica `20260513120000_user_salario_y_prenomina_enviada` a
+  `tenant_template` automáticamente; en BD wipeada (0 tenants) el
+  primer alta nueva ya nace con el schema completo.
+- ✅ Cero pendientes 🟢/🟣 del HANDOFF anterior.
+- ⚠️ Sigue pendiente: verificación E2E real del provisioning post-wipe
+  (alta nueva por `app.empleaia.es/registro`). Confirmaría el cierre
+  del incidente "mobileshop" 12-may, ahora con migración formal
+  consolidada **y** las nuevas columnas Sprint 4.
+- ⚠️ Sigue pendiente: Stripe LIVE para empezar a cobrar.
+
+### Env vars nuevas para activar los MVPs
+
+Estas son opcionales — los módulos funcionan en modo "encolado/
+simulado" sin ellas, pero el envío real requiere:
+
+- `WHATSAPP_VERIFY_TOKEN` (en Dokploy `empleaia-app`): cualquier string
+  random. Se introduce en Meta App Dashboard → WhatsApp → Webhooks como
+  "Verify token" al registrar la URL `https://<slug>.empleaia.es/api/webhooks/whatsapp/<slug>`.
+- `WHATSAPP_APP_SECRET` (en Dokploy): App Secret del App de Meta. Se usa
+  para validar la firma HMAC del webhook (`X-Hub-Signature-256`). Si no
+  está definido, el webhook acepta sin validar (modo dev).
+
+Por tenant (en `WhatsappConfig` desde `/admin/whatsapp-bot`):
+- `phoneNumberId` (Meta WhatsApp Business Account → Phone Number ID).
+- `tokenEnc` (access token de la WhatsApp Business System User; se
+  cifra automáticamente con AES-GCM al guardar).
+- `activo = true` para que el POST a `/api/whatsapp/mensajes` envíe
+  inmediato en lugar de solo encolar.
+
+Por tenant en marketplace (cada `IntegracionInstalada.configuracion`):
+- **Slack**: `{ webhookUrl, canal? }`. La webhookUrl la genera el OWNER en
+  api.slack.com/apps → Incoming Webhooks. Cualquier solicitud de
+  ausencia dispara un ping al canal.
+- **Google Workspace**: `{ accessToken, customer?, domain? }`. Token
+  OAuth con scope `admin.directory.user.readonly`. Para probar rápido,
+  generar uno en OAuth Playground. POST `/api/marketplace/google/sync-users`
+  importa empleados.
+- **Cobee**: `{ apiKey, baseUrl?, companyId? }`. Sin instalar,
+  `/api/retribucion/emitir` devuelve modo simulado con el desglose.
+
+## 4.bis. Lo penúltimo que hicimos (sesión maratón 2026-05-12)
 
 Sesión muy larga con 7 entregas + 1 incidente resuelto. Commits en
 `feature/saas-migration` (más reciente arriba):
@@ -407,15 +465,17 @@ el handler real, no solo el toggle local en `ConfiguracionEmpresa`.
   art. 5.1.e (minimización). No tiene UI todavía; se cambia con un
   UPDATE manual a `ConfiguracionEmpresa` por tenant si hace falta.
 
-## 7.0. Pendiente al cerrar 12-may (próxima sesión empieza por aquí)
+## 7.0. Pendiente al cerrar 13-may (próxima sesión empieza por aquí)
 
-🔴 **Verificación E2E real del provisioning**:
+🔴 **Verificación E2E real del provisioning** (sigue abierto):
 - Hacer alta de un tenant nuevo (cualquier slug, p. ej. `mobileshop`)
-  por `app.empleaia.es/registro` para confirmar que tras commit
-  `b940025` + `a25bc3e` el flujo va end-to-end sin atascos.
+  por `app.empleaia.es/registro` para confirmar que tras commits
+  `b940025` + `a25bc3e` + Sprint 4 (3 commits) el flujo va end-to-end
+  sin atascos. La migración Sprint 4 ya está en formal, así que el
+  entrypoint la aplica automáticamente al `tenant_template`.
 - Si OK: marcar definitivamente cerrado el incidente del 12-may.
-- Si NO: investigar logs `docker logs empleaia-empleaiaapp` con
-  `grep -iE 'webhook|provision|tenant|error'`.
+- Si NO: investigar logs `docker service logs empleaia-empleaiaapp-apdwzc`
+  con `grep -iE 'webhook|provision|tenant|error|migrate'`.
 
 🟡 **Stripe a modo LIVE** (necesario antes de cobrar a cliente real):
 - Hoy `sk_test_*`. Pasar a `sk_live_*`. Pasos: crear productos/precios
@@ -426,31 +486,101 @@ el handler real, no solo el toggle local en `ConfiguracionEmpresa`.
 - ⚠️ Verificar IDs de price en `src/lib/stripe/price-catalog.ts` o
   donde corresponda.
 
-🟢 **Mejoras de prenómina** (no urgentes, ver §7.qua):
-- Salario base por empleado (columna `User.salarioBase` o tabla).
-- Endpoint "marcar enviada al gestor" + tracking del envío.
-- Personalización del CSV/XLSX para Sage vs A3 vs otros.
-
-🟢 **Features MVP por pulir** (cada una mejora UX Enterprise, no
-bloquean lanzamiento Starter/Pro):
-- `chat` polling 4s → websockets/SSE (~1 día)
-- `whatsapp_bot` worker real contra WhatsApp Cloud API (~1-2 días +
-  coste por mensaje)
-- `multi_empresa` aislamiento real por CIF (~3-5 días)
-- `marketplace` sync real por integración (XL, 1-2 sem por proveedor)
-- `retribucion_flex` integración Cobee/Pluxee (~1 sem por proveedor)
+🟢 **Cerrados en Sprint 4 (2026-05-13)** — ver §4.0:
+- Prenómina: salario por empleado, marcar enviada, exports Sage/A3.
+- `chat` polling → SSE server-side.
+- `whatsapp_bot` worker real (cliente Cloud API + webhook).
+- `multi_empresa` aislamiento real (scope por empresaId).
+- `marketplace`: Slack (incoming webhook) + Google Workspace
+  (Directory API sync).
+- `retribucion_flex`: integración Cobee (live + simulado).
 
 🔵 **Deferred**:
 - `sso_saml` Fase 9 (esperando primer Enterprise que lo pida).
 
-🟣 **Tech debt menor**:
-- Eliminar los ~11 `import { runMigrations }` y sus llamadas (ahora
-  no-op tras `b940025`). Cosmética, sin riesgo.
-- UI `retencionFotosDias` en Configuración → General (~1h, compliance
-  RGPD: hoy el OWNER no puede cambiar la retención).
+🟣 **Tech debt restante** (ninguno crítico):
 - Dashboard super-admin más completo en `admin.empleaia.es`.
 - Migrar `rate-limit.ts` y face token nonces a Redis si se escala >1
   réplica en Dokploy.
+- Mejorar el campo `MensajeWhatsapp.providerMessageId` (no existe hoy)
+  para correlacionar status updates entrantes con el outbound original.
+- Selector de empresa activa en cabecera (hoy `resolveEmpresaScope` usa
+  el `empresaId` del User; falta UI para que el OWNER alterne entre
+  vistas cuando es admin del grupo).
+
+## 7.cua. Cambios Sprint 4 — MVPs grandes (2026-05-13, commit 6b3399e)
+
+### Chat: polling → SSE
+Endpoint `/api/chat/conversaciones/[id]/stream` con `text/event-stream`.
+El servidor hace polling cada 2 s a Mensaje y emite los nuevos por el
+stream; ping cada 15 s. Cliente migrado de `setInterval` a `EventSource`.
+Sin sockets ni LISTEN/NOTIFY — pragmático y suficiente para Dokploy
+single-replica.
+
+### WhatsApp Cloud API
+- `src/lib/whatsapp/cloud-api.ts`:
+  - `sendWhatsappText(config, to, text)` → POST a Meta Graph v22.
+  - `verifyWebhookSignature(body, header)` → HMAC-SHA256 con
+    `WHATSAPP_APP_SECRET`.
+  - `decodeWhatsappConfig(...)` descifra `tokenEnc` con AES-GCM.
+- POST `/api/whatsapp/mensajes` envía inmediato si `WhatsappConfig.activo`
+  y deja el `MensajeWhatsapp` con estado `enviado` o `fallido`.
+- Webhook `/api/webhooks/whatsapp/[slug]`:
+  - GET: verificación Meta (hub.mode/hub.verify_token/hub.challenge).
+  - POST: parsea `entry[].changes[].value.messages` y guarda inbound
+    como `MensajeWhatsapp` estado `recibido` dentro de `runWithTenant`.
+- ESLint whitelist `/api/webhooks/` ya cubre el endpoint (no necesita
+  `withTenant`).
+
+### Aislamiento multi_empresa
+`src/lib/multi-empresa/scope.ts`:
+- `resolveEmpresaScope(session)` devuelve `{ empresaId | null }`.
+- OWNER sin `empresaId` ve todo (admin del grupo); resto queda
+  limitado a su empresa.
+- Si la feature `multi_empresa` está OFF → null (sin filtro).
+- Helpers: `userScopeFilter` (sobre User) y `fichajeScopeFilter`
+  (sobre relación user→empresa).
+
+Aplicado a:
+- `/api/empleados` (listado).
+- `/api/fichajes` (listado).
+- `/api/ausencias` (listado).
+- `/api/prenomina` GET (lista) y POST (cálculo solo para empleados
+  de la empresa activa).
+
+### Marketplace: Slack + Google Workspace
+- **Slack** (`src/lib/marketplace/slack.ts`): `notifySlackIfInstalled(text)`
+  lee la `webhookUrl` de `IntegracionInstalada.configuracion`. Disparada
+  en `notifyAusenciaCreada` cuando un empleado solicita ausencia.
+- **Google Workspace** (`src/lib/marketplace/google-workspace.ts`):
+  `syncEmpleadosFromGoogle()` lee `accessToken` + opcional `customer`/
+  `domain` de la config, llama Directory API paginado y upserta
+  empleados (rol EMPLEADO, password=null, foto=thumbnailPhotoUrl).
+- Endpoint: `POST /api/marketplace/google/sync-users` (OWNER).
+
+## 7.qui. Cambios Sprint 4 — Cobee (retribución flexible)
+
+`src/lib/marketplace/cobee.ts`: `emitirTicketsCobee(tickets[])` busca la
+integración `cobee` en `IntegracionInstalada`:
+- Con `apiKey` + opcional `baseUrl`/`companyId`: POST a
+  `${baseUrl}/benefits/tickets` por cada ticket. Devuelve `enviados/
+  fallidos/errores` + `providerRef` por ticket creado.
+- Sin instalar: modo simulado con el desglose total que se EMITIRÍA.
+
+Endpoint: `POST /api/retribucion/emitir?periodo=YYYY-MM` (OWNER + feature
+`retribucion_flex`). Mapea cada `DeclaracionFlex` del periodo a un
+`CobeeTicket` y delega en `emitirTicketsCobee`.
+
+## 7.sex. Tech debt cerrado Sprint 4 (commit f21fd8f)
+
+- `src/lib/migrate.ts` ELIMINADO. Los 17 callsites de
+  `import { runMigrations } from "@/lib/migrate"` y sus `await
+  runMigrations()` (no-ops desde b940025) están limpiados. Incluye
+  `checkout-session-completed.ts` (también el bloque de comentario
+  que justificaba la llamada).
+- UI **retencionFotosDias** en Configuración → General. Input
+  numérico (1-3650 días) condicional al toggle `faceIdGuardarFoto`.
+  Validación server-side en PUT `/api/configuracion`.
 
 ## 7. Pendiente (en el momento del handoff anterior)
 
