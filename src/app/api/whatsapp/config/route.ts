@@ -5,7 +5,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
-import { runMigrations } from "@/lib/migrate";
 import { encryptString } from "@/lib/crypto/aes-gcm";
 
 const updateSchema = z.object({
@@ -16,7 +15,6 @@ const updateSchema = z.object({
 });
 
 export const GET = withTenant(withFeature("whatsapp_bot", async () => {
-  await runMigrations();
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const userRol = (session.user as { rol?: Rol }).rol;
@@ -33,7 +31,6 @@ export const GET = withTenant(withFeature("whatsapp_bot", async () => {
 }));
 
 export const PUT = withTenant(withFeature("whatsapp_bot", async (req: NextRequest) => {
-  await runMigrations();
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const userRol = (session.user as { rol?: Rol }).rol;

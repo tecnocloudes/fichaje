@@ -5,7 +5,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
-import { runMigrations } from "@/lib/migrate";
 
 const createSchema = z.object({
   nombre: z.string().min(1).max(200),
@@ -19,7 +18,6 @@ const createSchema = z.object({
 });
 
 export const GET = withTenant(withFeature("multi_empresa", async () => {
-  await runMigrations();
   const empresas = await prisma.empresa.findMany({
     orderBy: { nombre: "asc" },
     include: { _count: { select: { usuarios: true } } },
@@ -28,7 +26,6 @@ export const GET = withTenant(withFeature("multi_empresa", async () => {
 }));
 
 export const POST = withTenant(withFeature("multi_empresa", async (req: NextRequest) => {
-  await runMigrations();
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const userRol = (session.user as { rol?: Rol }).rol;

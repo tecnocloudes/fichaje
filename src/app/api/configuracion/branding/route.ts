@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
 import { Rol } from "@/generated/prisma-tenant/client";
-import { runMigrations } from "@/lib/migrate";
 import type { NextRequest } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
@@ -31,7 +30,6 @@ export const GET = withTenant(async () => {
 
 export const PUT = withTenant(withFeature("branding_personalizado", async (request: NextRequest) => {
   try {
-    await runMigrations();
 
     const session = await auth();
     const user = session?.user as { rol?: string } | undefined;

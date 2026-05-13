@@ -16,7 +16,6 @@ import { z } from "zod";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
-import { runMigrations } from "@/lib/migrate";
 import { preguntasSchema } from "@/lib/encuestas/types";
 
 const createSchema = z.object({
@@ -29,7 +28,6 @@ const createSchema = z.object({
 
 export const GET = withTenant(withFeature("encuestas_clima", async () => {
   try {
-    await runMigrations();
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     const userId = session.user.id!;
@@ -71,7 +69,6 @@ export const GET = withTenant(withFeature("encuestas_clima", async () => {
 
 export const POST = withTenant(withFeature("encuestas_clima", async (req: NextRequest) => {
   try {
-    await runMigrations();
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     const userId = session.user.id!;

@@ -19,7 +19,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
-import { runMigrations } from "@/lib/migrate";
 
 const CONCEPTOS = ["tickets_restaurante", "guarderia", "transporte", "seguro_medico"] as const;
 type Concepto = (typeof CONCEPTOS)[number];
@@ -48,7 +47,6 @@ function ahorroDe(concepto: Concepto, importe: number): number {
 }
 
 export const GET = withTenant(withFeature("retribucion_flex", async (req: NextRequest) => {
-  await runMigrations();
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const userId = session.user.id!;
@@ -68,7 +66,6 @@ export const GET = withTenant(withFeature("retribucion_flex", async (req: NextRe
 }));
 
 export const POST = withTenant(withFeature("retribucion_flex", async (req: NextRequest) => {
-  await runMigrations();
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const userId = session.user.id!;

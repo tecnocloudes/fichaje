@@ -1,13 +1,11 @@
 import { auth } from "@/lib/auth";
 import { prismaApp as prisma } from "@/lib/prisma";
 import { Rol } from "@/generated/prisma-tenant/client";
-import { runMigrations } from "@/lib/migrate";
 import type { NextRequest } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
 export const GET = withTenant(async () => {
   try {
-    await runMigrations();
 
     const session = await auth();
     if (!session?.user) {
@@ -45,7 +43,6 @@ export const GET = withTenant(async () => {
 
 export const PUT = withTenant(async (request: NextRequest) => {
   try {
-    await runMigrations();
 
     const session = await auth();
     const user = session?.user as { rol?: string } | undefined;
@@ -61,7 +58,7 @@ export const PUT = withTenant(async (request: NextRequest) => {
       "nombre", "appNombre",
       "horasJornadaDiaria", "horasSemanales", "toleranciaFichaje",
       "geofencingActivo", "fichajeMovilActivo", "fichajeTabletActivo",
-      "geoObligatoria", "faceIdObligatorio", "faceIdGuardarFoto",
+      "geoObligatoria", "faceIdObligatorio", "faceIdGuardarFoto", "retencionFotosDias",
       "notifAusencias", "notifTurnos", "notifTareas", "notifFichajes", "notifComunicados",
       "emailActivo", "emailHost", "emailPort", "emailSecure", "emailUser", "emailPassword", "emailFrom",
       "pushActivo", "pushVapidPublicKey",
@@ -88,6 +85,15 @@ export const PUT = withTenant(async (request: NextRequest) => {
       ) {
         return Response.json(
           { error: "diasLaborables_invalid", reason: "array de enteros 0-6" },
+          { status: 400 },
+        );
+      }
+    }
+    if ("retencionFotosDias" in data) {
+      const v = data.retencionFotosDias;
+      if (typeof v !== "number" || !Number.isInteger(v) || v < 1 || v > 3650) {
+        return Response.json(
+          { error: "retencionFotosDias_invalid", reason: "entero entre 1 y 3650 días" },
           { status: 400 },
         );
       }

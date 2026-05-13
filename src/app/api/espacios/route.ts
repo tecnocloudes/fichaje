@@ -5,7 +5,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
-import { runMigrations } from "@/lib/migrate";
 
 const createSchema = z.object({
   nombre: z.string().min(1).max(100),
@@ -15,7 +14,6 @@ const createSchema = z.object({
 });
 
 export const GET = withTenant(withFeature("reserva_espacios", async () => {
-  await runMigrations();
   const espacios = await prisma.espacioReservable.findMany({
     where: { activo: true },
     orderBy: { nombre: "asc" },
@@ -24,7 +22,6 @@ export const GET = withTenant(withFeature("reserva_espacios", async () => {
 }));
 
 export const POST = withTenant(withFeature("reserva_espacios", async (req: NextRequest) => {
-  await runMigrations();
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const userRol = (session.user as { rol?: Rol }).rol;

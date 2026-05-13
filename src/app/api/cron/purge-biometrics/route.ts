@@ -17,7 +17,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prismaMaster, prismaApp } from "@/lib/prisma";
 import { runWithTenant } from "@/lib/tenant/context";
-import { runMigrations } from "@/lib/migrate";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +40,6 @@ export async function POST(req: NextRequest) {
       const purged = await runWithTenant(
         { tenantId: t.id, slug: t.slug, status: "active", features: new Map() },
         async () => {
-          await runMigrations();
 
           const cfg = await prismaApp.configuracionEmpresa.findFirst({
             select: { retencionFotosDias: true },

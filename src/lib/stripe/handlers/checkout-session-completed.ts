@@ -32,7 +32,6 @@ import { prismaMaster, prismaApp, invalidateTenantClient } from "@/lib/prisma";
 import { stripe } from "../client";
 import { runWithTenant, type TenantContext } from "@/lib/tenant/context";
 import { provisionTenantSchema } from "@/lib/tenant/provision";
-import { runMigrations } from "@/lib/migrate";
 import {
   persistSubscription,
   recomposeTenantFeatures,
@@ -126,14 +125,6 @@ export async function handleCheckoutCompleted(
     Date.now() + RESET_TOKEN_TTL_HOURS * 60 * 60 * 1000,
   );
   await runWithTenant(ctx, async () => {
-    // Aplicar lazy migrations (ALTER TABLE … IF NOT EXISTS de features
-    // introducidas tras las migraciones formales: empresaId, Conversacion,
-    // WhatsappConfig, Integracion, DeclaracionFlex, etc.). Sin esto el
-    // primer INSERT del OWNER falla con ColumnNotFound porque el cliente
-    // Prisma actual incluye columnas que la última migración formal no
-    // creó. Idempotente; el cache MIGRATED evita reejecuciones.
-    await runMigrations();
-
     // El email puede haber tenido espacios o variaciones; normalizamos.
     const email = tenant.email.trim().toLowerCase();
     const [nombre, ...rest] = (tenant.name ?? email.split("@")[0]).split(" ");

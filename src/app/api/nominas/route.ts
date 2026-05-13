@@ -5,7 +5,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
-import { runMigrations } from "@/lib/migrate";
 
 const createSchema = z.object({
   empleadoId: z.string().min(1),
@@ -16,7 +15,6 @@ const createSchema = z.object({
 });
 
 export const GET = withTenant(withFeature("envio_nominas", async (req: NextRequest) => {
-  await runMigrations();
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const userId = session.user.id!;
@@ -41,7 +39,6 @@ export const GET = withTenant(withFeature("envio_nominas", async (req: NextReque
 }));
 
 export const POST = withTenant(withFeature("envio_nominas", async (req: NextRequest) => {
-  await runMigrations();
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const userId = session.user.id!;

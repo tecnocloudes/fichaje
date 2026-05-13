@@ -5,7 +5,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
-import { runMigrations } from "@/lib/migrate";
 
 const installSchema = z.object({
   slug: z.string().min(1),
@@ -13,7 +12,6 @@ const installSchema = z.object({
 });
 
 export const GET = withTenant(withFeature("marketplace", async () => {
-  await runMigrations();
   const integraciones = await prisma.integracion.findMany({
     orderBy: { nombre: "asc" },
     include: { instalaciones: { select: { id: true, activa: true, configuracion: true, updatedAt: true } } },
@@ -29,7 +27,6 @@ export const GET = withTenant(withFeature("marketplace", async () => {
 }));
 
 export const POST = withTenant(withFeature("marketplace", async (req: NextRequest) => {
-  await runMigrations();
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const userId = session.user.id!;

@@ -5,7 +5,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
-import { runMigrations } from "@/lib/migrate";
 
 const preguntaSchema = z.object({
   idx: z.number().int().min(0),
@@ -20,7 +19,6 @@ const createSchema = z.object({
 });
 
 export const GET = withTenant(withFeature("evaluaciones", async () => {
-  await runMigrations();
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const userId = session.user.id!;
@@ -40,7 +38,6 @@ export const GET = withTenant(withFeature("evaluaciones", async () => {
 }));
 
 export const POST = withTenant(withFeature("evaluaciones", async (req: NextRequest) => {
-  await runMigrations();
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const userRol = (session.user as { rol?: Rol }).rol;

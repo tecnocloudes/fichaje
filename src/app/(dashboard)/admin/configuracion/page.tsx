@@ -30,6 +30,7 @@ interface Configuracion {
   geoObligatoria: boolean;
   faceIdObligatorio: boolean;
   faceIdGuardarFoto: boolean;
+  retencionFotosDias: number;
   fichajeMovilActivo: boolean;
   fichajeTabletActivo: boolean;
   // Notificaciones globales
@@ -138,6 +139,7 @@ export default function ConfiguracionPage() {
     id: "singleton", nombre: "Mi Empresa",
     horasJornadaDiaria: 8, horasSemanales: 40, toleranciaFichaje: 15,
     geofencingActivo: true, geoObligatoria: false, faceIdObligatorio: false, faceIdGuardarFoto: false,
+    retencionFotosDias: 90,
     fichajeMovilActivo: true, fichajeTabletActivo: true,
     notifAusencias: true, notifTurnos: true, notifTareas: true,
     notifFichajes: false, notifComunicados: true,
@@ -190,6 +192,7 @@ export default function ConfiguracionPage() {
           geoObligatoria: config.geoObligatoria,
           faceIdObligatorio: config.faceIdObligatorio,
           faceIdGuardarFoto: config.faceIdGuardarFoto,
+          retencionFotosDias: config.retencionFotosDias,
           fichajeMovilActivo: config.fichajeMovilActivo,
           fichajeTabletActivo: config.fichajeTabletActivo,
         }),
@@ -463,6 +466,28 @@ export default function ConfiguracionPage() {
                 <Toggle label="Geolocalización obligatoria al fichar (rechaza fichaje si el navegador no envía coordenadas)" value={config.geoObligatoria} onChange={(v) => setConfig((c) => c && ({ ...c, geoObligatoria: v }))} />
                 <Toggle label="Face ID obligatorio (empleados con rostro registrado deben verificarlo al fichar)" value={config.faceIdObligatorio} onChange={(v) => setConfig((c) => c && ({ ...c, faceIdObligatorio: v }))} />
                 <Toggle label="Guardar foto al fichar con Face ID (dato biométrico — RGPD art. 9, requiere consentimiento explícito de los empleados)" value={config.faceIdGuardarFoto} onChange={(v) => setConfig((c) => c && ({ ...c, faceIdGuardarFoto: v }))} />
+                {config.faceIdGuardarFoto && (
+                  <div className="ml-6 mt-2 mb-3 p-3 rounded-md bg-amber-50 border border-amber-200">
+                    <Label className="text-sm font-medium">Días de retención de la foto biométrica</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={3650}
+                        className="w-32"
+                        value={config.retencionFotosDias}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value);
+                          setConfig((c) => c && ({ ...c, retencionFotosDias: Number.isNaN(v) ? 90 : v }));
+                        }}
+                      />
+                      <span className="text-sm text-muted-foreground">días (default: 90)</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      RGPD art. 5.1.e (minimización). Tras este periodo, el cron diario purga el snapshot cifrado. Los fichajes se conservan; solo se borra la foto.
+                    </p>
+                  </div>
+                )}
                 <Toggle label="Fichaje desde móvil" value={config.fichajeMovilActivo} onChange={(v) => setConfig((c) => c && ({ ...c, fichajeMovilActivo: v }))} />
                 <Toggle label="Fichaje desde tablet (kiosko)" value={config.fichajeTabletActivo} onChange={(v) => setConfig((c) => c && ({ ...c, fichajeTabletActivo: v }))} />
               </div>

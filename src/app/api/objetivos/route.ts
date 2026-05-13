@@ -17,7 +17,6 @@ import { z } from "zod";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
-import { runMigrations } from "@/lib/migrate";
 
 const ESTADOS = ["activo", "completado", "cancelado"] as const;
 const createSchema = z.object({
@@ -30,7 +29,6 @@ const createSchema = z.object({
 
 export const GET = withTenant(withFeature("objetivos", async () => {
   try {
-    await runMigrations();
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     const userId = session.user.id!;
@@ -59,7 +57,6 @@ export const GET = withTenant(withFeature("objetivos", async () => {
 
 export const POST = withTenant(withFeature("objetivos", async (req: NextRequest) => {
   try {
-    await runMigrations();
     const session = await auth();
     if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     const userId = session.user.id!;
