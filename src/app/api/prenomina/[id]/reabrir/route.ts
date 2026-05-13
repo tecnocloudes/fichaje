@@ -36,6 +36,9 @@ export const POST = withTenant(
         cerradaAt: null,
         cerradaPorId: null,
         enviadaAt: null,
+        enviadaPorId: null,
+        enviadaCanal: null,
+        enviadaDestinatario: null,
       },
     });
 

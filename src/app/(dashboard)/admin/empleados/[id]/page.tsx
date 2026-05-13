@@ -63,6 +63,7 @@ async function FichaEmpleadoPage({
         rol: true,
         activo: true,
         createdAt: true,
+        salarioBase: true,
         tienda: { select: { id: true, nombre: true, color: true, ciudad: true } },
         manager: { select: { id: true, nombre: true, apellidos: true } },
         empresa: { select: { id: true, nombre: true } },
@@ -171,7 +172,9 @@ async function FichaEmpleadoPage({
           ...empleado,
           fechaNacimiento: empleado.fechaNacimiento?.toISOString() ?? null,
           createdAt: empleado.createdAt.toISOString(),
+          salarioBase: empleado.salarioBase != null ? Number(empleado.salarioBase) : null,
         }}
+        viewerRol={rol}
         metricas={{
           horas30d,
           diasTrabajados30d,

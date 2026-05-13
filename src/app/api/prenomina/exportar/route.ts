@@ -1,11 +1,13 @@
 /**
- * GET /api/prenomina/exportar?periodo=YYYY-MM&formato=csv
+ * GET /api/prenomina/exportar?periodo=YYYY-MM&formato=csv|xlsx&gestor=generico|sage|a3
  *
- * Exporta el resumen de prenominas del periodo en CSV (compatible
- * con Sage/A3) o XLSX. Las prenominas en BORRADOR se incluyen pero
- * con flag de estado para que el gestor sepa que no están cerradas.
+ * Exporta el resumen de prenominas del periodo:
+ * - `gestor=generico` (default): una fila por empleado con cifras agregadas.
+ * - `gestor=sage`: layout Sage Despachos (una fila por concepto/movimiento).
+ * - `gestor=a3`: layout A3NOM (una fila por concepto/movimiento).
  *
- * Feature: `prenomina` + (export_csv | export_excel). OWNER/MANAGER.
+ * Las prenominas en BORRADOR se incluyen pero con flag de estado.
+ * Feature: `prenomina`. OWNER/MANAGER.
  */
 
 import { auth } from "@/lib/auth";
@@ -14,6 +16,14 @@ import { Rol } from "@/generated/prisma-tenant/client";
 import { type NextRequest, NextResponse } from "next/server";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
+import {
+  buildExportTable,
+  tableToCsv,
+  type Gestor,
+  type PrenominaParaExport,
+} from "@/lib/prenomina/exporters";
+
+const GESTORES: Gestor[] = ["generico", "sage", "a3"];
 
 export const GET = withTenant(
   withFeature("prenomina", async (req: NextRequest) => {
@@ -26,6 +36,10 @@ export const GET = withTenant(
 
     const periodo = req.nextUrl.searchParams.get("periodo");
     const formato = (req.nextUrl.searchParams.get("formato") ?? "csv").toLowerCase();
+    const gestorParam = (req.nextUrl.searchParams.get("gestor") ?? "generico").toLowerCase();
+    const gestor: Gestor = (GESTORES.includes(gestorParam as Gestor)
+      ? gestorParam
+      : "generico") as Gestor;
     if (!periodo || !/^\d{4}-\d{2}$/.test(periodo)) {
       return NextResponse.json({ error: "periodo requerido (YYYY-MM)" }, { status: 400 });
     }
@@ -51,60 +65,40 @@ export const GET = withTenant(
       );
     }
 
-    const filename = `prenomina_${periodo}.${formato === "csv" ? "csv" : "xlsx"}`;
+    const datos: PrenominaParaExport[] = prenominas.map((p) => ({
+      empleado: p.empleado,
+      periodo: p.periodo,
+      estado: p.estado,
+      diasTrabajados: p.diasTrabajados,
+      horasTrabajadas: Number(p.horasTrabajadas),
+      horasOrdinarias: Number(p.horasOrdinarias),
+      horasExtras: Number(p.horasExtras),
+      horasNocturnas: Number(p.horasNocturnas),
+      horasFestivas: Number(p.horasFestivas),
+      diasAusenciaPagada: p.diasAusenciaPagada,
+      diasAusenciaNoPagada: p.diasAusenciaNoPagada,
+      salarioBase: Number(p.salarioBase),
+      importeHorasExtras: Number(p.importeHorasExtras),
+      importeNocturnidad: Number(p.importeNocturnidad),
+      importeFestivos: Number(p.importeFestivos),
+      importeConceptos: Number(p.importeConceptos),
+      totalBruto: Number(p.totalBruto),
+      moneda: p.moneda,
+      conceptos: p.conceptos.map((c) => ({
+        tipo: c.tipo,
+        descripcion: c.descripcion,
+        cantidad: c.cantidad != null ? Number(c.cantidad) : null,
+        importe: Number(c.importe),
+      })),
+    }));
+
+    const table = buildExportTable(datos, periodo, gestor);
+    const filename = `${table.filename}.${formato}`;
 
     if (formato === "csv") {
-      const headers = [
-        "DNI",
-        "Apellidos",
-        "Nombre",
-        "Email",
-        "Estado",
-        "Días trabajados",
-        "Horas totales",
-        "Horas ordinarias",
-        "Horas extras",
-        "Horas nocturnas",
-        "Horas festivas",
-        "Días ausencia pagada",
-        "Días ausencia no pagada",
-        "Salario base",
-        "Importe horas extras",
-        "Importe nocturnidad",
-        "Importe festivos",
-        "Importe conceptos",
-        "Total bruto",
-        "Moneda",
-      ];
-      const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
-      const lines = [headers.map(escape).join(",")];
-      for (const p of prenominas) {
-        lines.push(
-          [
-            escape(p.empleado.dni ?? ""),
-            escape(p.empleado.apellidos),
-            escape(p.empleado.nombre),
-            escape(p.empleado.email),
-            p.estado,
-            p.diasTrabajados,
-            Number(p.horasTrabajadas),
-            Number(p.horasOrdinarias),
-            Number(p.horasExtras),
-            Number(p.horasNocturnas),
-            Number(p.horasFestivas),
-            p.diasAusenciaPagada,
-            p.diasAusenciaNoPagada,
-            Number(p.salarioBase),
-            Number(p.importeHorasExtras),
-            Number(p.importeNocturnidad),
-            Number(p.importeFestivos),
-            Number(p.importeConceptos),
-            Number(p.totalBruto),
-            p.moneda,
-          ].join(","),
-        );
-      }
-      const csv = "﻿" + lines.join("\r\n") + "\r\n";
+      // Sage/A3 esperan ; como separador en España.
+      const sep = gestor === "generico" ? "," : ";";
+      const csv = tableToCsv(table, sep);
       return new NextResponse(csv, {
         headers: {
           "Content-Type": "text/csv;charset=utf-8",
@@ -113,57 +107,11 @@ export const GET = withTenant(
       });
     }
 
-    // XLSX vía exceljs (mismo paquete que /api/informes/exportar).
     const ExcelJS = (await import("exceljs")).default;
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Prenómina");
-    const cols = [
-      "DNI",
-      "Apellidos",
-      "Nombre",
-      "Email",
-      "Estado",
-      "Días trabajados",
-      "Horas totales",
-      "Horas ordinarias",
-      "Horas extras",
-      "Horas nocturnas",
-      "Horas festivas",
-      "Días aus. pagada",
-      "Días aus. no pagada",
-      "Salario base",
-      "Importe extras",
-      "Importe nocturnidad",
-      "Importe festivos",
-      "Importe conceptos",
-      "Total bruto",
-      "Moneda",
-    ];
-    ws.addRow(cols);
-    for (const p of prenominas) {
-      ws.addRow([
-        p.empleado.dni ?? "",
-        p.empleado.apellidos,
-        p.empleado.nombre,
-        p.empleado.email,
-        p.estado,
-        p.diasTrabajados,
-        Number(p.horasTrabajadas),
-        Number(p.horasOrdinarias),
-        Number(p.horasExtras),
-        Number(p.horasNocturnas),
-        Number(p.horasFestivas),
-        p.diasAusenciaPagada,
-        p.diasAusenciaNoPagada,
-        Number(p.salarioBase),
-        Number(p.importeHorasExtras),
-        Number(p.importeNocturnidad),
-        Number(p.importeFestivos),
-        Number(p.importeConceptos),
-        Number(p.totalBruto),
-        p.moneda,
-      ]);
-    }
+    ws.addRow(table.headers);
+    for (const row of table.rows) ws.addRow(row);
     ws.getRow(1).font = { bold: true };
     const buffer = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
     return new NextResponse(new Uint8Array(buffer), {

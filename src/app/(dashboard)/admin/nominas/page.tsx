@@ -14,6 +14,7 @@ import {
   LockOpen,
   CheckCircle2,
   Pencil,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -113,6 +114,7 @@ function fmtMoney(n: number, moneda: string) {
 export default function PrenominaPage() {
   const { toast } = useToast();
   const [periodo, setPeriodo] = useState(() => new Date().toISOString().slice(0, 7));
+  const [gestor, setGestor] = useState<"generico" | "sage" | "a3">("generico");
   const [rows, setRows] = useState<Prenomina[]>([]);
   const [horasTeoricas, setHorasTeoricas] = useState(0);
   const [diasLab, setDiasLab] = useState(0);
@@ -192,8 +194,69 @@ export default function PrenominaPage() {
     await fetchData();
   };
 
+  const enviar = async (id: string) => {
+    const canal = window.prompt(
+      "Canal de envío (manual / sage / a3 / email)",
+      "manual",
+    );
+    if (!canal) return;
+    const destinatario =
+      canal === "email"
+        ? window.prompt("Email del gestor laboral", "")
+        : window.prompt("Referencia / destinatario (opcional)", "") || null;
+    if (canal === "email" && !destinatario) return;
+    const r = await fetch(`/api/prenomina/${id}/enviar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ canal, destinatario }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      toast({ title: d.error ?? "Error al enviar", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Prenómina marcada como ENVIADA" });
+    await fetchData();
+  };
+
+  const enviarTodas = async () => {
+    const pendientes = rows.filter((r) => r.estado === "CERRADA");
+    if (pendientes.length === 0) {
+      toast({
+        title: "No hay prenominas CERRADAS",
+        description: "Cierra primero las prenominas que quieras enviar.",
+      });
+      return;
+    }
+    const canal = window.prompt(
+      `Marcar ${pendientes.length} prenominas como ENVIADAS. Canal (manual / sage / a3)`,
+      "manual",
+    );
+    if (!canal) return;
+    const destinatario =
+      window.prompt("Referencia / destinatario (opcional)", "") || null;
+    const r = await fetch(
+      `/api/prenomina/enviar?periodo=${periodo}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ canal, destinatario }),
+      },
+    );
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      toast({ title: d.error ?? "Error al enviar", variant: "destructive" });
+      return;
+    }
+    const d = await r.json();
+    toast({ title: `${d.enviadas} prenominas marcadas como ENVIADAS` });
+    await fetchData();
+  };
+
   const exportar = async (formato: "csv" | "xlsx") => {
-    const r = await fetch(`/api/prenomina/exportar?periodo=${periodo}&formato=${formato}`);
+    const r = await fetch(
+      `/api/prenomina/exportar?periodo=${periodo}&formato=${formato}&gestor=${gestor}`,
+    );
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
       toast({ title: d.error ?? "Error al exportar", variant: "destructive" });
@@ -203,7 +266,8 @@ export default function PrenominaPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `prenomina_${periodo}.${formato}`;
+    const sufijo = gestor === "generico" ? "" : `_${gestor}`;
+    a.download = `prenomina_${periodo}${sufijo}.${formato}`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -270,12 +334,33 @@ export default function PrenominaPage() {
             <RefreshCw className="h-4 w-4 mr-1.5" />
             Refrescar
           </Button>
-          <div className="flex gap-2 ml-auto">
+          <div className="flex gap-2 ml-auto flex-wrap items-end">
+            <div>
+              <Label className="text-xs">Layout</Label>
+              <Select value={gestor} onValueChange={(v) => setGestor(v as typeof gestor)}>
+                <SelectTrigger className="w-32 mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="generico">Genérico</SelectItem>
+                  <SelectItem value="sage">Sage</SelectItem>
+                  <SelectItem value="a3">A3NOM</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button variant="outline" onClick={() => exportar("csv")} disabled={rows.length === 0}>
               <Download className="h-4 w-4 mr-1.5" /> CSV
             </Button>
             <Button variant="outline" onClick={() => exportar("xlsx")} disabled={rows.length === 0}>
               <Download className="h-4 w-4 mr-1.5" /> Excel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={enviarTodas}
+              disabled={rows.filter((r) => r.estado === "CERRADA").length === 0}
+              title="Marcar todas las prenominas CERRADAS de este periodo como ENVIADAS al gestor"
+            >
+              <Send className="h-4 w-4 mr-1.5" /> Enviar todas
             </Button>
           </div>
         </CardContent>
@@ -396,7 +481,7 @@ export default function PrenominaPage() {
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        {r.estado === "BORRADOR" ? (
+                        {r.estado === "BORRADOR" && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -406,7 +491,30 @@ export default function PrenominaPage() {
                           >
                             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                           </Button>
-                        ) : (
+                        )}
+                        {r.estado === "CERRADA" && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => enviar(r.id)}
+                              title="Marcar como enviada al gestor"
+                            >
+                              <Send className="h-3.5 w-3.5 text-blue-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => reabrir(r.id)}
+                              title="Reabrir (solo OWNER)"
+                            >
+                              <LockOpen className="h-3.5 w-3.5 text-amber-600" />
+                            </Button>
+                          </>
+                        )}
+                        {r.estado === "ENVIADA" && (
                           <Button
                             variant="ghost"
                             size="icon"

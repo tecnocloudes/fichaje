@@ -21,6 +21,7 @@ import {
   aplicarImportes,
   type ReglasNomina,
 } from "@/lib/prenomina/calculo";
+import { resolveEmpresaScope, userScopeFilter } from "@/lib/multi-empresa/scope";
 
 function assertOwnerOrManager(rol: Rol | undefined) {
   if (rol !== Rol.OWNER && rol !== Rol.MANAGER) {
@@ -70,8 +71,12 @@ export const GET = withTenant(
     }
     const horasTeoricas = diasLab * (cfg?.horasJornadaDiaria ?? 8);
 
+    const scope = await resolveEmpresaScope(session);
     const prenominas = await prisma.prenomina.findMany({
-      where: { periodo: periodo! },
+      where: {
+        periodo: periodo!,
+        ...(scope.empresaId ? { empleado: { empresaId: scope.empresaId } } : {}),
+      },
       include: {
         empleado: { select: { id: true, nombre: true, apellidos: true, email: true, dni: true } },
         conceptos: true,
@@ -171,11 +176,15 @@ export const POST = withTenant(
     const horasTeoricasMes = diasLab * (cfg.horasJornadaDiaria ?? 8);
 
     // Datos crudos.
+    const scope = await resolveEmpresaScope(session);
     const empleados = await prisma.user.findMany({
-      where: { activo: true },
-      select: { id: true },
+      where: { activo: true, ...userScopeFilter(scope) },
+      select: { id: true, salarioBase: true },
     });
     const empleadosIds = empleados.map((e) => e.id);
+    const salarioPorEmpleado = new Map(
+      empleados.map((e) => [e.id, e.salarioBase != null ? Number(e.salarioBase) : null] as const),
+    );
 
     const fichajes = await prisma.fichaje.findMany({
       where: { timestamp: { gte: p.inicio, lte: p.fin } },
@@ -229,7 +238,7 @@ export const POST = withTenant(
     let saltadas = 0;
 
     for (const [uid, calc] of calculos) {
-      const salarioBase = reglas.salarioBaseDefault;
+      const salarioBase = salarioPorEmpleado.get(uid) ?? reglas.salarioBaseDefault;
       aplicarImportes(calc, salarioBase, horasTeoricasMes, reglas);
 
       // Buscar prenómina existente.

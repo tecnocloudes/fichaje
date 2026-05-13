@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -16,6 +17,9 @@ import {
   Smartphone,
   Tablet,
   ScanFace,
+  Euro,
+  Save,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,7 +50,9 @@ interface Props {
     tienda: { id: string; nombre: string; color: string; ciudad: string } | null;
     manager: { id: string; nombre: string; apellidos: string } | null;
     empresa: { id: string; nombre: string } | null;
+    salarioBase: number | null;
   };
+  viewerRol?: Rol;
   metricas: {
     horas30d: number;
     diasTrabajados30d: number;
@@ -116,9 +122,46 @@ export function FichaEmpleadoTabs({
   fichajes,
   ausencias,
   turnos,
+  viewerRol,
 }: Props) {
   const nombreCompleto = `${empleado.nombre} ${empleado.apellidos}`;
   const altaDate = new Date(empleado.createdAt);
+  const puedeEditarSalario = viewerRol === "OWNER";
+  const [salarioInput, setSalarioInput] = useState<string>(
+    empleado.salarioBase != null ? String(empleado.salarioBase) : "",
+  );
+  const [salarioActual, setSalarioActual] = useState<number | null>(
+    empleado.salarioBase,
+  );
+  const [savingSalario, setSavingSalario] = useState(false);
+  const [salarioMsg, setSalarioMsg] = useState<string | null>(null);
+
+  const guardarSalario = async () => {
+    setSavingSalario(true);
+    setSalarioMsg(null);
+    const trimmed = salarioInput.trim();
+    const salarioBase = trimmed === "" ? null : Number(trimmed);
+    if (salarioBase !== null && (Number.isNaN(salarioBase) || salarioBase < 0)) {
+      setSalarioMsg("Importe inválido");
+      setSavingSalario(false);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/empleados/${empleado.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ salarioBase }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setSalarioActual(salarioBase);
+      setSalarioMsg("Guardado");
+      setTimeout(() => setSalarioMsg(null), 2000);
+    } catch {
+      setSalarioMsg("Error al guardar");
+    } finally {
+      setSavingSalario(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -209,6 +252,68 @@ export function FichaEmpleadoTabs({
           </div>
         </CardContent>
       </Card>
+
+      {/* ─── Datos laborales ──────────────────────────────────────────── */}
+      {(puedeEditarSalario || salarioActual != null) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Euro className="h-4 w-4 text-[var(--primary)]" />
+              Datos laborales
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end gap-3 flex-wrap">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Salario base mensual (€)
+                </label>
+                {puedeEditarSalario ? (
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    placeholder="(usa default empresa)"
+                    value={salarioInput}
+                    onChange={(e) => setSalarioInput(e.target.value)}
+                    className="w-40 rounded-md border border-slate-200 px-2 py-1.5 text-sm"
+                    disabled={savingSalario}
+                  />
+                ) : (
+                  <span className="text-sm text-slate-900">
+                    {salarioActual != null
+                      ? salarioActual.toLocaleString("es-ES", {
+                          style: "currency",
+                          currency: "EUR",
+                        })
+                      : "(no definido)"}
+                  </span>
+                )}
+              </div>
+              {puedeEditarSalario && (
+                <button
+                  onClick={guardarSalario}
+                  disabled={savingSalario}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-[var(--primary)] text-white px-3 py-1.5 text-sm hover:opacity-90 disabled:opacity-50"
+                >
+                  {savingSalario ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5" />
+                  )}
+                  Guardar
+                </button>
+              )}
+              {salarioMsg && (
+                <span className="text-xs text-slate-500">{salarioMsg}</span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Vacío = usar el salario base por defecto de la empresa (Configuración → Nómina).
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ─── Métricas ───────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

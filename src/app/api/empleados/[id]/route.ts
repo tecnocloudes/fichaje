@@ -17,6 +17,7 @@ const userSelect = {
   tiendaId: true,
   tienda: { select: { id: true, nombre: true } },
   activo: true,
+  salarioBase: true,
   password: true,
   resetToken: true,
   createdAt: true,
@@ -103,6 +104,7 @@ export const PUT = withTenant(async (request: NextRequest,
       tiendaId,
       managerId,
       activo,
+      salarioBase,
     } = body as {
       email?: string;
       password?: string;
@@ -115,6 +117,7 @@ export const PUT = withTenant(async (request: NextRequest,
       tiendaId?: string;
       managerId?: string | null;
       activo?: boolean;
+      salarioBase?: number | null;
     };
 
     // Non-admins cannot change their own role or tienda
@@ -156,6 +159,18 @@ export const PUT = withTenant(async (request: NextRequest,
       updateData.managerId = managerId;
     }
     if (activo !== undefined && userRol === Rol.OWNER) updateData.activo = activo;
+    if (salarioBase !== undefined && userRol === Rol.OWNER) {
+      if (salarioBase === null) {
+        updateData.salarioBase = null;
+      } else if (typeof salarioBase === "number" && salarioBase >= 0 && salarioBase <= 1_000_000) {
+        updateData.salarioBase = salarioBase;
+      } else {
+        return Response.json(
+          { error: "salarioBase_invalid", reason: "número entre 0 y 1.000.000 €" },
+          { status: 400 },
+        );
+      }
+    }
 
     if (password) {
       updateData.password = await bcrypt.hash(password, 12);

@@ -180,6 +180,10 @@ model User {
   // Prenómina: snapshots mensuales del empleado + cierres realizados.
   prenominas               Prenomina[]               @relation("PrenominaEmpleado")
   prenominasCerradas       Prenomina[]               @relation("PrenominaCerrador")
+  prenominasEnviadas       Prenomina[]               @relation("PrenominaEnviador")
+  // Salario base mensual del empleado. Si null, se usa
+  // `ConfiguracionEmpresa.nominaSalarioBaseDefault` al calcular prenómina.
+  salarioBase              Decimal?                  @db.Decimal(10, 2) @map("salario_base")
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
 
@@ -1226,6 +1230,10 @@ model Prenomina {
   cerradaPorId         String?
   cerradaPor           User?                 @relation("PrenominaCerrador", fields: [cerradaPorId], references: [id], onDelete: SetNull)
   enviadaAt            DateTime?
+  enviadaPorId         String?
+  enviadaPor           User?                 @relation("PrenominaEnviador", fields: [enviadaPorId], references: [id], onDelete: SetNull)
+  enviadaCanal         String?               // "email", "manual", "sage", "a3"
+  enviadaDestinatario  String?               // email del gestor laboral
   conceptos            PrenominaConcepto[]
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
