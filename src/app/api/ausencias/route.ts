@@ -6,6 +6,7 @@ import type { NextRequest } from "next/server";
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { withFeature } from "@/lib/feature-guard/with-feature";
 import { notifyAusenciaCreada } from "@/lib/ausencias/notify";
+import { resolveEmpresaScope } from "@/lib/multi-empresa/scope";
 function calcularDias(fechaInicio: Date, fechaFin: Date): number {
   const msPerDay = 1000 * 60 * 60 * 24;
   const diff = fechaFin.getTime() - fechaInicio.getTime();
@@ -45,6 +46,12 @@ export const GET = withTenant(withFeature("ausencias_aprobacion", async (request
 
     if (estado && Object.values(EstadoAusencia).includes(estado)) {
       where.estado = estado;
+    }
+
+    // Aislamiento multi_empresa.
+    const empresaScope = await resolveEmpresaScope(session);
+    if (empresaScope.empresaId) {
+      where.user = { ...(where.user ?? {}), empresaId: empresaScope.empresaId };
     }
 
     const ausencias = await prisma.ausencia.findMany({

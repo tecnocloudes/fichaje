@@ -79,18 +79,23 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!activeId) return;
-    const t = setInterval(async () => {
-      const since = lastSince.current ? `?since=${encodeURIComponent(lastSince.current)}` : "";
-      const r = await fetch(`/api/chat/conversaciones/${activeId}/mensajes${since}`);
-      if (!r.ok) return;
-      const d = await r.json();
-      if (d.mensajes?.length > 0) {
-        setMensajes((prev) => [...prev, ...d.mensajes]);
-        lastSince.current = d.mensajes[d.mensajes.length - 1].createdAt;
+    const since = lastSince.current ? `?since=${encodeURIComponent(lastSince.current)}` : "";
+    const es = new EventSource(`/api/chat/conversaciones/${activeId}/stream${since}`);
+    es.addEventListener("message", (e) => {
+      try {
+        const m: Mensaje = JSON.parse((e as MessageEvent).data);
+        setMensajes((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+        lastSince.current = m.createdAt;
         setTimeout(() => scrollerRef.current?.scrollTo({ top: 9e9, behavior: "smooth" }), 50);
+      } catch {
+        /* ignore */
       }
-    }, 4000);
-    return () => clearInterval(t);
+    });
+    es.onerror = () => {
+      // El navegador reintenta automáticamente; si la sesión expiró
+      // el cierre limpio lo hace este effect al desmontar.
+    };
+    return () => es.close();
   }, [activeId]);
 
   const handleSend = async () => {

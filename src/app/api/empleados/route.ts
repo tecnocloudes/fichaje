@@ -11,6 +11,7 @@ import { currentTenant } from "@/lib/tenant/context";
 import { getLimit } from "@/lib/tenant/features";
 import { HttpError, wrapHttpErrors } from "@/lib/feature-guard/http-error";
 import { buildSetPasswordUrl } from "@/lib/tenant/urls";
+import { resolveEmpresaScope } from "@/lib/multi-empresa/scope";
 export const GET = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
@@ -46,6 +47,10 @@ export const GET = withTenant(async (request: NextRequest) => {
     if (activo !== null) {
       where.activo = activo === "true";
     }
+
+    // Aislamiento multi_empresa.
+    const scope = await resolveEmpresaScope(session);
+    if (scope.empresaId) where.empresaId = scope.empresaId;
 
     const empleados = await prisma.user.findMany({
       where,

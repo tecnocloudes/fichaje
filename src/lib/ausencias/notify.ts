@@ -18,6 +18,7 @@ import {
   ausenciaCreadaTemplate,
   ausenciaResueltaTemplate,
 } from "@/lib/email-templates";
+import { notifySlackIfInstalled } from "@/lib/marketplace/slack";
 
 interface AusenciaCtx {
   id: string;
@@ -113,6 +114,16 @@ export async function notifyAusenciaCreada(a: AusenciaCtx): Promise<void> {
           ),
         ),
     );
+
+    // Marketplace: si Slack está instalado, manda también un ping al canal.
+    const fechaIni = new Intl.DateTimeFormat("es-ES").format(a.fechaInicio);
+    const fechaFin = new Intl.DateTimeFormat("es-ES").format(a.fechaFin);
+    const slackText =
+      `:palm_tree: *Nueva solicitud de ausencia* — ${empleadoNombre}\n` +
+      `> Tipo: ${a.tipoAusencia.nombre}\n` +
+      `> Fechas: ${fechaIni} → ${fechaFin} (${a.dias} días)` +
+      (a.motivo ? `\n> Motivo: ${a.motivo}` : "");
+    await notifySlackIfInstalled(slackText);
   } catch (err) {
     console.error("[notifyAusenciaCreada]", err);
   }

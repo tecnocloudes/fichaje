@@ -5,11 +5,11 @@ import type { NextRequest } from "next/server";
 
 import { withTenant } from "@/lib/tenant/with-tenant";
 import { getLimit, hasFeature } from "@/lib/tenant/features";
-import { runMigrations } from "@/lib/migrate";
 import { detectDeviceTypeFromUA } from "@/lib/device-ua";
 import { encrypt } from "@/lib/crypto/aes-gcm";
 import { consumeFaceToken } from "@/lib/face/token";
 import { currentTenant } from "@/lib/tenant/context";
+import { resolveEmpresaScope, fichajeScopeFilter } from "@/lib/multi-empresa/scope";
 export const GET = withTenant(async (request: NextRequest) => {
   try {
     const session = await auth();
@@ -58,6 +58,10 @@ export const GET = withTenant(async (request: NextRequest) => {
       }
     }
 
+    // Aislamiento multi_empresa.
+    const empresaScope = await resolveEmpresaScope(session);
+    Object.assign(where, fichajeScopeFilter(empresaScope));
+
     const fichajes = await prisma.fichaje.findMany({
       where,
       include: {
@@ -88,7 +92,6 @@ export const GET = withTenant(async (request: NextRequest) => {
 
 export const POST = withTenant(async (request: NextRequest) => {
   try {
-    await runMigrations();
 
     const session = await auth();
     if (!session?.user) {
