@@ -1,4 +1,4 @@
-# Handoff — estado del proyecto a 2026-05-10 (post-auditoría)
+# Handoff — estado del proyecto a 2026-05-13 (sesión maratón 12-may)
 
 Documento para retomar el trabajo desde otra cuenta de Claude (o
 máquina). Resume lo que hay en marcha, decisiones recientes y
@@ -46,12 +46,74 @@ Producción ya corre desde esta rama vía Dokploy.
   cliente `prismaMaster`/`prismaRuntime`) y `prisma/schema-tenant.prisma`
   (producto `tenant_<slug>.*`, cliente `prismaApp` — Proxy multiplexado
   por tenant via `runWithTenant`).
-- Tenants activos en prod: `tecnocloud`, `ucm`.
-- Usuario de prueba: `info@tecnocloud.es / K@l@YL=k32o26*` (lo dio el
-  propietario para debugging).
+- Tenants activos en prod: **0** (wipe completo 12-may, ver §4.bis).
+  La BD está limpia, lista para primer cliente real.
+- Solo queda `tenant_template` (plantilla limpia para clonar).
 - Ver `AGENTS.md` — incluye reglas críticas (handlers usan
   `withTenant`, pages usan `withTenantPage`, no `fetch` interno entre
   rutas, etc.).
+
+## 4.bis. Lo último que hicimos (sesión maratón 2026-05-12)
+
+Sesión muy larga con 7 entregas + 1 incidente resuelto. Commits en
+`feature/saas-migration` (más reciente arriba):
+
+- `a25bc3e` **feat(prenomina): persistida con estados, conceptos y reglas**.
+  Convierte la prenómina de agregación on-the-fly a snapshot
+  Enterprise-ready. Migración formal `20260512190000_prenomina_persistida`
+  con tablas `Prenomina` + `PrenominaConcepto`, 10 columnas de reglas en
+  `ConfiguracionEmpresa`. Workflow BORRADOR → CERRADA → ENVIADA. UI
+  `/admin/nominas` reescrita con métricas, modal detalle y conceptos
+  editables. Tab "Nómina" añadido en `/admin/configuracion`. Ver §7.qua.
+- `923da61` docs(handoff): consolidación de lazy migrations a formales.
+- `b940025` **refactor(migrate): consolidar lazy migrations a formales**.
+  `src/lib/migrate.ts` queda como no-op. Toda la lógica de Sprint 3 en
+  migración formal `20260512170000_sprint3_lazy_to_formal`. Ver §7.ter.
+- `d2d1759` fix(provisioning): ejecutar runMigrations en aprovisionamiento.
+  Fix temporal del incidente `mobileshop` (12-may): el provisioning del
+  webhook creaba el OWNER user antes de las lazy migrations → ColumnNotFound
+  en `empresaId`. Solución temporal: llamar `runMigrations()` dentro de
+  `runWithTenant` del checkout. Fix permanente: `b940025`. Ver memoria
+  `feedback_provisioning_lazy_migrations`.
+- `be65dea` **feat(auth): flujo de recuperar contraseña en /recuperar-password**.
+  Nueva página pública + endpoint con respuesta uniforme contra user
+  enumeration. Email descartado silenciosamente si SMTP del tenant no
+  configurado. Enlace en TenantLoginForm.
+- `3f52705` docs(handoff): cutover wildcard *.empleaia.es via IONOS DNS-01.
+- `0b46abf` **feat(empleados): ficha 360º del empleado en /admin/empleados/[id]**.
+  Server component con `withTenantPage` + componente cliente con tabs
+  (Fichajes 30d / Ausencias 12m / Próximos turnos). Cabecera con datos
+  personales + sede + manager + empresa. 4 métricas. Acceso OWNER/MANAGER.
+- `8f11ab9` *(de sesión previa: docs handoff)*.
+
+### Operativa "no-código" del 12-may
+
+1. **Cutover wildcard `*.empleaia.es`** desplegado en Traefik (ver §7.bis).
+   API Key IONOS en `/etc/dokploy/ionos.env` (modo 600). Cualquier tenant
+   nuevo responde con cert válido **sin tocar Dokploy**.
+2. **Rotación API Key IONOS** completada (la 1ª clave quedó en chat por
+   error; revocada en IONOS y reemplazada en VPS).
+3. **Wipe completo de datos de prueba** (BD + Stripe + Dokploy):
+   - DROP SCHEMA tenant_ucm, tenant_tecnocloud + DELETE master.tenants/
+     tenant_features/subscriptions/quota_usage
+   - Backup pg_dump en `/etc/dokploy/backups/wipe-20260512-164753.sql.gz`
+   - Stripe: canceladas 8 subs huérfanas (test mode). 0 active, 0 trialing
+   - Dokploy: borrados 4 Domains (tecnocloud, ucm, manolo, dev). Quedan
+     solo `app`, `admin`, `empleaia.es`, `www.empleaia.es`
+4. **Incidente `mobileshop`**: alta nueva post-wipe se atascó en
+   provisioning con ColumnNotFound. Resuelto en caliente con SQL manual
+   (rescate en commit `d2d1759`). Solución estructural en `b940025`.
+
+### Estado al cerrar 2026-05-12 (madrugada)
+
+- ✅ Wildcard operativo: cualquier `<slug>.empleaia.es` funciona al
+  instante en cuanto el tenant existe en `master.tenants`.
+- ✅ Provisioning robusto: nuevas altas via /registro deberían completar
+  end-to-end sin atascos. **Pendiente verificar E2E real** con un alta
+  fresca (no se llegó a probar tras el commit `b940025` final).
+- ✅ Prenómina Enterprise-ready desplegada (commit `a25bc3e` deployando
+  al cerrar la sesión).
+- ⚠️ BD limpia, 0 tenants, listo para primer cliente real.
 
 ## 4. Lo último que hicimos (sesión 2026-05-08 → 2026-05-10)
 
@@ -345,7 +407,52 @@ el handler real, no solo el toggle local en `ConfiguracionEmpresa`.
   art. 5.1.e (minimización). No tiene UI todavía; se cambia con un
   UPDATE manual a `ConfiguracionEmpresa` por tenant si hace falta.
 
-## 7. Pendiente (en el momento del handoff)
+## 7.0. Pendiente al cerrar 12-may (próxima sesión empieza por aquí)
+
+🔴 **Verificación E2E real del provisioning**:
+- Hacer alta de un tenant nuevo (cualquier slug, p. ej. `mobileshop`)
+  por `app.empleaia.es/registro` para confirmar que tras commit
+  `b940025` + `a25bc3e` el flujo va end-to-end sin atascos.
+- Si OK: marcar definitivamente cerrado el incidente del 12-may.
+- Si NO: investigar logs `docker logs empleaia-empleaiaapp` con
+  `grep -iE 'webhook|provision|tenant|error'`.
+
+🟡 **Stripe a modo LIVE** (necesario antes de cobrar a cliente real):
+- Hoy `sk_test_*`. Pasar a `sk_live_*`. Pasos: crear productos/precios
+  en cuenta LIVE de Stripe, configurar webhook en LIVE apuntando a
+  `https://app.empleaia.es/api/webhooks/stripe`, actualizar env vars
+  `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` en Dokploy →
+  `empleaia-app` → Environment.
+- ⚠️ Verificar IDs de price en `src/lib/stripe/price-catalog.ts` o
+  donde corresponda.
+
+🟢 **Mejoras de prenómina** (no urgentes, ver §7.qua):
+- Salario base por empleado (columna `User.salarioBase` o tabla).
+- Endpoint "marcar enviada al gestor" + tracking del envío.
+- Personalización del CSV/XLSX para Sage vs A3 vs otros.
+
+🟢 **Features MVP por pulir** (cada una mejora UX Enterprise, no
+bloquean lanzamiento Starter/Pro):
+- `chat` polling 4s → websockets/SSE (~1 día)
+- `whatsapp_bot` worker real contra WhatsApp Cloud API (~1-2 días +
+  coste por mensaje)
+- `multi_empresa` aislamiento real por CIF (~3-5 días)
+- `marketplace` sync real por integración (XL, 1-2 sem por proveedor)
+- `retribucion_flex` integración Cobee/Pluxee (~1 sem por proveedor)
+
+🔵 **Deferred**:
+- `sso_saml` Fase 9 (esperando primer Enterprise que lo pida).
+
+🟣 **Tech debt menor**:
+- Eliminar los ~11 `import { runMigrations }` y sus llamadas (ahora
+  no-op tras `b940025`). Cosmética, sin riesgo.
+- UI `retencionFotosDias` en Configuración → General (~1h, compliance
+  RGPD: hoy el OWNER no puede cambiar la retención).
+- Dashboard super-admin más completo en `admin.empleaia.es`.
+- Migrar `rate-limit.ts` y face token nonces a Redis si se escala >1
+  réplica en Dokploy.
+
+## 7. Pendiente (en el momento del handoff anterior)
 
 ### Operativa post-auditoría (estado final)
 - ✅ **`CRON_SECRET` configurado en Dokploy** (env var de
@@ -428,6 +535,57 @@ el handler real, no solo el toggle local en `ConfiguracionEmpresa`.
 - Migrar `rate-limit.ts` y face token nonces a Redis si se escala
   horizontalmente (hoy single-replica en Dokploy → in-memory basta).
 - UI para `retencionFotosDias` en Configuración → General.
+
+## 7.qua. Prenómina Enterprise-ready (2026-05-12, commit a25bc3e)
+
+Migración formal `20260512190000_prenomina_persistida` + UI + endpoints
+convierten la feature `prenomina` de agregación on-the-fly a snapshot
+persistido con workflow.
+
+**Modelos nuevos** (`prisma/schema-tenant.prisma`):
+- `Prenomina` (periodo × empleado): cifras calculadas (horas
+  trabajadas/ordinarias/extras/nocturnas/festivas, días trabajados,
+  días ausencia pagada/no pagada), desglose económico (salario base,
+  importes de extras/nocturnidad/festivos/conceptos, total bruto),
+  estado `EstadoPrenomina` (BORRADOR → CERRADA → ENVIADA), cerradaPorId.
+- `PrenominaConcepto`: dieta, kilometraje, comisión, plus, bonus,
+  deducción, otro. Editables sólo en BORRADOR.
+- 10 columnas en `ConfiguracionEmpresa` con reglas: `nominaJornadaSemanal`,
+  `nominaHoraExtraFactor`, `nominaPlusNocturnidadActivo` +
+  `nominaNocturnidadDesde/Hasta`/`Factor`, `nominaPlusFestivoActivo` +
+  `Factor`, `nominaSalarioBaseDefault`, `nominaMoneda`.
+
+**Backend**:
+- `src/lib/prenomina/calculo.ts` — función pura `calcularPrenomina` que
+  hace el pareo de fichajes (ENTRADA/PAUSA/VUELTA_PAUSA/SALIDA) y
+  desglosa horas. `aplicarImportes` aplica los multiplicadores con el
+  salario base del empleado.
+- `POST /api/prenomina?periodo=YYYY-MM` — recalcula y upserta solo las
+  prenominas en BORRADOR (respeta CERRADAS/ENVIADAS).
+- `GET /api/prenomina?periodo=` — lista persistida con conceptos.
+- `POST /api/prenomina/[id]/cerrar` (OWNER/MANAGER) / `/reabrir` (OWNER).
+- `POST/DELETE /api/prenomina/[id]/conceptos` con recálculo automático
+  de `importeConceptos` y `totalBruto`.
+- `GET /api/prenomina/exportar?formato=csv|xlsx` (exceljs reutilizado).
+
+**UI**:
+- `/admin/nominas` reescrita: 4 métricas en cabecera (empleados, días
+  laborables, cerradas, total bruto) + tabla con estado por fila +
+  modal detalle con grid de cifras, desglose económico y CRUD de
+  conceptos manuales.
+- Tab "Nómina" en `/admin/configuracion` con las reglas de cálculo.
+
+**Limitaciones conocidas**:
+- Festivos: el cálculo de horas festivas usa el modelo `Festivo` del
+  tenant si existe. Si no hay festivos cargados, las horas festivas
+  son 0 (no rompe). El import masivo de festivos se hace por la pestaña
+  Calendario en Configuración.
+- Salario base por empleado: hoy se aplica el `nominaSalarioBaseDefault`
+  a TODOS. Falta columna `User.salarioBase` o tabla `SalarioEmpleado`
+  para personalizar. No bloquea el MVP Enterprise.
+- Estado ENVIADA: existe el enum y `enviadaAt` pero falta endpoint
+  "marcar como enviada al gestor laboral" + tracking. Hoy se queda en
+  CERRADA tras cerrar.
 
 ## 7.ter. Consolidación de lazy migrations a formales (2026-05-12)
 
