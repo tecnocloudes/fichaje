@@ -74,40 +74,40 @@
 :root {
   --radius: 0.5rem;
 
-  /* Primary — índigo vibrante empleaIA */
-  --primary: #5b5fe9;
-  --primary-dark: #4a4ecc;
-  --primary-light: #eef0fe;
-  --primary-lighter: #7b7ff0;
+  /* Primary — Royal Blue empleaIA (alineado con brand-tokens.md) */
+  --primary: #2563eb;
+  --primary-dark: #1e40af;
+  --primary-light: #dbe1ff;
+  --primary-lighter: #3b82f6;
   --primary-foreground: #ffffff;
 
   /* Texto */
-  --text-dark: #0f172a;
-  --text-body: #475569;
-  --text-muted: #94a3b8;
+  --text-dark: #191c1e;
+  --text-body: #434655;
+  --text-muted: #737686;
 
-  /* Backgrounds */
+  /* Backgrounds (app sobria, sin washes) */
   --background: #ffffff;
-  --foreground: #0f172a;
-  --bg-subtle: #f8fafc;
+  --foreground: #191c1e;
+  --bg-subtle: #f7f9fb;
 
   /* shadcn aliases */
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #191c1e;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --popover-foreground: #191c1e;
   --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f8fafc;
-  --muted-foreground: #475569;
-  --accent: #eef0fe;
-  --accent-foreground: #5b5fe9;
-  --destructive: #ef4444;
+  --secondary-foreground: #191c1e;
+  --muted: #f7f9fb;
+  --muted-foreground: #434655;
+  --accent: #dbe1ff;
+  --accent-foreground: #2563eb;
+  --destructive: #ba1a1a;
   --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --input: #cbd5e1;
-  --ring: #5b5fe9;
+  --border: #e0e3e5;
+  --border-strong: #c3c6d7;
+  --input: #c3c6d7;
+  --ring: #2563eb;
 
   /* Estados semánticos */
   --success: #10b981;
@@ -118,22 +118,46 @@
   --warning-bg: #fffbeb;
   --warning-text: #92400e;
 
-  --danger: #ef4444;
+  --danger: #ba1a1a;
   --danger-bg: #fef2f2;
   --danger-text: #991b1b;
 
-  --neutral: #94a3b8;
+  --neutral: #737686;
   --neutral-bg: #f1f5f9;
-  --neutral-text: #475569;
+  --neutral-text: #434655;
 
   /* Sidebar (claro empleaIA) — overridable en runtime */
   --sidebar-bg: #ffffff;
-  --sidebar-active-bg: #eef0fe;
-  --sidebar-active-text: #5b5fe9;
-  --sidebar-active-border: #5b5fe9;
-  --sidebar-text: #475569;
-  --sidebar-text-muted: #94a3b8;
-  --sidebar-hover-bg: #f8fafc;
+  --sidebar-active-bg: #dbe1ff;
+  --sidebar-active-text: #2563eb;
+  --sidebar-active-border: #2563eb;
+  --sidebar-text: #434655;
+  --sidebar-text-muted: #737686;
+  --sidebar-hover-bg: #f7f9fb;
+
+  /* Soft 3D shadows del Stitch — versión moderada (app de 8h: visible
+     pero no llamativa). Los componentes interactivos las usan en hover. */
+  --shadow-soft-sm:
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  --shadow-soft:
+    0 2px 4px rgba(15, 23, 42, 0.06),
+    0 6px 16px -4px rgba(15, 23, 42, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.7) inset;
+  --shadow-soft-lg:
+    0 4px 8px rgba(15, 23, 42, 0.08),
+    0 16px 32px -8px rgba(15, 23, 42, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  --shadow-primary-glow:
+    0 2px 8px -1px rgba(37, 99, 235, 0.35),
+    0 8px 20px -6px rgba(37, 99, 235, 0.25);
+  --shadow-focus-ring:
+    0 0 0 3px rgba(37, 99, 235, 0.20);
+
+  /* Easings (alineados con landing) */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-micro: 150ms;
+  --dur-fn: 200ms;
 }
 
 *,
@@ -165,11 +189,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #c3c6d7;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #737686;
 }
 
 /* Animations */

@@ -84,7 +84,7 @@ interface TipoAusencia {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const COLORES = ["#5B5FE9", "#ef4444", "#f59e0b", "#10b981", "#ec4899", "#06b6d4", "#8b5cf6", "#f97316", "#84cc16", "#6b7280"];
+const COLORES = ["#2563EB", "#ef4444", "#f59e0b", "#10b981", "#ec4899", "#06b6d4", "#8b5cf6", "#f97316", "#84cc16", "#6b7280"];
 
 const EVENTOS_NOTIF = [
   { key: "Ausencias", label: "Ausencias", desc: "Solicitudes y cambios de estado de ausencias" },
@@ -131,7 +131,7 @@ export default function ConfiguracionPage() {
   const [generatingVapid, setGeneratingVapid] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
   const [tipoForm, setTipoForm] = useState({
-    nombre: "", color: "#5B5FE9", pagada: true,
+    nombre: "", color: "#2563EB", pagada: true,
     requiereAprobacion: true, diasMaximos: "",
   });
 
@@ -147,7 +147,7 @@ export default function ConfiguracionPage() {
     emailUser: "", emailPassword: "", emailFrom: "",
     pushActivo: false, pushVapidPublicKey: null,
     appNombre: "empleaIA", logo: null, favicon: null,
-    colorPrimario: "#5B5FE9", colorSidebar: "#1e1b4b",
+    colorPrimario: "#2563EB", colorSidebar: "#0F172A",
     zonaHoraria: "Europe/Madrid", diasLaborables: [1, 2, 3, 4, 5],
     nominaJornadaSemanal: 40,
     nominaHoraExtraFactor: 1.75,

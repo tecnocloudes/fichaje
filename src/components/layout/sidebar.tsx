@@ -373,7 +373,7 @@ export function Sidebar({
         )}
       >
         {/* Header */}
-        <div className="flex h-14 items-center justify-between px-3 border-b border-slate-200 shrink-0">
+        <div className="flex h-16 items-center justify-between px-3 border-b border-slate-200 shrink-0">
           {!collapsed && (
             <div className="flex items-center overflow-hidden">
               {branding?.logo ? (
@@ -384,7 +384,7 @@ export function Sidebar({
                   className="h-9 max-w-[180px] object-contain"
                 />
               ) : (
-                <EmpleaIALogo appNombre={branding?.appNombre} symbolSize={32} wordmarkFontSize={20} />
+                <EmpleaIALogo appNombre={branding?.appNombre} symbolSize={52} />
               )}
             </div>
           )}
@@ -394,7 +394,7 @@ export function Sidebar({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={branding.logo} alt="" className="h-9 w-9 object-contain rounded-lg" />
               ) : (
-                <EmpleaIASymbol size={32} />
+                <EmpleaIALogo appNombre={branding?.appNombre} symbolSize={40} />
               )}
             </div>
           )}

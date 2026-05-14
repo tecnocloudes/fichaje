@@ -2,25 +2,28 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-// Variants alineadas 1:1 con la landing (.btn-primary, .btn-secondary,
-// .btn-ghost): rounded-lg, font-semibold, padding 5x3 (=20px x 12px),
-// hover primary-dark / bg-subtle. La landing usa shadow-sm en primary.
+// Variants alineadas con el lenguaje Stitch de la landing (.btn-primary,
+// .btn-secondary, .btn-ghost). Versión MODERADA para app de 8h:
+//   - default: gradient Royal Blue→Navy + soft 3D shadow + glow primary
+//     en hover (lift 1px). Sin scale agresivo.
+//   - outline: glassmorphism sutil con border primary.
+//   - resto: planos.
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        // .btn-primary
+        // .btn-primary — gradient + soft 3D (versión app, sin lift agresivo)
         default:
-          "bg-[var(--primary)] text-white shadow-sm hover:bg-[var(--primary-dark)] active:bg-[var(--primary-dark)]",
+          "text-white bg-gradient-to-b from-[var(--primary-lighter)] via-[var(--primary)] to-[var(--primary-dark)] shadow-[var(--shadow-primary-glow)] hover:-translate-y-[1px] hover:shadow-[var(--shadow-primary-glow),0_12px_24px_-8px_rgba(37,99,235,0.4)] active:translate-y-0",
         destructive:
-          "bg-red-500 text-white shadow-sm hover:bg-red-600 active:bg-red-700",
-        // .btn-secondary
+          "text-white bg-gradient-to-b from-red-500 to-red-700 shadow-sm hover:shadow-md active:translate-y-0",
+        // .btn-secondary — glass sutil
         outline:
-          "border border-[var(--color-border,#E2E8F0)] bg-white text-[var(--color-text-dark,#0F172A)] hover:bg-[var(--bg-subtle,#F8FAFC)]",
+          "border border-[var(--primary)]/30 bg-white/80 text-[var(--primary-dark)] backdrop-blur-sm shadow-[var(--shadow-soft-sm)] hover:border-[var(--primary)] hover:bg-white hover:shadow-[var(--shadow-soft)]",
         secondary:
           "bg-[var(--bg-subtle,#F8FAFC)] text-[var(--color-text-dark,#0F172A)] hover:bg-slate-100",
-        // .btn-ghost
+        // .btn-ghost — plano
         ghost:
           "font-medium text-[var(--color-text-dark,#0F172A)] hover:bg-[var(--bg-subtle,#F8FAFC)]",
         "ghost-primary":

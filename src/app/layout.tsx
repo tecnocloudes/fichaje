@@ -32,7 +32,7 @@ const inter = Inter({
 
 const DEFAULT_BRANDING = {
   appNombre: "empleaIA",
-  colorPrimario: "#5B5FE9",
+  colorPrimario: "#2563EB",
   favicon: null as string | null,
 };
 

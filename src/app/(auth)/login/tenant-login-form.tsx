@@ -55,7 +55,7 @@ export function TenantLoginForm({ action, initialEmail = "" }: Props) {
             required
             defaultValue={initialEmail}
             placeholder="usuario@empresa.com"
-            className="flex h-10 w-full rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white px-3.5 py-2 text-sm text-[var(--color-text-dark,#0F172A)] placeholder:text-[var(--color-text-muted,#94A3B8)] focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 transition-colors"
+            className="flex h-10 w-full rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white px-3.5 py-2 text-sm text-[var(--color-text-dark,#0F172A)] shadow-[var(--shadow-soft-sm)] placeholder:text-[var(--color-text-muted,#94A3B8)] focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:shadow-[var(--shadow-focus-ring)] transition-all duration-150"
           />
         </div>
 
@@ -73,14 +73,14 @@ export function TenantLoginForm({ action, initialEmail = "" }: Props) {
             autoComplete="current-password"
             required
             placeholder="••••••••"
-            className="flex h-10 w-full rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white px-3.5 py-2 text-sm text-[var(--color-text-dark,#0F172A)] placeholder:text-[var(--color-text-muted,#94A3B8)] focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]/20 transition-colors"
+            className="flex h-10 w-full rounded-lg border border-[var(--color-border,#E2E8F0)] bg-white px-3.5 py-2 text-sm text-[var(--color-text-dark,#0F172A)] shadow-[var(--shadow-soft-sm)] placeholder:text-[var(--color-text-muted,#94A3B8)] focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:shadow-[var(--shadow-focus-ring)] transition-all duration-150"
           />
         </div>
 
         <button
           type="submit"
           disabled={pending}
-          className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] active:bg-[var(--primary-dark)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30 focus-visible:ring-offset-1 disabled:opacity-60"
+          className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-[var(--primary-lighter)] via-[var(--primary)] to-[var(--primary-dark)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-primary-glow)] transition-all duration-150 ease-out hover:-translate-y-[1px] active:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30 focus-visible:ring-offset-1 disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {pending ? (
             <Loader2 className="h-4 w-4 animate-spin" />

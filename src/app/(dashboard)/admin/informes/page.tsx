@@ -334,7 +334,7 @@ export default function AdminInformesPage() {
                     <XAxis dataKey="nombre" tick={{ fontSize: 12, fill: "#475569" }} />
                     <YAxis tick={{ fontSize: 12, fill: "#475569" }} />
                     <Tooltip formatter={v => [`${v}h`]} />
-                    <Bar dataKey="horas" name="Horas" fill="#5B5FE9" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="horas" name="Horas" fill="#2563EB" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="extra" name="Extra" fill="#F59E0B" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
