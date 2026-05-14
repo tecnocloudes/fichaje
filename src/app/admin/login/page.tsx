@@ -59,7 +59,7 @@ export default function AdminLoginPage() {
       <div className="relative w-full max-w-md animate-fade-in">
         {/* Logo + badge super-admin arriba */}
         <div className="flex flex-col items-center mb-8">
-          <EmpleaIALogo appNombre="empleaIA" symbolSize={40} className="mb-4" />
+          <EmpleaIALogo appNombre="empleaIA" symbolSize={80} className="mb-4" />
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--primary)]/10 px-3 py-1 text-xs font-semibold text-[var(--primary)]">
             <ShieldCheck className="h-3.5 w-3.5" />
             Super-admin · Panel interno

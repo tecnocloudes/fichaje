@@ -6,7 +6,7 @@ export default function Page() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
       <main className="text-center max-w-md w-full">
         <div className="flex justify-center mb-6">
-          <EmpleaIALogo symbolSize={40} />
+          <EmpleaIALogo symbolSize={80} />
         </div>
         <div className="bg-white border border-slate-200 rounded-lg shadow-sm px-8 py-10">
           <h1 className="text-2xl font-bold text-slate-900">Has cancelado el pago</h1>

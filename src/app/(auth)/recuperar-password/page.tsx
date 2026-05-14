@@ -155,7 +155,7 @@ export default function RecuperarPasswordPage() {
               className="h-12 max-w-[200px] object-contain mb-4"
             />
           ) : (
-            <EmpleaIALogo appNombre={branding.appNombre} symbolSize={40} className="mb-4" />
+            <EmpleaIALogo appNombre={branding.appNombre} symbolSize={80} className="mb-4" />
           )}
           <p className="text-sm text-slate-500">Recuperación de contraseña</p>
         </div>

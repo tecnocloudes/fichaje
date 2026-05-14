@@ -24,7 +24,7 @@ export default async function Page() {
 
       <main className="relative max-w-xl mx-auto px-4 py-12">
         <div className="flex flex-col items-center mb-8">
-          <EmpleaIALogo symbolSize={40} className="mb-4" />
+          <EmpleaIALogo symbolSize={80} className="mb-4" />
           <p className="text-sm text-slate-500">Gestión inteligente de personal</p>
         </div>
 

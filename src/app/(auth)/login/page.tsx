@@ -128,7 +128,7 @@ async function LoginPage({ searchParams }: LoginPageProps) {
               className="h-12 max-w-[200px] object-contain mb-4"
             />
           ) : (
-            <EmpleaIALogo appNombre={appNombre} symbolSize={40} className="mb-4" />
+            <EmpleaIALogo appNombre={appNombre} symbolSize={80} className="mb-4" />
           )}
           <p className="text-sm text-slate-500">
             {empresa !== appNombre ? empresa : "Gestión inteligente de personal"}
@@ -189,7 +189,7 @@ export default async function LoginRoute(props: { searchParams: Promise<{ error?
         </div>
         <div className="relative w-full max-w-md animate-fade-in">
           <div className="flex flex-col items-center mb-8">
-            <EmpleaIALogo appNombre="empleaIA" symbolSize={40} className="mb-4" />
+            <EmpleaIALogo appNombre="empleaIA" symbolSize={80} className="mb-4" />
             <p className="text-sm text-slate-500">Acceso a tu empresa</p>
           </div>
           <div className="bg-white border border-slate-200 rounded-lg shadow-sm">
